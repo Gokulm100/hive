@@ -843,11 +843,15 @@ export function useOrchestration() {
   );
 
   const addAgent = useCallback(
-    (name: string, role: string) => {
+    (name: string, skills: string) => {
       const trimmed = name.trim();
       if (!trimmed) return null;
       const ids = new Set(castRef.current.map((a) => a.id));
-      const agent = makeCustomAgent(trimmed, role, ids);
+      const agent = makeCustomAgent(
+        trimmed,
+        skills.trim() || "Custom agent",
+        ids
+      );
       setTeamAgents((list) => {
         const next = [...list, agent];
         redistributeAngles(next);
@@ -862,7 +866,13 @@ export function useOrchestration() {
         },
       }));
       setChats((c) => ({ ...c, [agent.id]: [] }));
-      logActivity(agent.id, "system", `Joined the team as ${agent.role}.`);
+      logActivity(
+        agent.id,
+        "system",
+        skills.trim()
+          ? `Joined with custom skills (${skills.trim().slice(0, 80)}${skills.trim().length > 80 ? "…" : ""}).`
+          : `Joined the team as ${agent.role}.`
+      );
       play("add");
       if (viewRef.current === "bubbles") setSelected(agent.id);
       bumpMap();

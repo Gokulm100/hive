@@ -11,6 +11,8 @@ type Props = {
   customUrl: string;
   onCustomUrl: (url: string) => void;
   disabled?: boolean;
+  /** Horizontal bar layout (map / reports toolbar) */
+  compact?: boolean;
 };
 
 export function RepoPicker({
@@ -23,9 +25,13 @@ export function RepoPicker({
   customUrl,
   onCustomUrl,
   disabled,
+  compact,
 }: Props) {
   return (
-    <div className="repo-picker" aria-label="Git repository for this task">
+    <div
+      className={`repo-picker${compact ? " compact" : ""}`}
+      aria-label="Git repository for this task"
+    >
       <label className="repo-field">
         <span>Repo to work on</span>
         <select
@@ -66,11 +72,13 @@ export function RepoPicker({
           autoComplete="off"
         />
       </label>
-      {loading ? <p className="repo-hint">Loading connected repos…</p> : null}
-      {!loading && value && value !== "__custom__" ? (
+      {!compact && loading ? (
+        <p className="repo-hint">Loading connected repos…</p>
+      ) : null}
+      {!compact && !loading && value && value !== "__custom__" ? (
         <p className="repo-hint">Agents will commit / open a PR on this repo.</p>
       ) : null}
-      {!loading && !value ? (
+      {!compact && !loading && !value ? (
         <p className="repo-hint">
           Pick a GitHub repo for cloud coding, or leave local for the API disk.
         </p>

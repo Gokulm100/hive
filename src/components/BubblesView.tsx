@@ -4,7 +4,6 @@ import { ArtifactsPanel } from "./ArtifactsPanel";
 import { BubbleMap } from "./BubbleMap";
 import { DetailLog } from "./DetailLog";
 import { JobsList } from "./JobsList";
-import { RepoPicker } from "./RepoPicker";
 import type { OrchestrationApi } from "../hooks/useOrchestration";
 
 type Props = {
@@ -58,21 +57,18 @@ export function BubblesView({ api }: Props) {
           }}
           onPersistPos={api.persistBubblePos}
           onAddAgent={api.addAgent}
+          showRepoPicker={api.engine === "live"}
+          repos={api.repos}
+          reposLoading={api.reposLoading}
+          workspaceUrl={api.workspaceUrl}
+          workspaceBranch={api.workspaceBranch}
+          workspaceCustomUrl={api.workspaceCustomUrl}
+          onWorkspaceUrl={api.setWorkspaceUrl}
+          onWorkspaceBranch={api.setWorkspaceBranch}
+          onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
+          repoDisabled={api.running}
         />
         <div className="agent-chat-column">
-          {api.engine === "live" ? (
-            <RepoPicker
-              repos={api.repos}
-              loading={api.reposLoading}
-              value={api.workspaceUrl}
-              branch={api.workspaceBranch}
-              customUrl={api.workspaceCustomUrl}
-              onRepo={api.setWorkspaceUrl}
-              onBranch={api.setWorkspaceBranch}
-              onCustomUrl={api.setWorkspaceCustomUrl}
-              disabled={api.running}
-            />
-          ) : null}
           <AgentChat
             selected={api.selected}
             agent={agent}

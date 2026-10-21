@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ListedRepo } from "../api/client";
 import { charHtml } from "../data/chars";
 import { ORCHESTRATOR } from "../data/cast";
 import { polarToXY } from "../lib/utils";
 import type { AgentDef, AgentRuntime } from "../types";
+import { AddAgentModal } from "./AddAgentModal";
+import { RepoPicker } from "./RepoPicker";
 
 function connectorClass(status: string, ephemeral = false) {
   const parts = ["connector"];
@@ -22,7 +25,17 @@ type Props = {
   celebrateOrch: boolean;
   onSelect: (id: string) => void;
   onPersistPos: (id: string, x: number, y: number, w: number, h: number) => void;
-  onAddAgent: (name: string, role: string) => void;
+  onAddAgent: (name: string, skills: string) => void;
+  showRepoPicker?: boolean;
+  repos?: ListedRepo[];
+  reposLoading?: boolean;
+  workspaceUrl?: string;
+  workspaceBranch?: string;
+  workspaceCustomUrl?: string;
+  onWorkspaceUrl?: (v: string) => void;
+  onWorkspaceBranch?: (v: string) => void;
+  onWorkspaceCustomUrl?: (v: string) => void;
+  repoDisabled?: boolean;
 };
 
 const STRESS_FX = `<span class="stress-fx" aria-hidden="true">
@@ -62,6 +75,16 @@ export function BubbleMap({
   onSelect,
   onPersistPos,
   onAddAgent,
+  showRepoPicker,
+  repos = [],
+  reposLoading,
+  workspaceUrl = "",
+  workspaceBranch = "",
+  workspaceCustomUrl = "",
+  onWorkspaceUrl,
+  onWorkspaceBranch,
+  onWorkspaceCustomUrl,
+  repoDisabled,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -83,8 +106,7 @@ export function BubbleMap({
   onSelectRef.current = onSelect;
   onPersistRef.current = onPersistPos;
 
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const [, setHeatTick] = useState(0);
   const layoutKeyRef = useRef("");
 
@@ -128,14 +150,6 @@ export function BubbleMap({
     return () => clearInterval(tick);
   }, [agentState]);
 
-  function add(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    onAddAgent(name, role);
-    setName("");
-    setRole("");
-  }
-
   useEffect(() => {
     const canvas = canvasRef.current;
     const wrap = wrapRef.current;
@@ -169,9 +183,13 @@ export function BubbleMap({
           chip.textContent =
             isHub && celebrateRef.current
               ? "success"
-              : heatRef.current.has(id) && status === "working"
-                ? "slow…"
-                : status;
+              : ephemeral
+                ? status === "done"
+                  ? "done"
+                  : "helper"
+                : heatRef.current.has(id) && status === "working"
+                  ? "slow…"
+                  : status;
         }
         if (svg) {
           const line = svg.querySelector(`line.connector[data-to="${id}"]`);
@@ -187,7 +205,7 @@ export function BubbleMap({
     }
 
     function anchorFor(agent: AgentDef, hubX: number, hubY: number) {
-      if (agent.parentId) {
+      if (agent.ephemeral && agent.parentId) {
         const parentBtn = canvas!.querySelector<HTMLElement>(
           `.agent-bubble[data-id="${agent.parentId}"]`
         );
@@ -273,15 +291,32 @@ export function BubbleMap({
         };
       });
 
-      const helperNodes = helpers.map((a, i) => {
+      const helperNodes = helpers.map((a) => {
         const parentPos =
-          (a.parentId && placed.get(a.parentId)) ||
-          polarToXY(cx, cy, radius, a.angle ?? 0);
-        const ring = Math.min(w, h) * 0.12;
-        const ang = ((a.angle ?? 0) + i * 40) * (Math.PI / 180);
+          (a.parentId && placed.get(a.parentId)) || hub;
+        // Orbit just outside the parent bubble so the connector is visible
+        const ring = Math.max(72, Math.min(w, h) * 0.14);
+        const siblingCount = Math.max(
+          1,
+          helpers.filter((h) => h.parentId === a.parentId).length
+        );
+        const siblingIndex = helpers
+          .filter((h) => h.parentId === a.parentId)
+          .findIndex((h) => h.id === a.id);
+        const spread =
+          siblingCount === 1
+            ? (a.angle ?? -40) * (Math.PI / 180)
+            : ((siblingIndex - (siblingCount - 1) / 2) * 48 +
+                (a.angle ?? 0) * 0.15) *
+              (Math.PI / 180);
+        const raw = {
+          x: parentPos.x + Math.cos(spread) * ring,
+          y: parentPos.y + Math.sin(spread) * ring,
+        };
+        const pad = 52;
         const p = {
-          x: parentPos.x + Math.cos(ang) * ring,
-          y: parentPos.y + Math.sin(ang) * ring,
+          x: Math.min(w - pad, Math.max(pad, raw.x)),
+          y: Math.min(h - pad, Math.max(pad, raw.y)),
         };
         placed.set(a.id, p);
         return {
@@ -293,11 +328,12 @@ export function BubbleMap({
 
       const nodes = [...permanentNodes, ...helperNodes];
 
+      // Permanent agents → hub; guests → their parent bubble center
       const lines = nodes
         .map((n) => {
           const cls = connectorClass(n.status, !!n.ephemeral);
           const anchor =
-            n.parentId && placed.get(n.parentId)
+            n.ephemeral && n.parentId && placed.get(n.parentId)
               ? placed.get(n.parentId)!
               : hub;
           return `<line data-to="${n.id}" class="${cls}" x1="${anchor.x}" y1="${anchor.y}" x2="${n.x}" y2="${n.y}" />`;
@@ -565,33 +601,79 @@ export function BubbleMap({
         line.setAttribute("class", connectorClass(status, ephemeral));
       }
     });
+    // Keep line endpoints glued to bubble centers after spawn / state ticks
+    const hubBtn = canvas.querySelector<HTMLElement>(
+      '.agent-bubble[data-id="orchestrator"]'
+    );
+    if (hubBtn && svg) {
+      const hx = parseFloat(hubBtn.style.left) || 0;
+      const hy = parseFloat(hubBtn.style.top) || 0;
+      teamAgents.forEach((a) => {
+        if (a.hub) return;
+        const btn = canvas.querySelector<HTMLElement>(
+          `.agent-bubble[data-id="${a.id}"]`
+        );
+        const line = svg.querySelector(`line.connector[data-to="${a.id}"]`);
+        if (!btn || !line) return;
+        const x2 = parseFloat(btn.style.left) || 0;
+        const y2 = parseFloat(btn.style.top) || 0;
+        let x1 = hx;
+        let y1 = hy;
+        if (a.ephemeral && a.parentId) {
+          const parent = canvas.querySelector<HTMLElement>(
+            `.agent-bubble[data-id="${a.parentId}"]`
+          );
+          if (parent) {
+            x1 = parseFloat(parent.style.left) || hx;
+            y1 = parseFloat(parent.style.top) || hy;
+          }
+        }
+        line.setAttribute("x1", String(x1));
+        line.setAttribute("y1", String(y1));
+        line.setAttribute("x2", String(x2));
+        line.setAttribute("y2", String(y2));
+      });
+    }
   }, [agentState, selected, flashIds, mapTick, celebrateOrch, teamAgents]);
 
   return (
     <div className="map-shell" id="mapShell">
-      <form className="add-agent-bar" onSubmit={add}>
-        <input
-          type="text"
-          placeholder="New agent name"
-          maxLength={24}
-          required
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <input
-          type="text"
-          placeholder="Role (optional)"
-          maxLength={40}
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-        />
-        <button type="submit" className="btn-primary">
+      <div className="add-agent-bar">
+        {showRepoPicker &&
+        onWorkspaceUrl &&
+        onWorkspaceBranch &&
+        onWorkspaceCustomUrl ? (
+          <RepoPicker
+            compact
+            repos={repos}
+            loading={reposLoading}
+            value={workspaceUrl}
+            branch={workspaceBranch}
+            customUrl={workspaceCustomUrl}
+            onRepo={onWorkspaceUrl}
+            onBranch={onWorkspaceBranch}
+            onCustomUrl={onWorkspaceCustomUrl}
+            disabled={repoDisabled}
+          />
+        ) : (
+          <span className="add-agent-bar-spacer" />
+        )}
+        <button
+          type="button"
+          className="btn-primary add-agent-trigger"
+          onClick={() => setAddOpen(true)}
+        >
           Add agent
         </button>
-      </form>
+      </div>
       <div className="map-canvas-wrap" ref={wrapRef}>
         <div className="map-canvas" id="mapCanvas" ref={canvasRef} />
       </div>
+      <AddAgentModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdd={onAddAgent}
+      />
     </div>
   );
 }

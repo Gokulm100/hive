@@ -130,8 +130,9 @@ export function makeEphemeralAgent(
   parentId: string,
   parent?: AgentDef
 ): AgentDef {
-  const parentAngle = parent?.angle ?? 0;
-  const offset = ((hashStr(id) % 5) - 2) * 18;
+  const parentAngle = parent?.angle ?? -90;
+  // Fan guests around the parent; do NOT copy parent nx/ny (that pinned them on top)
+  const offset = ((hashStr(id) % 7) - 3) * 28;
   return {
     id,
     name: name.trim() || "Helper",
@@ -143,7 +144,5 @@ export function makeEphemeralAgent(
     shape: hashStr(id) % 5,
     anim: ANIMS[hashStr(id + "e") % ANIMS.length],
     angle: parentAngle + offset,
-    nx: parent?.nx,
-    ny: parent?.ny,
   };
 }

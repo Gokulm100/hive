@@ -3,6 +3,7 @@ import type { ListedRepo } from "../api/client";
 import { CharAvatar } from "./CharAvatar";
 import { ORCHESTRATOR } from "../data/cast";
 import type { AgentDef, AgentRuntime, OrchMessage } from "../types";
+import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
 
 type Props = {
@@ -15,7 +16,7 @@ type Props = {
   onReplay: () => void;
   onStop: () => void;
   onToggleCard: (id: string) => void;
-  onAddAgent: (name: string, role: string) => void;
+  onAddAgent: (name: string, skills: string) => void;
   successSummary?: string | null;
   showRepoPicker?: boolean;
   repos?: ListedRepo[];
@@ -51,8 +52,7 @@ export function ReportsView({
   onWorkspaceCustomUrl,
 }: Props) {
   const [input, setInput] = useState("");
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const messagesRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,14 +65,6 @@ export function ReportsView({
     if (!input.trim()) return;
     onSubmit(input.trim());
     setInput("");
-  }
-
-  function add(e: FormEvent) {
-    e.preventDefault();
-    if (!name.trim()) return;
-    onAddAgent(name, role);
-    setName("");
-    setRole("");
   }
 
   return (
@@ -119,22 +111,6 @@ export function ReportsView({
             ))
           )}
         </div>
-        {showRepoPicker &&
-        onWorkspaceUrl &&
-        onWorkspaceBranch &&
-        onWorkspaceCustomUrl ? (
-          <RepoPicker
-            repos={repos}
-            loading={reposLoading}
-            value={workspaceUrl}
-            branch={workspaceBranch}
-            customUrl={workspaceCustomUrl}
-            onRepo={onWorkspaceUrl}
-            onBranch={onWorkspaceBranch}
-            onCustomUrl={onWorkspaceCustomUrl}
-            disabled={running}
-          />
-        ) : null}
         <form className="composer" onSubmit={submit}>
           <button
             type="button"
@@ -175,25 +151,34 @@ export function ReportsView({
         <div className="rail-head">
           <h3>Team reports</h3>
         </div>
-        <form className="add-agent-bar-reports" onSubmit={add}>
-          <input
-            type="text"
-            placeholder="New agent name"
-            maxLength={24}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <input
-            type="text"
-            placeholder="Role"
-            maxLength={40}
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          />
-          <button type="submit" className="btn-primary">
-            Add
+        <div className="add-agent-bar-reports">
+          {showRepoPicker &&
+          onWorkspaceUrl &&
+          onWorkspaceBranch &&
+          onWorkspaceCustomUrl ? (
+            <RepoPicker
+              compact
+              repos={repos}
+              loading={reposLoading}
+              value={workspaceUrl}
+              branch={workspaceBranch}
+              customUrl={workspaceCustomUrl}
+              onRepo={onWorkspaceUrl}
+              onBranch={onWorkspaceBranch}
+              onCustomUrl={onWorkspaceCustomUrl}
+              disabled={running}
+            />
+          ) : (
+            <span className="add-agent-bar-spacer" />
+          )}
+          <button
+            type="button"
+            className="btn-primary add-agent-trigger"
+            onClick={() => setAddOpen(true)}
+          >
+            Add agent
           </button>
-        </form>
+        </div>
         <div className="cards">
           {teamAgents.map((a) => {
             const s = agentState[a.id];
@@ -213,7 +198,9 @@ export function ReportsView({
                       {a.name}
                       {a.custom ? " · custom" : ""}
                     </p>
-                    <p className="role">{a.role}</p>
+                    <p className="role" title={a.role}>
+                      {a.role}
+                    </p>
                   </div>
                   <span className={`chip ${s.status}`}>{s.status}</span>
                 </div>
@@ -230,6 +217,12 @@ export function ReportsView({
           })}
         </div>
       </aside>
+
+      <AddAgentModal
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        onAdd={onAddAgent}
+      />
     </div>
   );
 }

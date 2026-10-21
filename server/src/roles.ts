@@ -53,5 +53,13 @@ export const BUILTIN_ROLES: RoleDef[] = [
 export function roleBrief(id: string, name: string, role: string): string {
   const known = BUILTIN_ROLES.find((r) => r.id === id);
   if (known) return known.brief;
-  return `You are ${name} (${role}). ${ASK_FIRST} Complete the assigned task thoroughly but in plain language.`;
+  const skills = role.trim();
+  if (skills.length > 80 || skills.includes("\n")) {
+    return `You are ${name}.
+Your instructions / skills:
+${skills}
+
+${ASK_FIRST} Complete the assigned task thoroughly but in plain language.`;
+  }
+  return `You are ${name} (${skills || "Custom agent"}). ${ASK_FIRST} Complete the assigned task thoroughly but in plain language.`;
 }

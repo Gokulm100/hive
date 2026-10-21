@@ -556,6 +556,11 @@
       margin: 1px 0 0;
       font-size: 0.75rem;
       color: var(--ink-soft);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      white-space: normal;
     }
 
     .chip {
@@ -700,10 +705,12 @@
     }
 
     .agent-bubble.ephemeral {
-      transform: scale(0.82);
+      /* Keep translate(-50%, -50%) so left/top stay the bubble center (connectors) */
+      transform: translate(-50%, -50%) scale(0.82);
       opacity: 0.95;
       animation: subPopIn 0.42s cubic-bezier(0.22, 1.2, 0.36, 1) both;
       filter: none;
+      z-index: 4;
     }
     .agent-bubble.ephemeral .droplet {
       box-shadow: 0 0 0 2px rgba(255, 200, 120, 0.35);
@@ -720,40 +727,42 @@
     @keyframes subPopIn {
       from {
         opacity: 0;
-        transform: scale(0.35);
+        transform: translate(-50%, -50%) scale(0.35);
         filter: blur(0);
       }
       to {
         opacity: 0.95;
-        transform: scale(0.82);
+        transform: translate(-50%, -50%) scale(0.82);
         filter: blur(0);
       }
     }
     @keyframes smokeVanish {
       0% {
         opacity: 0.95;
-        transform: scale(0.82) translateY(0);
+        transform: translate(-50%, -50%) scale(0.82);
         filter: blur(0);
       }
       35% {
         opacity: 0.55;
-        transform: scale(0.9) translateY(-10px);
+        transform: translate(-50%, calc(-50% - 10px)) scale(0.9);
         filter: blur(1.5px);
       }
       70% {
         opacity: 0.2;
-        transform: scale(1.05) translateY(-28px);
+        transform: translate(-50%, calc(-50% - 28px)) scale(1.05);
         filter: blur(6px);
       }
       100% {
         opacity: 0;
-        transform: scale(1.2) translateY(-48px);
+        transform: translate(-50%, calc(-50% - 48px)) scale(1.2);
         filter: blur(14px);
       }
     }
     .map-canvas svg .connector.ephemeral:not(.active) {
-      opacity: 0.7;
-      stroke: #8a7a58;
+      opacity: 0.85;
+      stroke: #c9a05a;
+      stroke-width: 2;
+      stroke-dasharray: 4 6;
     }
 
     .agent-bubble {
@@ -815,12 +824,24 @@
     .agent-bubble.selected:not(.zoom-play) {
       transform: translate(-50%, -50%) scale(1.12);
     }
+    .agent-bubble.ephemeral.selected:not(.zoom-play) {
+      transform: translate(-50%, -50%) scale(0.95);
+    }
+    .agent-bubble.ephemeral.selected.zoom-play {
+      animation: bubblePopOutEphemeral 0.5s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+    }
 
     @keyframes bubblePopOut {
       0% { transform: translate(-50%, -50%) scale(0.85); }
       55% { transform: translate(-50%, -50%) scale(1.22); }
       75% { transform: translate(-50%, -50%) scale(1.06); }
       100% { transform: translate(-50%, -50%) scale(1.12); }
+    }
+    @keyframes bubblePopOutEphemeral {
+      0% { transform: translate(-50%, -50%) scale(0.7); }
+      55% { transform: translate(-50%, -50%) scale(1.05); }
+      75% { transform: translate(-50%, -50%) scale(0.9); }
+      100% { transform: translate(-50%, -50%) scale(0.95); }
     }
 
     .agent-bubble .droplet {
@@ -1573,7 +1594,7 @@
       display: none;
       flex-wrap: wrap;
       gap: 8px;
-      align-items: center;
+      align-items: flex-end;
       padding: 10px 12px;
       border-bottom: 1px solid var(--stroke);
       background: rgba(21, 25, 29, 0.92);
@@ -1587,32 +1608,121 @@
       display: none;
       flex-wrap: wrap;
       gap: 8px;
-      align-items: center;
+      align-items: flex-end;
       margin-bottom: 8px;
     }
 
-    .add-agent-bar input,
-    .add-agent-bar-reports input {
+    .add-agent-bar-spacer {
       flex: 1;
-      min-width: 90px;
-      border: 1px solid var(--stroke);
-      border-radius: 10px;
-      padding: 8px 10px;
-      font: inherit;
-      font-size: 0.82rem;
-      background: var(--bg-deep);
-      color: var(--ink);
-      outline: none;
+      min-width: 0;
     }
-    .add-agent-bar input:focus,
-    .add-agent-bar-reports input:focus {
-      border-color: var(--accent);
-    }
-    .add-agent-bar .btn-primary,
-    .add-agent-bar-reports .btn-primary {
-      padding: 8px 12px;
+    .add-agent-trigger {
+      flex-shrink: 0;
+      padding: 8px 14px;
       font-size: 0.8rem;
       white-space: nowrap;
+      align-self: flex-end;
+    }
+
+    .repo-picker.compact {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-end;
+      padding: 0;
+      border: none;
+      background: transparent;
+    }
+    .repo-picker.compact .repo-field {
+      flex: 1;
+      min-width: 140px;
+    }
+    .repo-picker.compact .repo-branch {
+      flex: 0 1 120px;
+      min-width: 100px;
+    }
+    .repo-picker.compact .repo-field span {
+      font-size: 0.65rem;
+    }
+    .repo-picker.compact .repo-field select,
+    .repo-picker.compact .repo-field input {
+      padding: 7px 9px;
+      font-size: 0.8rem;
+    }
+
+    .agent-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(8, 10, 12, 0.72);
+      backdrop-filter: blur(4px);
+    }
+    .agent-modal {
+      width: min(420px, 100%);
+      border-radius: 16px;
+      border: 1px solid var(--stroke);
+      background: var(--surface);
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+      overflow: hidden;
+    }
+    .agent-modal-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--stroke);
+    }
+    .agent-modal-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 650;
+    }
+    .agent-modal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+    }
+    .agent-modal-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .agent-modal-field input,
+    .agent-modal-field textarea {
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--ink);
+      background: var(--input);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      padding: 10px 12px;
+      outline: none;
+      resize: vertical;
+    }
+    .agent-modal-field input:focus,
+    .agent-modal-field textarea:focus {
+      border-color: var(--accent);
+    }
+    .agent-modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 4px;
     }
 
     .agent-chat-actions {
@@ -2103,9 +2213,11 @@
       margin: 2px 0 0;
       font-size: 0.72rem;
       color: var(--ink-soft);
-      white-space: nowrap;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
       overflow: hidden;
-      text-overflow: ellipsis;
+      white-space: normal;
     }
     .active-task-detail {
       margin: 0;
