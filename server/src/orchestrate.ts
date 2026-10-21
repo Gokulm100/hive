@@ -13,12 +13,20 @@ import {
   throwIfCancelled,
 } from "./pool";
 import { parseSubagentRequest } from "./subagents";
+import {
+  getActiveWorkspace,
+  setActiveWorkspace,
+  workspaceHint,
+  type WorkspaceTarget,
+} from "./workspace";
 
 export type TeamMember = {
   id: string;
   name: string;
   role: string;
 };
+
+export type { WorkspaceTarget };
 
 type Assignment = { id: string; task: string };
 
@@ -106,7 +114,11 @@ async function askThenImplement(
     text: `${member.name} will ask any clarifying questions before doing the work.`,
   });
 
+  const wsNote = workspaceHint(getActiveWorkspace());
+
   const askPrompt = `${roleBrief(member.id, member.name, member.role)}
+
+${wsNote}
 
 Overall goal: ${goal}
 
@@ -212,6 +224,8 @@ Rules for questions:
 
   const helperAsk = `${roleBrief(member.id, member.name, member.role)}
 
+${wsNote}
+
 Overall goal: ${goal}
 
 Your assignment:
@@ -260,6 +274,8 @@ Rules:
 
   const implementPrompt = `${roleBrief(member.id, member.name, member.role)}
 
+${wsNote}
+
 Overall goal: ${goal}
 
 Your assignment:
@@ -271,7 +287,7 @@ ${answers}
 Notes from temporary helpers (if any):
 ${helperDigest}
 
-Now implement / complete the assignment yourself. Use helper notes where useful. Explain what you're doing in plain language as you go. End with a short summary of what you decided or delivered.`;
+Now implement / complete the assignment yourself in the workspace above. Use helper notes where useful. Explain what you're doing in plain language as you go. End with a short summary of what you decided or delivered (include PR/commit links if you created them).`;
 
   return runAgentPrompt(member, implementPrompt, {
     asMain: true,
@@ -355,12 +371,29 @@ Rules:
 
 export async function runOrchestration(
   goal: string,
-  team: TeamMember[]
+  team: TeamMember[],
+  workspace: WorkspaceTarget | null = null
 ): Promise<void> {
   clearCancelFlag();
   const trimmedGoal = goal.trim();
+  setActiveWorkspace(workspace);
   bus.emitEvent({ type: "run", running: true });
-  bus.emitEvent({ type: "goal", goal: trimmedGoal });
+  bus.emitEvent({
+    type: "goal",
+    goal: trimmedGoal,
+    workspace: workspace
+      ? { url: workspace.url, startingRef: workspace.startingRef }
+      : null,
+  });
+  if (workspace?.url) {
+    bus.emitEvent({
+      type: "orch",
+      text: `Working in repo: ${workspace.url}${
+        workspace.startingRef ? ` @ ${workspace.startingRef}` : ""
+      }`,
+      kind: "normal",
+    });
+  }
   const reports: { id: string; name: string; report: string }[] = [];
 
   try {
@@ -503,13 +536,15 @@ Reply with a VERY brief final summary for the user:
     emitStatus("orchestrator", "blocked", msg);
   } finally {
     bus.emitEvent({ type: "run", running: false });
+    setActiveWorkspace(null);
   }
 }
 
 export async function instructOne(
   member: TeamMember,
   instruction: string,
-  team: TeamMember[] = []
+  team: TeamMember[] = [],
+  workspace: WorkspaceTarget | null = null
 ): Promise<void> {
   if (member.id === "orchestrator") {
     const roster =
@@ -520,13 +555,20 @@ export async function instructOne(
             name: r.name,
             role: r.role,
           }));
-    await runOrchestration(instruction, roster);
+    await runOrchestration(instruction, roster, workspace);
     return;
   }
 
   clearCancelFlag();
+  setActiveWorkspace(workspace);
   bus.emitEvent({ type: "run", running: true });
-  bus.emitEvent({ type: "goal", goal: instruction });
+  bus.emitEvent({
+    type: "goal",
+    goal: instruction,
+    workspace: workspace
+      ? { url: workspace.url, startingRef: workspace.startingRef }
+      : null,
+  });
   bus.emitEvent({
     type: "plan",
     goal: instruction,
@@ -580,6 +622,7 @@ export async function instructOne(
     emitStatus(member.id, "blocked", msg);
   } finally {
     bus.emitEvent({ type: "run", running: false });
+    setActiveWorkspace(null);
   }
 }
 

@@ -3,11 +3,13 @@ import { Agent, CursorAgentError, type Run } from "@cursor/sdk";
 import { bus } from "./bus";
 import { roleBrief } from "./roles";
 import { nextSubagentId, type SubagentSpec } from "./subagents";
+import { getActiveWorkspace } from "./workspace";
 
 type AgentHandle = {
   agent: Awaited<ReturnType<typeof Agent.create>>;
   meta: { id: string; name: string; role: string };
   primed: boolean;
+  workspaceKey: string;
 };
 
 const pool = new Map<string, AgentHandle>();
@@ -97,26 +99,69 @@ function emitProcess(agentId: string, text: string) {
   });
 }
 
-export async function getOrCreateAgent(meta: {
-  id: string;
-  name: string;
-  role: string;
-}): Promise<AgentHandle> {
-  const existing = pool.get(meta.id);
-  if (existing) return existing;
+function workspacePoolKey(agentId: string) {
+  const ws = getActiveWorkspace();
+  return ws?.url ? `${agentId}::${ws.url}` : `${agentId}::local`;
+}
 
-  const agent = await Agent.create({
+async function createCursorAgent(name: string) {
+  const ws = getActiveWorkspace();
+  if (ws?.url) {
+    return Agent.create({
+      apiKey: apiKey(),
+      name: `Hive · ${name}`,
+      model: modelId(),
+      cloud: {
+        repos: [
+          {
+            url: ws.url,
+            startingRef: ws.startingRef,
+          },
+        ],
+        autoCreatePR: ws.autoCreatePR !== false,
+      },
+    });
+  }
+  return Agent.create({
     apiKey: apiKey(),
-    name: `Hive · ${meta.name}`,
+    name: `Hive · ${name}`,
     model: modelId(),
     local: {
       cwd: workspaceCwd(),
       settingSources: [],
     },
   });
+}
 
-  const handle: AgentHandle = { agent, meta, primed: false };
-  pool.set(meta.id, handle);
+export async function getOrCreateAgent(meta: {
+  id: string;
+  name: string;
+  role: string;
+}): Promise<AgentHandle> {
+  const key = workspacePoolKey(meta.id);
+  const existing = pool.get(key);
+  if (existing) return existing;
+
+  // Drop stale handles for this agent id under a different workspace
+  for (const [k, h] of pool) {
+    if (h.meta.id === meta.id && k !== key) {
+      pool.delete(k);
+      try {
+        await h.agent[Symbol.asyncDispose]();
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  const agent = await createCursorAgent(meta.name);
+  const handle: AgentHandle = {
+    agent,
+    meta,
+    primed: false,
+    workspaceKey: key,
+  };
+  pool.set(key, handle);
   return handle;
 }
 
@@ -310,15 +355,7 @@ async function runEphemeralAgent(opts: {
     text: opts.task,
   });
 
-  const agent = await Agent.create({
-    apiKey: apiKey(),
-    name: `Hive · ${opts.name}`,
-    model: modelId(),
-    local: {
-      cwd: workspaceCwd(),
-      settingSources: [],
-    },
-  });
+  const agent = await createCursorAgent(opts.name);
 
   try {
     const run = await agent.send(opts.prompt);

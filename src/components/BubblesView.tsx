@@ -2,6 +2,7 @@ import { ActiveTasks } from "./ActiveTasks";
 import { AgentChat } from "./AgentChat";
 import { BubbleMap } from "./BubbleMap";
 import { DetailLog } from "./DetailLog";
+import { RepoPicker } from "./RepoPicker";
 import type { OrchestrationApi } from "../hooks/useOrchestration";
 
 type Props = {
@@ -56,35 +57,50 @@ export function BubblesView({ api }: Props) {
           onPersistPos={api.persistBubblePos}
           onAddAgent={api.addAgent}
         />
-        <AgentChat
-          selected={api.selected}
-          agent={agent}
-          messages={chatMsgs}
-          running={api.running}
-          agentStatus={
-            api.selected ? api.agentState[api.selected]?.status : undefined
-          }
-          progress={
-            api.selected ? api.workProgress[api.selected] ?? null : null
-          }
-          awaiting={
-            !!api.selected && api.awaitingIds.has(api.selected)
-          }
-          questions={
-            api.selected ? api.pendingQuestions[api.selected] ?? [] : []
-          }
-          onClose={() => api.selectAgent(null)}
-          onRemove={() => {
-            if (api.selected) api.removeAgent(api.selected);
-          }}
-          onSend={(text) => {
-            if (api.selected) api.instructAgent(api.selected, text);
-          }}
-          onAnswerQuestions={(answers, note) => {
-            if (api.selected) api.answerQuestions(api.selected, answers, note);
-          }}
-          onStop={api.stopRun}
-        />
+        <div className="agent-chat-column">
+          {api.engine === "live" ? (
+            <RepoPicker
+              repos={api.repos}
+              loading={api.reposLoading}
+              value={api.workspaceUrl}
+              branch={api.workspaceBranch}
+              customUrl={api.workspaceCustomUrl}
+              onRepo={api.setWorkspaceUrl}
+              onBranch={api.setWorkspaceBranch}
+              onCustomUrl={api.setWorkspaceCustomUrl}
+              disabled={api.running}
+            />
+          ) : null}
+          <AgentChat
+            selected={api.selected}
+            agent={agent}
+            messages={chatMsgs}
+            running={api.running}
+            agentStatus={
+              api.selected ? api.agentState[api.selected]?.status : undefined
+            }
+            progress={
+              api.selected ? api.workProgress[api.selected] ?? null : null
+            }
+            awaiting={
+              !!api.selected && api.awaitingIds.has(api.selected)
+            }
+            questions={
+              api.selected ? api.pendingQuestions[api.selected] ?? [] : []
+            }
+            onClose={() => api.selectAgent(null)}
+            onRemove={() => {
+              if (api.selected) api.removeAgent(api.selected);
+            }}
+            onSend={(text) => {
+              if (api.selected) api.instructAgent(api.selected, text);
+            }}
+            onAnswerQuestions={(answers, note) => {
+              if (api.selected) api.answerQuestions(api.selected, answers, note);
+            }}
+            onStop={api.stopRun}
+          />
+        </div>
       </div>
       <ActiveTasks
         agents={api.cast}
@@ -96,6 +112,7 @@ export function BubblesView({ api }: Props) {
         plannedTasks={api.plannedTasks}
         running={api.running}
         successSummary={api.successSummary}
+        activeWorkspace={api.activeWorkspace}
         onSelect={(id) => {
           api.selectAgent(id);
           api.ensureChatSeed(id);

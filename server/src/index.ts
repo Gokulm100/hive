@@ -17,6 +17,8 @@ import {
   tryProvideAnswers,
   type TeamMember,
 } from "./orchestrate";
+import { listConnectedRepos } from "./repos";
+import { parseWorkspaceBody } from "./workspace";
 
 const app = express();
 const PORT = Number(
@@ -36,6 +38,22 @@ app.get("/api/health", (_req, res) => {
     model: process.env.CURSOR_MODEL || "composer-2.5",
     cwd: process.env.HIVE_CWD || process.env.NEXUS_CWD || process.cwd(),
   });
+});
+
+app.get("/api/repos", async (_req, res) => {
+  if (!isCursorConfigured()) {
+    res.status(503).json({ error: "CURSOR_API_KEY missing", repos: [] });
+    return;
+  }
+  try {
+    const repos = await listConnectedRepos();
+    res.json({ repos });
+  } catch (err) {
+    res.status(500).json({
+      error: err instanceof Error ? err.message : String(err),
+      repos: [],
+    });
+  }
 });
 
 app.get("/api/events", (req, res) => {
@@ -78,6 +96,7 @@ app.post("/api/orchestrate", async (req, res) => {
 
   const goal = String(req.body?.goal ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
+  const workspace = parseWorkspaceBody(req.body?.workspace);
   if (!goal) {
     res.status(400).json({ error: "goal is required" });
     return;
@@ -99,7 +118,7 @@ app.post("/api/orchestrate", async (req, res) => {
 
   busy = true;
   res.json({ ok: true, started: true });
-  void runOrchestration(goal, team)
+  void runOrchestration(goal, team, workspace)
     .catch((err) => {
       bus.emitEvent({
         type: "error",
@@ -123,6 +142,7 @@ app.post("/api/instruct", async (req, res) => {
   const member = req.body?.member as TeamMember | undefined;
   const instruction = String(req.body?.instruction ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
+  const workspace = parseWorkspaceBody(req.body?.workspace);
 
   if (!member?.id || !instruction) {
     res.status(400).json({ error: "member and instruction are required" });
@@ -145,7 +165,7 @@ app.post("/api/instruct", async (req, res) => {
   // 3) Fresh main instruct / orchestrate
   busy = true;
   res.json({ ok: true, started: true });
-  void instructOne(member, instruction, team)
+  void instructOne(member, instruction, team, workspace)
     .catch((err) => {
       bus.emitEvent({
         type: "error",

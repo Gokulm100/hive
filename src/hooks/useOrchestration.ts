@@ -8,12 +8,15 @@ import {
 } from "react";
 import {
   fetchHealth,
+  fetchRepos,
   startInstruct,
   startOrchestration,
   stopRun as stopRunApi,
   subscribeEvents,
+  type ListedRepo,
   type LiveEvent,
   type TeamMemberPayload,
+  type WorkspacePayload,
 } from "../api/client";
 import { play } from "../lib/sounds";
 import {
@@ -97,6 +100,13 @@ export function useOrchestration() {
   const [celebrateOrch, setCelebrateOrch] = useState(false);
   const [currentGoal, setCurrentGoal] = useState<string | null>(null);
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
+  const [workspaceUrl, setWorkspaceUrl] = useState("");
+  const [workspaceBranch, setWorkspaceBranch] = useState("");
+  const [workspaceCustomUrl, setWorkspaceCustomUrl] = useState("");
+  const [repos, setRepos] = useState<ListedRepo[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+  const [activeWorkspace, setActiveWorkspace] =
+    useState<WorkspacePayload | null>(null);
 
   const timersRef = useRef<number[]>([]);
   const castRef = useRef(cast);
@@ -126,6 +136,19 @@ export function useOrchestration() {
         role: a.role,
       }));
   }, []);
+
+  const workspacePayload = useCallback((): WorkspacePayload | null => {
+    const raw =
+      workspaceUrl === "__custom__"
+        ? workspaceCustomUrl.trim()
+        : workspaceUrl.trim();
+    if (!raw) return null;
+    return {
+      url: raw,
+      startingRef: workspaceBranch.trim() || undefined,
+      autoCreatePR: true,
+    };
+  }, [workspaceUrl, workspaceCustomUrl, workspaceBranch]);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -437,10 +460,13 @@ export function useOrchestration() {
         else addMsg("user", `→ ${a.name}: ${task}`);
         if (!runningRef.current) setRunning(true);
         setApiError(null);
+        const ws = workspacePayload();
+        setActiveWorkspace(ws);
         void startInstruct(
           { id: a.id, name: a.name, role: a.role },
           task,
-          teamPayload()
+          teamPayload(),
+          ws
         ).catch((err: Error) => {
           setApiError(err.message);
           addMsg("orch", err.message);
@@ -505,6 +531,7 @@ export function useOrchestration() {
       setAgent,
       showTyping,
       teamPayload,
+      workspacePayload,
     ]
   );
 
@@ -663,7 +690,9 @@ export function useOrchestration() {
       if (engineRef.current === "live") {
         setRunning(true);
         setApiError(null);
-        void startOrchestration(DEFAULT_GOAL, teamPayload()).catch(
+        const ws = workspacePayload();
+        setActiveWorkspace(ws);
+        void startOrchestration(DEFAULT_GOAL, teamPayload(), ws).catch(
           (err: Error) => {
             setRunning(false);
             setApiError(err.message);
@@ -682,6 +711,7 @@ export function useOrchestration() {
     resetAll,
     runScript,
     teamPayload,
+    workspacePayload,
   ]);
 
   const submitGoal = useCallback(
@@ -697,7 +727,9 @@ export function useOrchestration() {
       if (engineRef.current === "live") {
         if (!runningRef.current) setRunning(true);
         setApiError(null);
-        void startOrchestration(t, teamPayload()).catch((err: Error) => {
+        const ws = workspacePayload();
+        setActiveWorkspace(ws);
+        void startOrchestration(t, teamPayload(), ws).catch((err: Error) => {
           setApiError(err.message);
           addMsg("orch", err.message);
           play("error");
@@ -707,7 +739,14 @@ export function useOrchestration() {
       if (runningRef.current) return;
       runScript(t);
     },
-    [addMsg, ensureChatSeed, pushAgentChat, runScript, teamPayload]
+    [
+      addMsg,
+      ensureChatSeed,
+      pushAgentChat,
+      runScript,
+      teamPayload,
+      workspacePayload,
+    ]
   );
 
   const toggleCard = useCallback((id: string) => {
@@ -764,6 +803,28 @@ export function useOrchestration() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (engine !== "live") {
+      setRepos([]);
+      return;
+    }
+    let cancelled = false;
+    setReposLoading(true);
+    fetchRepos()
+      .then((list) => {
+        if (!cancelled) setRepos(list);
+      })
+      .catch(() => {
+        if (!cancelled) setRepos([]);
+      })
+      .finally(() => {
+        if (!cancelled) setReposLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [engine]);
 
   useEffect(() => {
     if (engine !== "live") return;
@@ -1053,6 +1114,14 @@ export function useOrchestration() {
       if (e.type === "goal") {
         setCurrentGoal(e.goal);
         setSuccessSummary(null);
+        setActiveWorkspace(
+          e.workspace?.url
+            ? {
+                url: e.workspace.url,
+                startingRef: e.workspace.startingRef,
+              }
+            : null
+        );
         return;
       }
       if (e.type === "plan") {
@@ -1135,6 +1204,15 @@ export function useOrchestration() {
     workProgress,
     currentGoal,
     plannedTasks,
+    activeWorkspace,
+    workspaceUrl,
+    setWorkspaceUrl,
+    workspaceBranch,
+    setWorkspaceBranch,
+    workspaceCustomUrl,
+    setWorkspaceCustomUrl,
+    repos,
+    reposLoading,
     successSummary,
     celebrateOrch,
     DEFAULT_GOAL,

@@ -23,6 +23,10 @@ npm run dev
 - API (e.g. Render): start with `npx tsx server/src/index.ts`, set `CURSOR_API_KEY`
 - Frontend (e.g. Vercel): set `VITE_API_URL=https://hive-efc7.onrender.com` then redeploy
 
+### GitHub workspace (Live)
+
+Before assigning a goal, pick a **repo** in the picker (Cursor-connected repos, `HIVE_REPOS`, or paste a URL). Agents then run as **cloud** Cursor agents on that repo and can open a PR. Leave “Local server folder” to use the API machine’s disk instead.
+
 Toggle **Live / Demo** in the header. Live needs a valid key; Demo uses the old scripted run.
 
 ## How Live works

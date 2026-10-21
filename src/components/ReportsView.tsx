@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import type { ListedRepo } from "../api/client";
 import { CharAvatar } from "./CharAvatar";
 import { ORCHESTRATOR } from "../data/cast";
 import type { AgentDef, AgentRuntime, OrchMessage } from "../types";
+import { RepoPicker } from "./RepoPicker";
 
 type Props = {
   teamAgents: AgentDef[];
@@ -15,6 +17,15 @@ type Props = {
   onToggleCard: (id: string) => void;
   onAddAgent: (name: string, role: string) => void;
   successSummary?: string | null;
+  showRepoPicker?: boolean;
+  repos?: ListedRepo[];
+  reposLoading?: boolean;
+  workspaceUrl?: string;
+  workspaceBranch?: string;
+  workspaceCustomUrl?: string;
+  onWorkspaceUrl?: (v: string) => void;
+  onWorkspaceBranch?: (v: string) => void;
+  onWorkspaceCustomUrl?: (v: string) => void;
 };
 
 export function ReportsView({
@@ -29,6 +40,15 @@ export function ReportsView({
   onToggleCard,
   onAddAgent,
   successSummary,
+  showRepoPicker,
+  repos = [],
+  reposLoading,
+  workspaceUrl = "",
+  workspaceBranch = "",
+  workspaceCustomUrl = "",
+  onWorkspaceUrl,
+  onWorkspaceBranch,
+  onWorkspaceCustomUrl,
 }: Props) {
   const [input, setInput] = useState("");
   const [name, setName] = useState("");
@@ -89,6 +109,19 @@ export function ReportsView({
             ))
           )}
         </div>
+        {showRepoPicker && onWorkspaceUrl && onWorkspaceBranch && onWorkspaceCustomUrl ? (
+          <RepoPicker
+            repos={repos}
+            loading={reposLoading}
+            value={workspaceUrl}
+            branch={workspaceBranch}
+            customUrl={workspaceCustomUrl}
+            onRepo={onWorkspaceUrl}
+            onBranch={onWorkspaceBranch}
+            onCustomUrl={onWorkspaceCustomUrl}
+            disabled={running}
+          />
+        ) : null}
         <form className="composer" onSubmit={submit}>
           <button
             type="button"

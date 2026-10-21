@@ -244,15 +244,29 @@
       border-radius: var(--radius);
       overflow: hidden;
     }
-    body.view-bubbles .agent-chat {
+    body.view-bubbles .agent-chat-column {
       flex: 3 1 0;
       min-width: 260px;
       max-width: none;
       min-height: 0;
-      max-height: none;
-      height: auto;
+      display: flex;
+      flex-direction: column;
       border: 1px solid var(--stroke);
       border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+    }
+    body.view-bubbles .agent-chat-column .repo-picker {
+      border-bottom: 1px solid var(--stroke);
+    }
+    body.view-bubbles .agent-chat-column .agent-chat {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      max-height: none;
+      height: auto;
+      border: none;
+      border-radius: 0;
       background: var(--surface);
       overflow: hidden;
     }
@@ -1657,6 +1671,82 @@
       margin: 0;
       font-size: 0.72rem;
       color: var(--ink-soft);
+    }
+    .goal-repo {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--orch);
+    }
+    .goal-repo a {
+      color: inherit;
+      word-break: break-all;
+    }
+    .goal-repo.muted {
+      color: var(--ink-soft);
+    }
+
+    .repo-picker {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--stroke);
+      background: rgba(18, 22, 28, 0.92);
+      flex-shrink: 0;
+    }
+    .panel.chat .repo-picker {
+      border-bottom: 1px solid var(--stroke);
+      border-top: 1px solid var(--stroke);
+    }
+    .repo-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .repo-field select,
+    .repo-field input {
+      font: inherit;
+      font-size: 0.84rem;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: var(--ink);
+      background: var(--input);
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      padding: 8px 10px;
+      outline: none;
+    }
+    .repo-field select:focus,
+    .repo-field input:focus {
+      border-color: var(--accent);
+    }
+    .repo-hint {
+      margin: 0;
+      font-size: 0.72rem;
+      color: var(--ink-soft);
+      text-transform: none;
+      letter-spacing: 0;
+      font-weight: 400;
+    }
+    .agent-chat-column {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      flex: 3 1 0;
+    }
+    body.view-bubbles .agent-chat-column {
+      flex: 3 1 0;
+    }
+    body.view-bubbles .agent-chat-column .agent-chat {
+      flex: 1;
+      min-height: 0;
     }
     .task-section {
       display: flex;

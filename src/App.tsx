@@ -57,6 +57,7 @@ export default function App() {
                 plannedTasks={api.plannedTasks}
                 running={api.running}
                 successSummary={api.successSummary}
+                activeWorkspace={api.activeWorkspace}
                 onSelect={(id) => {
                   api.selectAgent(id);
                   api.ensureChatSeed(id);
@@ -75,6 +76,15 @@ export default function App() {
                 onToggleCard={api.toggleCard}
                 onAddAgent={api.addAgent}
                 successSummary={api.successSummary}
+                showRepoPicker={api.engine === "live"}
+                repos={api.repos}
+                reposLoading={api.reposLoading}
+                workspaceUrl={api.workspaceUrl}
+                workspaceBranch={api.workspaceBranch}
+                workspaceCustomUrl={api.workspaceCustomUrl}
+                onWorkspaceUrl={api.setWorkspaceUrl}
+                onWorkspaceBranch={api.setWorkspaceBranch}
+                onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
               />
             </div>
           </>

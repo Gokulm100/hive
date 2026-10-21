@@ -58,6 +58,7 @@ export type LiveEvent =
   | {
       type: "goal";
       goal: string;
+      workspace?: { url: string; startingRef?: string } | null;
     }
   | {
       type: "plan";
@@ -75,6 +76,17 @@ export type TeamMemberPayload = {
   id: string;
   name: string;
   role: string;
+};
+
+export type WorkspacePayload = {
+  url: string;
+  startingRef?: string;
+  autoCreatePR?: boolean;
+};
+
+export type ListedRepo = {
+  url: string;
+  name: string;
 };
 
 export type Health = {
@@ -113,14 +125,25 @@ export function subscribeEvents(onEvent: (e: LiveEvent) => void): () => void {
   return () => es.close();
 }
 
+export async function fetchRepos(): Promise<ListedRepo[]> {
+  const res = await fetch(apiUrl("/api/repos"));
+  const data = (await res.json().catch(() => ({}))) as {
+    repos?: ListedRepo[];
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error || `Repos failed (${res.status})`);
+  return data.repos ?? [];
+}
+
 export async function startOrchestration(
   goal: string,
-  team: TeamMemberPayload[]
+  team: TeamMemberPayload[],
+  workspace?: WorkspacePayload | null
 ): Promise<void> {
   const res = await fetch(apiUrl("/api/orchestrate"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ goal, team }),
+    body: JSON.stringify({ goal, team, workspace: workspace || undefined }),
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error || `Orchestrate failed (${res.status})`);
@@ -129,12 +152,18 @@ export async function startOrchestration(
 export async function startInstruct(
   member: TeamMemberPayload,
   instruction: string,
-  team: TeamMemberPayload[]
+  team: TeamMemberPayload[],
+  workspace?: WorkspacePayload | null
 ): Promise<{ queued?: boolean }> {
   const res = await fetch(apiUrl("/api/instruct"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member, instruction, team }),
+    body: JSON.stringify({
+      member,
+      instruction,
+      team,
+      workspace: workspace || undefined,
+    }),
   });
   const data = (await res.json().catch(() => ({}))) as {
     error?: string;

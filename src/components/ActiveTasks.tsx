@@ -1,3 +1,4 @@
+import type { WorkspacePayload } from "../api/client";
 import { CharAvatar } from "./CharAvatar";
 import type { AgentDef, AgentRuntime, PlannedTask } from "../types";
 
@@ -13,6 +14,7 @@ type Props = {
   plannedTasks: PlannedTask[];
   running: boolean;
   successSummary?: string | null;
+  activeWorkspace?: WorkspacePayload | null;
   onSelect: (id: string) => void;
 };
 
@@ -33,6 +35,7 @@ export function ActiveTasks({
   plannedTasks,
   running,
   successSummary,
+  activeWorkspace,
   onSelect,
 }: Props) {
   const byId = new Map(agents.map((a) => [a.id, a]));
@@ -104,6 +107,19 @@ export function ActiveTasks({
             {successSummary ? "Hive finished this run" : "Being implemented"}
           </h4>
           <p className="goal-body">{successSummary || currentGoal}</p>
+          {activeWorkspace?.url ? (
+            <p className="goal-repo">
+              Repo:{" "}
+              <a href={activeWorkspace.url} target="_blank" rel="noreferrer">
+                {activeWorkspace.url.replace(/^https?:\/\/github\.com\//i, "")}
+              </a>
+              {activeWorkspace.startingRef
+                ? ` @ ${activeWorkspace.startingRef}`
+                : ""}
+            </p>
+          ) : (
+            <p className="goal-repo muted">Workspace: local server folder</p>
+          )}
           {totalPlanned > 0 ? (
             <div className="goal-meta">
               <div className="goal-bar" aria-hidden="true">
