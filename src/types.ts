@@ -90,6 +90,16 @@ export type HiveJob = {
   finishedAt?: number;
 };
 
+export type HiveArtifact = {
+  id: string;
+  jobId: string;
+  name: string;
+  mime: string;
+  size: number;
+  createdAt: number;
+  agentId?: string;
+};
+
 export type ScriptStep =
   | { delay: number; type: "orch" | "orch-summary"; text: string }
   | {

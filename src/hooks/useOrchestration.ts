@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  fetchArtifacts,
   fetchHealth,
   fetchJobs,
   fetchRepos,
@@ -40,6 +41,7 @@ import type {
   AgentStatus,
   ChatMessage,
   ClarifyingQuestion,
+  HiveArtifact,
   HiveJob,
   OrchMessage,
   PlannedTask,
@@ -149,6 +151,7 @@ export function useOrchestration() {
   const [successSummary, setSuccessSummary] = useState<string | null>(null);
   const [celebrateOrch, setCelebrateOrch] = useState(false);
   const [jobs, setJobs] = useState<HiveJob[]>(() => readDemoJobs());
+  const [artifacts, setArtifacts] = useState<HiveArtifact[]>([]);
   const demoJobIdRef = useRef<string | null>(null);
   const [currentGoal, setCurrentGoal] = useState<string | null>(null);
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
@@ -1070,6 +1073,7 @@ export function useOrchestration() {
     if (engine !== "live") {
       setRepos([]);
       setJobs(readDemoJobs());
+      setArtifacts([]);
       return;
     }
     let cancelled = false;
@@ -1087,6 +1091,13 @@ export function useOrchestration() {
     fetchJobs()
       .then((list) => {
         if (!cancelled) setJobs(list);
+      })
+      .catch(() => {
+        /* SSE snapshot will fill in */
+      });
+    fetchArtifacts()
+      .then((list) => {
+        if (!cancelled) setArtifacts(list);
       })
       .catch(() => {
         /* SSE snapshot will fill in */
@@ -1385,6 +1396,25 @@ export function useOrchestration() {
         setJobs(e.jobs);
         return;
       }
+      if (e.type === "artifacts") {
+        setArtifacts(e.artifacts);
+        return;
+      }
+      if (e.type === "artifact") {
+        if (e.action === "deleted") {
+          setArtifacts((prev) => prev.filter((a) => a.id !== e.artifact.id));
+          return;
+        }
+        setArtifacts((prev) => {
+          if (prev.some((a) => a.id === e.artifact.id)) {
+            return prev.map((a) =>
+              a.id === e.artifact.id ? e.artifact : a
+            );
+          }
+          return [e.artifact, ...prev];
+        });
+        return;
+      }
       if (e.type === "goal") {
         setCurrentGoal(e.goal);
         setSuccessSummary(null);
@@ -1518,6 +1548,9 @@ export function useOrchestration() {
     currentGoal,
     plannedTasks,
     jobs,
+    artifacts,
+    removeArtifact: (id: string) =>
+      setArtifacts((prev) => prev.filter((a) => a.id !== id)),
     activeWorkspace,
     workspaceUrl,
     setWorkspaceUrl,

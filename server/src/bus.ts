@@ -96,6 +96,31 @@ export type HiveEvent =
         startedAt: number;
         finishedAt?: number;
       }>;
+    }
+  | {
+      type: "artifact";
+      action: "ready" | "deleted";
+      artifact: {
+        id: string;
+        jobId: string;
+        name: string;
+        mime: string;
+        size: number;
+        createdAt: number;
+        agentId?: string;
+      };
+    }
+  | {
+      type: "artifacts";
+      artifacts: Array<{
+        id: string;
+        jobId: string;
+        name: string;
+        mime: string;
+        size: number;
+        createdAt: number;
+        agentId?: string;
+      }>;
     };
 
 class Bus extends EventEmitter {

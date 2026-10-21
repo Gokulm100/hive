@@ -1,5 +1,6 @@
 import { ActiveTasks } from "./ActiveTasks";
 import { AgentChat } from "./AgentChat";
+import { ArtifactsPanel } from "./ArtifactsPanel";
 import { BubbleMap } from "./BubbleMap";
 import { DetailLog } from "./DetailLog";
 import { JobsList } from "./JobsList";
@@ -109,6 +110,10 @@ export function BubblesView({ api }: Props) {
         </div>
       </div>
       <JobsList jobs={api.jobs} />
+      <ArtifactsPanel
+        artifacts={api.artifacts}
+        onRemoved={api.removeArtifact}
+      />
       <ActiveTasks
         agents={api.cast}
         agentState={api.agentState}

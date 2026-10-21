@@ -16,6 +16,10 @@ import {
 import { parseSubagentRequest } from "./subagents";
 import { isDiscussMode, parseRunMode, type RunMode } from "./runMode";
 import { clearSkipped, isSkipped } from "./skip";
+import {
+  artifactsPromptHint,
+  harvestArtifactsFromText,
+} from "./artifacts";
 import { finishJob, startJob } from "./jobs";
 import {
   getActiveWorkspace,
@@ -554,9 +558,10 @@ async function brainstormDiscuss(
   member: TeamMember,
   focus: string,
   goal: string,
-  casual = false
+  opts: { casual?: boolean; jobId?: string } = {}
 ): Promise<string> {
   throwIfCancelled();
+  const casual = !!opts.casual;
   const wsNote = workspaceHint(getActiveWorkspace());
   emitStatus(
     member.id,
@@ -570,8 +575,8 @@ async function brainstormDiscuss(
     agentId: member.id,
     role: "system",
     text: casual
-      ? "Casual mode — conversation only. No clarifying questions; assume sensible defaults."
-      : "Brainstorm mode — discussion only. No implementation.",
+      ? "Casual mode — chat or drop an artifact. No clarifying questions."
+      : "Brainstorm mode — discuss in chat, or attach an artifact for download.",
   });
 
   const prompt = casual
@@ -582,38 +587,69 @@ ${wsNote}
 MODE: CASUAL CONVERSATION
 - Reply like a teammate in a chat — natural, direct, warm
 - Do NOT ask clarifying questions — assume sensible defaults when unsure
-- Do NOT write code, edit files, commit, or open PRs
+- Do NOT edit the project codebase, commit, or open PRs
 - Keep it short and useful (a few conversational beats)
+
+${artifactsPromptHint()}
 
 Topic: ${goal}
 
 Your angle:
 ${focus}
 
-Reply in plain conversational language.`
+Reply in plain conversational language (and optional artifact fences).`
     : `${roleBrief(member.id, member.name, member.role)}
 
 ${wsNote}
 
 MODE: BRAINSTORM ONLY
 - Discuss ideas, options, risks, open questions
-- Do NOT write code, edit files, commit, or open PRs
+- Do NOT edit the project codebase, commit, or open PRs
 - Keep it concrete and useful (a few sharp points)
+
+${artifactsPromptHint()}
 
 Topic: ${goal}
 
 Your angle:
 ${focus}
 
-Reply in plain language with your brainstorm contribution.`;
+Reply in plain language (and optional artifact fences).`;
 
-  return runAgentPrompt(member, prompt, {
+  const raw = await runAgentPrompt(member, prompt, {
     asMain: true,
     label: casual
       ? `${member.name} is chatting…`
       : `${member.name} is brainstorming…`,
-    streamToChat: true,
+    // Harvest fences before chat so download blocks aren't shown raw
+    streamToChat: false,
   });
+
+  const harvested = opts.jobId
+    ? harvestArtifactsFromText(opts.jobId, raw, member.id)
+    : { cleanText: raw, artifacts: [] as { name: string }[] };
+  const reply = harvested.cleanText || raw;
+
+  bus.emitEvent({
+    type: "chat",
+    agentId: member.id,
+    role: "agent",
+    text: reply,
+  });
+  if (harvested.artifacts.length) {
+    bus.emitEvent({
+      type: "chat",
+      agentId: member.id,
+      role: "system",
+      text: `Ready to download: ${harvested.artifacts.map((a) => a.name).join(", ")}`,
+    });
+    bus.emitEvent({
+      type: "orch",
+      text: `${member.name} attached ${harvested.artifacts.length} artifact${harvested.artifacts.length > 1 ? "s" : ""} — use Download when ready.`,
+      kind: "normal",
+    });
+  }
+  return reply;
 }
 
 export async function runOrchestration(
@@ -721,12 +757,10 @@ export async function runOrchestration(
 
       try {
         const report = isDiscussMode(runMode)
-          ? await brainstormDiscuss(
-              member,
-              job.task,
-              trimmedGoal,
-              runMode === "casual"
-            )
+          ? await brainstormDiscuss(member, job.task, trimmedGoal, {
+              casual: runMode === "casual",
+              jobId: job.id,
+            })
           : await askThenImplement(member, job.task, trimmedGoal);
         if (isSkipped(member.id)) {
           emitSkipped(member, job.task);
@@ -795,22 +829,35 @@ export async function runOrchestration(
           name: g.name,
           role: g.role,
           task:
-            runMode === "casual"
-              ? `CASUAL CONVERSATION ONLY (no code, no edits, no clarifying questions — assume defaults). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}`
-              : `BRAINSTORM ONLY (no code, no edits). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}`,
+            (runMode === "casual"
+              ? `CASUAL CONVERSATION ONLY (no codebase edits, no clarifying questions — assume defaults). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}\n\n${artifactsPromptHint()}`
+              : `BRAINSTORM ONLY (no codebase edits). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}\n\n${artifactsPromptHint()}`),
         }))
       );
       for (const g of guestReports) {
+        const { cleanText, artifacts } = harvestArtifactsFromText(
+          job.id,
+          g.report,
+          `guest-${g.name}`
+        );
+        const report = cleanText || g.report;
         reports.push({
           id: `guest-${g.name}`,
           name: g.name,
-          report: g.report,
+          report,
         });
         bus.emitEvent({
           type: "orch",
-          text: `Guest “${g.name}”: ${g.report.slice(0, 400)}`,
+          text: `Guest “${g.name}”: ${report.slice(0, 400)}`,
           kind: "normal",
         });
+        if (artifacts.length) {
+          bus.emitEvent({
+            type: "orch",
+            text: `Guest “${g.name}” attached ${artifacts.length} artifact${artifacts.length > 1 ? "s" : ""} — use Download when ready.`,
+            kind: "normal",
+          });
+        }
       }
     }
 
@@ -981,12 +1028,10 @@ export async function instructOne(
     });
 
     const report = isDiscussMode(runMode)
-      ? await brainstormDiscuss(
-          member,
-          instruction,
-          instruction,
-          runMode === "casual"
-        )
+      ? await brainstormDiscuss(member, instruction, instruction, {
+          casual: runMode === "casual",
+          jobId: job.id,
+        })
       : await askThenImplement(member, instruction, instruction);
     emitStatus(
       member.id,

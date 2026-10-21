@@ -1,4 +1,5 @@
 import { ActiveTasks } from "./components/ActiveTasks";
+import { ArtifactsPanel } from "./components/ArtifactsPanel";
 import { Header } from "./components/Header";
 import { JobsList } from "./components/JobsList";
 import { ReportsView } from "./components/ReportsView";
@@ -58,6 +59,10 @@ export default function App() {
               onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
             />
             <JobsList jobs={api.jobs} />
+            <ArtifactsPanel
+              artifacts={api.artifacts}
+              onRemoved={api.removeArtifact}
+            />
             <ActiveTasks
               agents={api.cast}
               agentState={api.agentState}

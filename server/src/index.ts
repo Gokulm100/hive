@@ -19,6 +19,12 @@ import {
   tryProvideAnswers,
   type TeamMember,
 } from "./orchestrate";
+import {
+  deleteArtifact,
+  getArtifact,
+  listArtifacts,
+  readArtifactBytes,
+} from "./artifacts";
 import { cancelRunningJobs, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
@@ -75,6 +81,7 @@ app.get("/api/events", (req, res) => {
 
   send({ type: "status", agentId: "orchestrator", status: "idle" });
   send({ type: "jobs", jobs: listJobs() });
+  send({ type: "artifacts", artifacts: listArtifacts() });
   const onEvent = (event: HiveEvent) => send(event);
   bus.on("event", onEvent);
 
@@ -85,6 +92,42 @@ app.get("/api/events", (req, res) => {
 
 app.get("/api/jobs", (_req, res) => {
   res.json({ jobs: listJobs() });
+});
+
+app.get("/api/artifacts", (_req, res) => {
+  res.json({ artifacts: listArtifacts() });
+});
+
+app.get("/api/artifacts/:id/download", (req, res) => {
+  const id = String(req.params.id || "").trim();
+  const meta = getArtifact(id);
+  const bytes = id ? readArtifactBytes(id) : null;
+  if (!meta || !bytes) {
+    res.status(404).json({ error: "Artifact not found" });
+    return;
+  }
+  res.setHeader("Content-Type", meta.mime);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${meta.name.replace(/"/g, "")}"`
+  );
+  res.setHeader("Content-Length", String(bytes.length));
+  res.send(bytes);
+});
+
+/** Client calls this after a successful browser download. */
+app.delete("/api/artifacts/:id", (req, res) => {
+  const id = String(req.params.id || "").trim();
+  if (!id) {
+    res.status(400).json({ error: "id is required" });
+    return;
+  }
+  const ok = deleteArtifact(id);
+  if (!ok) {
+    res.status(404).json({ error: "Artifact not found" });
+    return;
+  }
+  res.json({ ok: true, deleted: id });
 });
 
 app.post("/api/stop", async (_req, res) => {

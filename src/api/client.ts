@@ -1,3 +1,13 @@
+export type HiveArtifactPayload = {
+  id: string;
+  jobId: string;
+  name: string;
+  mime: string;
+  size: number;
+  createdAt: number;
+  agentId?: string;
+};
+
 export type LiveEvent =
   | {
       type: "status";
@@ -84,6 +94,15 @@ export type LiveEvent =
         startedAt: number;
         finishedAt?: number;
       }>;
+    }
+  | {
+      type: "artifact";
+      action: "ready" | "deleted";
+      artifact: HiveArtifactPayload;
+    }
+  | {
+      type: "artifacts";
+      artifacts: HiveArtifactPayload[];
     };
 
 export type RunMode = "build" | "brainstorm" | "casual";
@@ -232,4 +251,49 @@ export async function fetchJobs(): Promise<HiveJobPayload[]> {
   };
   if (!res.ok) throw new Error(data.error || `Jobs failed (${res.status})`);
   return data.jobs ?? [];
+}
+
+export async function fetchArtifacts(): Promise<HiveArtifactPayload[]> {
+  const res = await fetch(apiUrl("/api/artifacts"));
+  const data = (await res.json().catch(() => ({}))) as {
+    artifacts?: HiveArtifactPayload[];
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error || `Artifacts failed (${res.status})`);
+  return data.artifacts ?? [];
+}
+
+export function artifactDownloadUrl(id: string): string {
+  return apiUrl(`/api/artifacts/${encodeURIComponent(id)}/download`);
+}
+
+/** Download to the browser, then delete the server copy. */
+export async function downloadAndDeleteArtifact(
+  artifact: HiveArtifactPayload
+): Promise<void> {
+  const res = await fetch(artifactDownloadUrl(artifact.id));
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error || `Download failed (${res.status})`);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = artifact.name || "artifact";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+
+  const del = await fetch(apiUrl(`/api/artifacts/${encodeURIComponent(artifact.id)}`), {
+    method: "DELETE",
+  });
+  if (!del.ok) {
+    const data = (await del.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error || `Cleanup failed (${del.status})`);
+  }
 }
