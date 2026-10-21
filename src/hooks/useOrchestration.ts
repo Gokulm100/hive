@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   fetchHealth,
   startInstruct,
@@ -727,7 +734,8 @@ export function useOrchestration() {
     []
   );
 
-  useEffect(() => {
+  // Before paint so BubbleMap doesn't measure a display:none canvas
+  useLayoutEffect(() => {
     document.body.classList.toggle("view-reports", view === "reports");
     document.body.classList.toggle("view-bubbles", view === "bubbles");
   }, [view]);

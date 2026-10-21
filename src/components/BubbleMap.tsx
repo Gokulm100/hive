@@ -504,10 +504,19 @@ export function BubbleMap({
     const onResize = () => renderMap(true);
     window.addEventListener("resize", onResize);
 
+    // Re-draw when the wrap goes from 0→sized (e.g. switching Reports → Bubbles)
+    const ro = new ResizeObserver(() => {
+      renderMap(true);
+    });
+    ro.observe(wrap);
+
     updateMapBubbleStates();
     syncConnectors();
+    // Second frame: body.view-bubbles may have just applied
+    requestAnimationFrame(() => renderMap(true));
 
     return () => {
+      ro.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", endBubbleDrag);
