@@ -31,22 +31,20 @@ export default function App() {
         apiError={api.apiError}
       />
 
-      {api.view === "reports" ? (
-        <div className="legend" aria-label="Status legend">
-          <span>
-            <i className="dot idle" /> Idle
-          </span>
-          <span>
-            <i className="dot working" /> Working
-          </span>
-          <span>
-            <i className="dot done" /> Done
-          </span>
-          <span>
-            <i className="dot blocked" /> Blocked
-          </span>
-        </div>
-      ) : null}
+      <div className="legend" aria-label="Status legend">
+        <span>
+          <i className="dot idle" aria-hidden="true" /> Idle
+        </span>
+        <span>
+          <i className="dot working" aria-hidden="true" /> Working
+        </span>
+        <span>
+          <i className="dot done" aria-hidden="true" /> Done
+        </span>
+        <span>
+          <i className="dot blocked" aria-hidden="true" /> Blocked
+        </span>
+      </div>
 
       <div className="layout">
         {api.view === "reports" ? (
