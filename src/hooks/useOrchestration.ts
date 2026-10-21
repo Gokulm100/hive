@@ -9,6 +9,7 @@ import {
 import {
   fetchHealth,
   fetchRepos,
+  skipAgent as skipAgentApi,
   startInstruct,
   startOrchestration,
   stopRun as stopRunApi,
@@ -120,6 +121,7 @@ export function useOrchestration() {
   const directingRef = useRef(directing);
   const engineRef = useRef(engine);
   const runModeRef = useRef(runMode);
+  const demoSkippedRef = useRef<Set<string>>(new Set());
 
   castRef.current = cast;
   agentStateRef.current = agentState;
@@ -357,6 +359,7 @@ export function useOrchestration() {
   const runScript = useCallback(
     (goal: string) => {
       clearTimers();
+      demoSkippedRef.current = new Set();
       const g = goal.trim() || DEFAULT_GOAL;
       const mode = runModeRef.current;
       setRunning(true);
@@ -480,6 +483,7 @@ export function useOrchestration() {
             return;
           }
           if (step.type === "agent") {
+            if (demoSkippedRef.current.has(step.id)) return;
             setAgent(step.id, {
               status: step.status,
               report:
@@ -670,6 +674,54 @@ export function useOrchestration() {
     addMsg("orch", "Stopped demo run.");
     bumpMap();
   }, [addMsg, bumpMap, clearTimers]);
+
+  const skipAgent = useCallback(
+    (agentId: string) => {
+      const id = agentId.trim();
+      if (!id || id === "orchestrator") return;
+      const agent = castRef.current.find((a) => a.id === id);
+      const name = agent?.name || id;
+
+      if (engineRef.current === "live") {
+        void skipAgentApi(id).catch((err: Error) => {
+          setApiError(err.message);
+          addMsg("orch", err.message);
+          play("error");
+        });
+        return;
+      }
+
+      demoSkippedRef.current.add(id);
+      setPlannedTasks((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, phase: "skipped" as const } : p
+        )
+      );
+      setAgentState((s) => ({
+        ...s,
+        [id]: {
+          ...(s[id] ?? { status: "idle", report: "", open: false }),
+          status: "idle",
+          report: "Skipped.",
+        },
+      }));
+      setAwaitingIds((prev) => {
+        if (!prev.has(id)) return prev;
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+      setPendingQuestions((prev) => {
+        if (!(id in prev)) return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      addMsg("orch", `Skipped ${name}.`);
+      bumpMap();
+    },
+    [addMsg, bumpMap]
+  );
 
   const addAgent = useCallback(
     (name: string, role: string) => {
@@ -1233,20 +1285,50 @@ export function useOrchestration() {
         return;
       }
       if (e.type === "task") {
+        const phase =
+          e.phase === "done"
+            ? ("done" as const)
+            : e.phase === "active"
+              ? ("active" as const)
+              : e.phase === "skipped"
+                ? ("skipped" as const)
+                : ("upcoming" as const);
+        if (e.phase === "skipped") {
+          setAgentState((s) => ({
+            ...s,
+            [e.agentId]: {
+              ...(s[e.agentId] ?? {
+                status: "idle",
+                report: "",
+                open: false,
+              }),
+              status: "idle",
+              report: "Skipped.",
+            },
+          }));
+          setAwaitingIds((prev) => {
+            if (!prev.has(e.agentId)) return prev;
+            const next = new Set(prev);
+            next.delete(e.agentId);
+            return next;
+          });
+          setWorkProgress((p) => {
+            if (!(e.agentId in p)) return p;
+            const next = { ...p };
+            delete next[e.agentId];
+            return next;
+          });
+          bumpMap();
+        }
         setPlannedTasks((prev) => {
           const exists = prev.some((p) => p.id === e.agentId);
-          if (!exists && e.task) {
+          if (!exists && (e.task || e.phase === "skipped")) {
             return [
               ...prev,
               {
                 id: e.agentId,
-                task: e.task,
-                phase:
-                  e.phase === "done"
-                    ? "done"
-                    : e.phase === "active"
-                      ? "active"
-                      : "upcoming",
+                task: e.task || "Skipped",
+                phase,
               },
             ];
           }
@@ -1261,11 +1343,11 @@ export function useOrchestration() {
               ...p,
               task: e.task ?? p.task,
               phase:
-                e.phase === "done"
-                  ? "done"
-                  : e.phase === "active"
-                    ? "active"
-                    : p.phase,
+                e.phase === "done" ||
+                e.phase === "active" ||
+                e.phase === "skipped"
+                  ? phase
+                  : p.phase,
             };
           });
         });
@@ -1320,6 +1402,7 @@ export function useOrchestration() {
     instructAgent,
     answerQuestions,
     stopRun,
+    skipAgent,
     addAgent,
     removeAgent,
     resetAll,

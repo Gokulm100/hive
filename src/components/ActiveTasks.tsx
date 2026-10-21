@@ -17,6 +17,7 @@ type Props = {
   activeWorkspace?: WorkspacePayload | null;
   runMode?: RunMode;
   onSelect: (id: string) => void;
+  onSkip?: (id: string) => void;
 };
 
 function statusLabel(status: string, awaiting: boolean): string {
@@ -39,6 +40,7 @@ export function ActiveTasks({
   activeWorkspace,
   runMode = "build",
   onSelect,
+  onSkip,
 }: Props) {
   const brainstorm = runMode === "brainstorm";
   const byId = new Map(agents.map((a) => [a.id, a]));
@@ -50,6 +52,7 @@ export function ActiveTasks({
 
   const upcoming = plannedTasks.filter((p) => p.phase === "upcoming");
   const plannedActive = plannedTasks.filter((p) => p.phase === "active");
+  const skipped = plannedTasks.filter((p) => p.phase === "skipped");
 
   // Prefer live working agents; fall back to plan “active” if status lags
   const activeCards =
@@ -59,7 +62,9 @@ export function ActiveTasks({
           .map((p) => byId.get(p.id))
           .filter((a): a is AgentDef => !!a);
 
-  const doneCount = plannedTasks.filter((p) => p.phase === "done").length;
+  const doneCount = plannedTasks.filter(
+    (p) => p.phase === "done" || p.phase === "skipped"
+  ).length;
   const totalPlanned = plannedTasks.length;
   const progressPct =
     totalPlanned > 0
@@ -90,7 +95,7 @@ export function ActiveTasks({
         <h3>Task board</h3>
         <span className="hint">
           {running
-            ? "Run in progress"
+            ? "Run in progress — skip any agent or stage"
             : successSummary
               ? "Run complete"
               : "Latest plan"}
@@ -141,7 +146,8 @@ export function ActiveTasks({
                 <span style={{ width: `${Math.min(100, progressPct)}%` }} />
               </div>
               <p className="goal-count">
-                {doneCount}/{totalPlanned} teammate tasks done
+                {doneCount}/{totalPlanned} stages finished
+                {skipped.length ? ` · ${skipped.length} skipped` : ""}
               </p>
             </div>
           ) : running ? (
@@ -172,45 +178,64 @@ export function ActiveTasks({
                   ? "Waiting for your choices before continuing."
                   : "Working…");
               const steps = progress?.steps ?? 0;
+              const canSkip =
+                !!onSkip &&
+                running &&
+                a.id !== "orchestrator" &&
+                planned?.phase !== "skipped";
 
               return (
-                <button
-                  type="button"
+                <article
                   key={a.id}
                   className={`active-task-card ${status}${
                     awaiting ? " awaiting" : ""
                   }${selected === a.id ? " selected" : ""}${
                     a.ephemeral ? " ephemeral" : ""
                   }`}
-                  onClick={() => onSelect(a.id)}
                 >
-                  <div className="active-task-top">
-                    <CharAvatar refAgent={a} className="avatar" />
-                    <div className="meta">
-                      <p className="name">
-                        {a.name}
-                        {a.ephemeral ? " · guest" : ""}
-                      </p>
-                      <p className="role">{a.role}</p>
+                  <button
+                    type="button"
+                    className="active-task-main"
+                    onClick={() => onSelect(a.id)}
+                  >
+                    <div className="active-task-top">
+                      <CharAvatar refAgent={a} className="avatar" />
+                      <div className="meta">
+                        <p className="name">
+                          {a.name}
+                          {a.ephemeral ? " · guest" : ""}
+                        </p>
+                        <p className="role">{a.role}</p>
+                      </div>
+                      <span className={`chip ${awaiting ? "blocked" : status}`}>
+                        {statusLabel(status, awaiting)}
+                      </span>
                     </div>
-                    <span className={`chip ${awaiting ? "blocked" : status}`}>
-                      {statusLabel(status, awaiting)}
-                    </span>
-                  </div>
-                  <p className="active-task-detail">{detail}</p>
-                  {status === "working" && !awaiting ? (
-                    <div className="active-task-bar" aria-hidden="true">
-                      <span
-                        style={{
-                          width: `${Math.min(92, 14 + steps * 7)}%`,
-                        }}
-                      />
-                    </div>
+                    <p className="active-task-detail">{detail}</p>
+                    {status === "working" && !awaiting ? (
+                      <div className="active-task-bar" aria-hidden="true">
+                        <span
+                          style={{
+                            width: `${Math.min(92, 14 + steps * 7)}%`,
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                    {awaiting ? (
+                      <p className="active-task-cta">Answer to unblock →</p>
+                    ) : null}
+                  </button>
+                  {canSkip ? (
+                    <button
+                      type="button"
+                      className="skip-stage-btn"
+                      onClick={() => onSkip(a.id)}
+                      title={`Skip ${a.name} and continue`}
+                    >
+                      Skip
+                    </button>
                   ) : null}
-                  {awaiting ? (
-                    <p className="active-task-cta">Answer to unblock →</p>
-                  ) : null}
-                </button>
+                </article>
               );
             })}
           </div>
@@ -223,25 +248,67 @@ export function ActiveTasks({
           <div className="active-task-grid">
             {upcoming.map((p) => {
               const a = byId.get(p.id);
+              const canSkip =
+                !!onSkip && running && p.id !== "orchestrator";
               return (
-                <button
-                  type="button"
+                <article
                   key={p.id}
                   className={`active-task-card upcoming${
                     selected === p.id ? " selected" : ""
                   }`}
-                  onClick={() => onSelect(p.id)}
                 >
-                  <div className="active-task-top">
-                    <CharAvatar refAgent={a} className="avatar" />
-                    <div className="meta">
-                      <p className="name">{a?.name || p.id}</p>
-                      <p className="role">{a?.role || "Teammate"}</p>
+                  <button
+                    type="button"
+                    className="active-task-main"
+                    onClick={() => onSelect(p.id)}
+                  >
+                    <div className="active-task-top">
+                      <CharAvatar refAgent={a} className="avatar" />
+                      <div className="meta">
+                        <p className="name">{a?.name || p.id}</p>
+                        <p className="role">{a?.role || "Teammate"}</p>
+                      </div>
+                      <span className="chip idle">queued</span>
                     </div>
-                    <span className="chip idle">queued</span>
+                    <p className="active-task-detail">{p.task}</p>
+                  </button>
+                  {canSkip ? (
+                    <button
+                      type="button"
+                      className="skip-stage-btn"
+                      onClick={() => onSkip(p.id)}
+                      title={`Skip ${a?.name || p.id} stage`}
+                    >
+                      Skip
+                    </button>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
+
+      {skipped.length > 0 ? (
+        <div className="task-section">
+          <p className="task-section-label">Skipped</p>
+          <div className="active-task-grid">
+            {skipped.map((p) => {
+              const a = byId.get(p.id);
+              return (
+                <article key={p.id} className="active-task-card skipped">
+                  <div className="active-task-main static">
+                    <div className="active-task-top">
+                      <CharAvatar refAgent={a} className="avatar" />
+                      <div className="meta">
+                        <p className="name">{a?.name || p.id}</p>
+                        <p className="role">{a?.role || "Teammate"}</p>
+                      </div>
+                      <span className="chip idle">skipped</span>
+                    </div>
+                    <p className="active-task-detail">{p.task}</p>
                   </div>
-                  <p className="active-task-detail">{p.task}</p>
-                </button>
+                </article>
               );
             })}
           </div>

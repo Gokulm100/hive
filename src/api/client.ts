@@ -187,3 +187,13 @@ export async function stopRun(): Promise<void> {
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error || `Stop failed (${res.status})`);
 }
+
+export async function skipAgent(agentId: string): Promise<void> {
+  const res = await fetch(apiUrl("/api/skip"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ agentId }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || `Skip failed (${res.status})`);
+}

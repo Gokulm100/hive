@@ -99,6 +99,11 @@ export function BubblesView({ api }: Props) {
               if (api.selected) api.answerQuestions(api.selected, answers, note);
             }}
             onStop={api.stopRun}
+            onSkip={
+              api.selected && api.selected !== "orchestrator"
+                ? () => api.skipAgent(api.selected!)
+                : undefined
+            }
           />
         </div>
       </div>
@@ -113,10 +118,12 @@ export function BubblesView({ api }: Props) {
         running={api.running}
         successSummary={api.successSummary}
         activeWorkspace={api.activeWorkspace}
+        runMode={api.runMode}
         onSelect={(id) => {
           api.selectAgent(id);
           api.ensureChatSeed(id);
         }}
+        onSkip={api.skipAgent}
       />
       <DetailLog
         cast={api.cast}

@@ -2,8 +2,11 @@ import "./polyfill";
 import { Agent, CursorAgentError, type Run } from "@cursor/sdk";
 import { bus } from "./bus";
 import { roleBrief } from "./roles";
+import { isSkipped, SkippedError, throwIfSkipped } from "./skip";
 import { nextSubagentId, type SubagentSpec } from "./subagents";
 import { getActiveWorkspace } from "./workspace";
+
+export { SkippedError };
 
 type AgentHandle = {
   agent: Awaited<ReturnType<typeof Agent.create>>;
@@ -14,6 +17,8 @@ type AgentHandle = {
 
 const pool = new Map<string, AgentHandle>();
 const activeRuns = new Map<string, Run>();
+/** Live Cursor run keyed by Hive agent id (for per-agent skip). */
+const runsByAgent = new Map<string, Run>();
 /** Parent agent ids currently on a main (non-sub) run */
 const mainBusy = new Set<string>();
 let cancelRequested = false;
@@ -76,8 +81,28 @@ export async function requestCancel(): Promise<number> {
   return n;
 }
 
+/** Cancel only one agent's in-flight run (orchestration continues). */
+export async function cancelAgentRun(agentId: string): Promise<boolean> {
+  const run = runsByAgent.get(agentId);
+  if (!run) return false;
+  try {
+    if (run.supports("cancel")) {
+      await run.cancel();
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
 export function throwIfCancelled() {
   if (cancelRequested) throw new CancelledError();
+}
+
+function throwIfAborted(agentId: string) {
+  throwIfCancelled();
+  throwIfSkipped(agentId);
 }
 
 const lastProcessAt = new Map<string, { text: string; at: number }>();
@@ -205,12 +230,17 @@ async function consumeRun(
   };
 
   try {
-    throwIfCancelled();
+    runsByAgent.set(agentId, run);
+    throwIfAborted(agentId);
     if (opts.label) emitProcess(agentId, opts.label);
 
     if (run.supports("stream")) {
       try {
         for await (const event of run.stream()) {
+          if (isSkipped(agentId)) {
+            if (run.supports("cancel")) await run.cancel();
+            throw new SkippedError(agentId);
+          }
           if (cancelRequested) {
             if (run.supports("cancel")) await run.cancel();
             throw new CancelledError();
@@ -232,8 +262,19 @@ async function consumeRun(
           }
         }
       } catch (err) {
-        if (err instanceof CancelledError) throw err;
+        if (err instanceof CancelledError || err instanceof SkippedError) throw err;
       }
+    }
+
+    if (isSkipped(agentId)) {
+      if (run.supports("cancel")) {
+        try {
+          await run.cancel();
+        } catch {
+          /* ignore */
+        }
+      }
+      throw new SkippedError(agentId);
     }
 
     if (cancelRequested) {
@@ -249,6 +290,9 @@ async function consumeRun(
 
     const result = await run.wait();
 
+    if (isSkipped(agentId)) {
+      throw new SkippedError(agentId);
+    }
     if (result.status === "cancelled" || cancelRequested) {
       throw new CancelledError();
     }
@@ -264,6 +308,7 @@ async function consumeRun(
     return text;
   } finally {
     activeRuns.delete(run.id);
+    if (runsByAgent.get(agentId) === run) runsByAgent.delete(agentId);
   }
 }
 
@@ -272,7 +317,7 @@ export async function runAgentPrompt(
   prompt: string,
   opts: RunOpts = {}
 ): Promise<string> {
-  throwIfCancelled();
+  throwIfAborted(meta.id);
   const asMain = opts.asMain !== false;
   if (asMain) mainBusy.add(meta.id);
 

@@ -69,6 +69,7 @@ export default function App() {
                   api.ensureChatSeed(id);
                   api.setView("bubbles");
                 }}
+                onSkip={api.skipAgent}
               />
               <ReportsView
                 teamAgents={api.teamAgents}

@@ -26,6 +26,7 @@ type Props = {
     globalNote: string
   ) => void;
   onStop: () => void;
+  onSkip?: () => void;
 };
 
 export function AgentChat({
@@ -42,6 +43,7 @@ export function AgentChat({
   onSend,
   onAnswerQuestions,
   onStop,
+  onSkip,
 }: Props) {
   const [text, setText] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
@@ -95,12 +97,28 @@ export function AgentChat({
           </div>
         </div>
         <div className="agent-chat-actions">
+          {running &&
+          onSkip &&
+          selected &&
+          selected !== "orchestrator" &&
+          (awaiting ||
+            agentStatus === "working" ||
+            agentStatus === "blocked") ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={onSkip}
+              title="Skip this agent and continue the run"
+            >
+              Skip
+            </button>
+          ) : null}
           {running ? (
             <button
               type="button"
               className="btn-danger"
               onClick={onStop}
-              title="Stop current agent work"
+              title="Stop the whole run"
             >
               Stop
             </button>

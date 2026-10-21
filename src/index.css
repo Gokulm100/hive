@@ -1793,20 +1793,57 @@
     .active-task-card {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 0;
       text-align: left;
-      padding: 12px;
+      padding: 0;
       border-radius: 12px;
       border: 1px solid var(--stroke);
       background: var(--bg-deep);
       color: var(--ink);
-      cursor: pointer;
       font: inherit;
+      overflow: hidden;
       transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .active-task-main {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      text-align: left;
+      padding: 12px;
+      border: none;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      cursor: pointer;
+    }
+    .active-task-main.static {
+      cursor: default;
     }
     .active-task-card:hover {
       border-color: #3d4a55;
       background: #171c21;
+    }
+    .active-task-card.skipped {
+      opacity: 0.55;
+      border-style: dashed;
+    }
+    .skip-stage-btn {
+      border: none;
+      border-top: 1px solid var(--stroke);
+      background: transparent;
+      color: var(--ink-soft);
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .skip-stage-btn:hover {
+      color: var(--blocked);
+      background: rgba(212, 122, 118, 0.08);
     }
     .active-task-card.selected {
       border-color: rgba(142, 180, 196, 0.55);

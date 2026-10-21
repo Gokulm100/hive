@@ -10,10 +10,12 @@ import {
   runAgentPrompt,
   runRequestedSubagents,
   runSubagentQuery,
+  SkippedError,
   throwIfCancelled,
 } from "./pool";
 import { parseSubagentRequest } from "./subagents";
 import { parseRunMode, type RunMode } from "./runMode";
+import { clearSkipped, isSkipped } from "./skip";
 import {
   getActiveWorkspace,
   setActiveWorkspace,
@@ -78,6 +80,30 @@ function emitStatus(
       status,
     });
   }
+}
+
+function emitSkipped(
+  member: { id: string; name: string },
+  task?: string
+) {
+  emitStatus(member.id, "idle", "Skipped.");
+  bus.emitEvent({
+    type: "task",
+    agentId: member.id,
+    phase: "skipped",
+    task,
+  });
+  bus.emitEvent({
+    type: "chat",
+    agentId: member.id,
+    role: "system",
+    text: "Skipped — moving on to the next stage.",
+  });
+  bus.emitEvent({
+    type: "orch",
+    text: `Skipped ${member.name}.`,
+    kind: "normal",
+  });
 }
 
 function extractJson(text: string): Assignment[] | null {
@@ -551,6 +577,7 @@ export async function runOrchestration(
   mode: RunMode = "build"
 ): Promise<void> {
   clearCancelFlag();
+  clearSkipped();
   const trimmedGoal = goal.trim();
   const runMode = parseRunMode(mode);
   setActiveWorkspace(workspace);
@@ -599,6 +626,11 @@ export async function runOrchestration(
       const member = byId.get(job.id);
       if (!member || member.id === "orchestrator") continue;
 
+      if (isSkipped(member.id)) {
+        emitSkipped(member, job.task);
+        continue;
+      }
+
       bus.emitEvent({
         type: "task",
         agentId: member.id,
@@ -631,6 +663,10 @@ export async function runOrchestration(
           runMode === "brainstorm"
             ? await brainstormDiscuss(member, job.task, trimmedGoal)
             : await askThenImplement(member, job.task, trimmedGoal);
+        if (isSkipped(member.id)) {
+          emitSkipped(member, job.task);
+          continue;
+        }
         reports.push({ id: member.id, name: member.name, report });
         emitStatus(
           member.id,
@@ -655,6 +691,10 @@ export async function runOrchestration(
         });
       } catch (err) {
         if (err instanceof CancelledError) throw err;
+        if (err instanceof SkippedError || isSkipped(member.id)) {
+          emitSkipped(member, job.task);
+          continue;
+        }
         const msg = explainCursorError(err);
         bus.emitEvent({
           type: "chat",

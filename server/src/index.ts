@@ -2,9 +2,10 @@ import "./polyfill";
 import "dotenv/config";
 import cors from "cors";
 import express from "express";
-import { rejectAllAwaiting } from "./awaiting";
+import { rejectAllAwaiting, rejectAwaiting } from "./awaiting";
 import { bus, type HiveEvent } from "./bus";
 import {
+  cancelAgentRun,
   disposeAll,
   isCursorConfigured,
   isMainBusy,
@@ -19,6 +20,7 @@ import {
   type TeamMember,
 } from "./orchestrate";
 import { listConnectedRepos } from "./repos";
+import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
 
 const app = express();
@@ -84,6 +86,44 @@ app.post("/api/stop", async (_req, res) => {
     message: "Stopping… cancelled active work and any waiting questions.",
   });
   res.json({ ok: true, cancelled });
+});
+
+/** Skip one agent/stage; the rest of the run continues. */
+app.post("/api/skip", async (req, res) => {
+  const agentId = String(req.body?.agentId ?? "").trim();
+  if (!agentId) {
+    res.status(400).json({ error: "agentId is required" });
+    return;
+  }
+
+  markSkip(agentId);
+  rejectAwaiting(agentId, new SkippedError(agentId));
+  const cancelledRun = await cancelAgentRun(agentId);
+
+  bus.emitEvent({
+    type: "task",
+    agentId,
+    phase: "skipped",
+  });
+  bus.emitEvent({
+    type: "status",
+    agentId,
+    status: "idle",
+    report: "Skipped.",
+  });
+  bus.emitEvent({
+    type: "chat",
+    agentId,
+    role: "system",
+    text: "Skipped — moving on to the next stage.",
+  });
+  bus.emitEvent({
+    type: "orch",
+    text: `Skipping ${agentId}…`,
+    kind: "normal",
+  });
+
+  res.json({ ok: true, agentId, cancelledRun });
 });
 
 app.post("/api/orchestrate", async (req, res) => {

@@ -69,7 +69,7 @@ export type QuestionAnswer = {
   note?: string;
 };
 
-export type PlannedTaskPhase = "upcoming" | "active" | "done";
+export type PlannedTaskPhase = "upcoming" | "active" | "done" | "skipped";
 
 export type PlannedTask = {
   id: string;

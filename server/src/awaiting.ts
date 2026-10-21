@@ -46,6 +46,14 @@ export function provideAnswers(agentId: string, answer: string): boolean {
   return true;
 }
 
+export function rejectAwaiting(agentId: string, err: Error): boolean {
+  const w = waiters.get(agentId);
+  if (!w) return false;
+  w.reject(err);
+  waiters.delete(agentId);
+  return true;
+}
+
 export function rejectAllAwaiting(message = "Stopped by user") {
   for (const [id, w] of waiters) {
     w.reject(new Error(message));
