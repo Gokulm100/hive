@@ -83,8 +83,8 @@ export function useOrchestration() {
   const [messages, setMessages] = useState<OrchMessage[]>([]);
   const [running, setRunning] = useState(false);
   const [directing, setDirecting] = useState(false);
-  const [view, setView] = useState<ViewMode>("reports");
-  const [selected, setSelected] = useState<string | null>(null);
+  const [view, setView] = useState<ViewMode>("bubbles");
+  const [selected, setSelected] = useState<string | null>("orchestrator");
   const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
   const [mapTick, setMapTick] = useState(0);
   const [engine, setEngine] = useState<EngineMode>("demo");
