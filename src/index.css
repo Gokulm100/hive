@@ -1634,6 +1634,114 @@
     .btn-danger:hover { background: var(--blocked-soft); }
     .btn-danger[hidden] { display: none; }
 
+    /* —— Recent jobs (last 3) —— */
+    .jobs-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: var(--surface);
+      padding: 12px 14px 14px;
+      min-width: 0;
+    }
+    .jobs-list-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .jobs-list-head h3 {
+      margin: 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .jobs-list-head .hint,
+    .jobs-empty {
+      margin: 0;
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+    }
+    .jobs-grid {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .job-card {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: var(--bg-deep);
+      min-width: 0;
+    }
+    .job-card.running {
+      border-color: rgba(212, 161, 92, 0.4);
+    }
+    .job-card.done {
+      border-color: rgba(95, 173, 146, 0.3);
+    }
+    .job-card.error {
+      border-color: rgba(212, 122, 118, 0.4);
+    }
+    .job-card.brainstorm {
+      background:
+        radial-gradient(ellipse 90% 80% at 100% 0%, rgba(142, 180, 196, 0.1), transparent 55%),
+        var(--bg-deep);
+    }
+    .job-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .job-mode {
+      font-size: 0.68rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .job-when {
+      margin-left: auto;
+      font-size: 0.68rem;
+      color: var(--ink-soft);
+    }
+    .job-goal {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .job-summary {
+      margin: 0;
+      font-size: 0.78rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .job-repo {
+      margin: 0;
+      font-size: 0.7rem;
+      color: var(--orch);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
     /* —— Active running tasks —— */
     .active-tasks {
       display: flex;

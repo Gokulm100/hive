@@ -16,6 +16,7 @@ import {
 import { parseSubagentRequest } from "./subagents";
 import { parseRunMode, type RunMode } from "./runMode";
 import { clearSkipped, isSkipped } from "./skip";
+import { finishJob, startJob } from "./jobs";
 import {
   getActiveWorkspace,
   setActiveWorkspace,
@@ -581,6 +582,11 @@ export async function runOrchestration(
   const trimmedGoal = goal.trim();
   const runMode = parseRunMode(mode);
   setActiveWorkspace(workspace);
+  const job = startJob({
+    goal: trimmedGoal,
+    mode: runMode,
+    workspaceUrl: workspace?.url ?? null,
+  });
   bus.emitEvent({ type: "run", running: true });
   bus.emitEvent({
     type: "goal",
@@ -607,6 +613,8 @@ export async function runOrchestration(
     });
   }
   const reports: { id: string; name: string; report: string }[] = [];
+  let jobOutcome: "done" | "cancelled" | "error" = "done";
+  let jobSummary = "";
 
   try {
     const roster =
@@ -815,8 +823,12 @@ Reply with a VERY brief final summary for the user:
     emitStatus(orch.id, "done", "All tasks complete.");
     bus.emitEvent({ type: "success", summary });
     bus.emitEvent({ type: "done" });
+    jobSummary = summary;
+    jobOutcome = "done";
   } catch (err) {
     if (err instanceof CancelledError) {
+      jobOutcome = "cancelled";
+      jobSummary = "Stopped by you.";
       bus.emitEvent({
         type: "cancelled",
         message: "Stopped. Current agent work was cancelled.",
@@ -829,11 +841,14 @@ Reply with a VERY brief final summary for the user:
       emitStatus("orchestrator", "idle", "Stopped by you.");
       return;
     }
+    jobOutcome = "error";
     const msg = explainCursorError(err);
+    jobSummary = msg;
     bus.emitEvent({ type: "error", message: msg });
     bus.emitEvent({ type: "orch", text: msg, kind: "normal" });
     emitStatus("orchestrator", "blocked", msg);
   } finally {
+    finishJob(job.id, jobOutcome, jobSummary);
     bus.emitEvent({ type: "run", running: false });
     setActiveWorkspace(null);
   }
@@ -860,6 +875,11 @@ export async function instructOne(
 
   clearCancelFlag();
   setActiveWorkspace(workspace);
+  const job = startJob({
+    goal: instruction.trim(),
+    mode: "build",
+    workspaceUrl: workspace?.url ?? null,
+  });
   bus.emitEvent({ type: "run", running: true });
   bus.emitEvent({
     type: "goal",
@@ -873,6 +893,8 @@ export async function instructOne(
     goal: instruction,
     assignments: [{ id: member.id, task: instruction }],
   });
+  let jobOutcome: "done" | "cancelled" | "error" = "done";
+  let jobSummary = "";
   try {
     bus.emitEvent({
       type: "task",
@@ -901,8 +923,12 @@ export async function instructOne(
       kind: "summary",
     });
     bus.emitEvent({ type: "done" });
+    jobSummary = report.replace(/\n+/g, " ").trim().slice(0, 280);
+    jobOutcome = "done";
   } catch (err) {
     if (err instanceof CancelledError) {
+      jobOutcome = "cancelled";
+      jobSummary = "Stopped by you.";
       bus.emitEvent({
         type: "cancelled",
         message: `${member.name} stopped.`,
@@ -916,10 +942,13 @@ export async function instructOne(
       emitStatus(member.id, "idle", "Stopped by you.");
       return;
     }
+    jobOutcome = "error";
     const msg = explainCursorError(err);
+    jobSummary = msg;
     bus.emitEvent({ type: "error", message: msg });
     emitStatus(member.id, "blocked", msg);
   } finally {
+    finishJob(job.id, jobOutcome, jobSummary);
     bus.emitEvent({ type: "run", running: false });
     setActiveWorkspace(null);
   }

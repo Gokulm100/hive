@@ -1,5 +1,6 @@
 import { ActiveTasks } from "./components/ActiveTasks";
 import { Header } from "./components/Header";
+import { JobsList } from "./components/JobsList";
 import { ReportsView } from "./components/ReportsView";
 import { BubblesView } from "./components/BubblesView";
 import { useOrchestration } from "./hooks/useOrchestration";
@@ -56,6 +57,7 @@ export default function App() {
               onWorkspaceBranch={api.setWorkspaceBranch}
               onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
             />
+            <JobsList jobs={api.jobs} />
             <ActiveTasks
               agents={api.cast}
               agentState={api.agentState}

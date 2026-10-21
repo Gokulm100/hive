@@ -77,6 +77,19 @@ export type PlannedTask = {
   phase: PlannedTaskPhase;
 };
 
+export type JobStatus = "running" | "done" | "cancelled" | "error";
+
+export type HiveJob = {
+  id: string;
+  goal: string;
+  mode: "build" | "brainstorm";
+  status: JobStatus;
+  summary?: string;
+  workspaceUrl?: string | null;
+  startedAt: number;
+  finishedAt?: number;
+};
+
 export type ScriptStep =
   | { delay: number; type: "orch" | "orch-summary"; text: string }
   | {

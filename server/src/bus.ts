@@ -83,6 +83,19 @@ export type HiveEvent =
       agentId: string;
       phase: "active" | "done" | "skipped";
       task?: string;
+    }
+  | {
+      type: "jobs";
+      jobs: Array<{
+        id: string;
+        goal: string;
+        mode: "build" | "brainstorm";
+        status: "running" | "done" | "cancelled" | "error";
+        summary?: string;
+        workspaceUrl?: string | null;
+        startedAt: number;
+        finishedAt?: number;
+      }>;
     };
 
 class Bus extends EventEmitter {

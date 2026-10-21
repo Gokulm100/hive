@@ -5,6 +5,7 @@ dist
 _extract.js
 .env
 .env.local
+.hive/
 
 .manager-step1-response.json
 *.local.json

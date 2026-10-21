@@ -2,6 +2,7 @@ import { ActiveTasks } from "./ActiveTasks";
 import { AgentChat } from "./AgentChat";
 import { BubbleMap } from "./BubbleMap";
 import { DetailLog } from "./DetailLog";
+import { JobsList } from "./JobsList";
 import { RepoPicker } from "./RepoPicker";
 import type { OrchestrationApi } from "../hooks/useOrchestration";
 
@@ -107,6 +108,7 @@ export function BubblesView({ api }: Props) {
           />
         </div>
       </div>
+      <JobsList jobs={api.jobs} />
       <ActiveTasks
         agents={api.cast}
         agentState={api.agentState}

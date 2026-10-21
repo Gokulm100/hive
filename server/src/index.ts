@@ -19,9 +19,13 @@ import {
   tryProvideAnswers,
   type TeamMember,
 } from "./orchestrate";
+import { cancelRunningJobs, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
+
+// Stale "running" rows from a previous process crash
+cancelRunningJobs("Server restarted");
 
 const app = express();
 const PORT = Number(
@@ -70,12 +74,17 @@ app.get("/api/events", (req, res) => {
   };
 
   send({ type: "status", agentId: "orchestrator", status: "idle" });
+  send({ type: "jobs", jobs: listJobs() });
   const onEvent = (event: HiveEvent) => send(event);
   bus.on("event", onEvent);
 
   req.on("close", () => {
     bus.off("event", onEvent);
   });
+});
+
+app.get("/api/jobs", (_req, res) => {
+  res.json({ jobs: listJobs() });
 });
 
 app.post("/api/stop", async (_req, res) => {

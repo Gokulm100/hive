@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   fetchHealth,
+  fetchJobs,
   fetchRepos,
   skipAgent as skipAgentApi,
   startInstruct,
@@ -39,6 +40,7 @@ import type {
   AgentStatus,
   ChatMessage,
   ClarifyingQuestion,
+  HiveJob,
   OrchMessage,
   PlannedTask,
   QuestionAnswer,
@@ -46,6 +48,51 @@ import type {
 } from "../types";
 
 export type EngineMode = "live" | "demo";
+
+const DEMO_JOBS_KEY = "hive-demo-jobs";
+const MAX_JOBS = 3;
+
+function readDemoJobs(): HiveJob[] {
+  try {
+    const raw = localStorage.getItem(DEMO_JOBS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (j): j is HiveJob =>
+        !!j &&
+        typeof j === "object" &&
+        typeof (j as HiveJob).id === "string" &&
+        typeof (j as HiveJob).goal === "string"
+    ).slice(0, MAX_JOBS);
+  } catch {
+    return [];
+  }
+}
+
+function writeDemoJobs(list: HiveJob[]) {
+  try {
+    localStorage.setItem(DEMO_JOBS_KEY, JSON.stringify(list.slice(0, MAX_JOBS)));
+  } catch {
+    /* ignore */
+  }
+}
+
+function trimJobsList(list: HiveJob[]): HiveJob[] {
+  const next = [...list];
+  while (next.length > MAX_JOBS) {
+    let dropAt = -1;
+    for (let i = next.length - 1; i >= 0; i -= 1) {
+      if (next[i].status !== "running") {
+        dropAt = i;
+        break;
+      }
+    }
+    if (dropAt < 0) dropAt = next.length - 1;
+    next.splice(dropAt, 1);
+  }
+  return next;
+}
 
 function emptyChats(cast: AgentDef[]): Record<string, ChatMessage[]> {
   return Object.fromEntries(cast.map((a) => [a.id, [] as ChatMessage[]]));
@@ -101,6 +148,8 @@ export function useOrchestration() {
   >({});
   const [successSummary, setSuccessSummary] = useState<string | null>(null);
   const [celebrateOrch, setCelebrateOrch] = useState(false);
+  const [jobs, setJobs] = useState<HiveJob[]>(() => readDemoJobs());
+  const demoJobIdRef = useRef<string | null>(null);
   const [currentGoal, setCurrentGoal] = useState<string | null>(null);
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
   const [workspaceUrl, setWorkspaceUrl] = useState("");
@@ -356,12 +405,32 @@ export function useOrchestration() {
     return addMsg("orch", "Orchestrator is typing…", "typing");
   }, [addMsg, pushAgentChat]);
 
+  const upsertDemoJobs = useCallback((updater: (prev: HiveJob[]) => HiveJob[]) => {
+    setJobs((prev) => {
+      const next = trimJobsList(updater(prev));
+      writeDemoJobs(next);
+      return next;
+    });
+  }, []);
+
   const runScript = useCallback(
     (goal: string) => {
       clearTimers();
       demoSkippedRef.current = new Set();
       const g = goal.trim() || DEFAULT_GOAL;
       const mode = runModeRef.current;
+      const jobId = uid("job");
+      demoJobIdRef.current = jobId;
+      upsertDemoJobs((prev) => [
+        {
+          id: jobId,
+          goal: g,
+          mode,
+          status: "running",
+          startedAt: Date.now(),
+        },
+        ...prev.filter((j) => j.status !== "running"),
+      ]);
       setRunning(true);
       setCurrentGoal(g);
       setSuccessSummary(null);
@@ -524,10 +593,35 @@ export function useOrchestration() {
         });
         setSuccessSummary(brief);
         setCelebrateOrch(true);
+        const finishedId = demoJobIdRef.current;
+        demoJobIdRef.current = null;
+        if (finishedId) {
+          upsertDemoJobs((prev) =>
+            prev.map((j) =>
+              j.id === finishedId
+                ? {
+                    ...j,
+                    status: "done" as const,
+                    summary: brief,
+                    finishedAt: Date.now(),
+                  }
+                : j
+            )
+          );
+        }
         play("success");
       });
     },
-    [addMsg, bumpMap, clearTimers, later, logActivity, setAgent, showTyping]
+    [
+      addMsg,
+      bumpMap,
+      clearTimers,
+      later,
+      logActivity,
+      setAgent,
+      showTyping,
+      upsertDemoJobs,
+    ]
   );
 
   const selectAgent = useCallback((id: string | null) => {
@@ -671,9 +765,25 @@ export function useOrchestration() {
       }
       return next;
     });
+    const stoppedId = demoJobIdRef.current;
+    demoJobIdRef.current = null;
+    if (stoppedId) {
+      upsertDemoJobs((prev) =>
+        prev.map((j) =>
+          j.id === stoppedId
+            ? {
+                ...j,
+                status: "cancelled" as const,
+                summary: "Stopped by you.",
+                finishedAt: Date.now(),
+              }
+            : j
+        )
+      );
+    }
     addMsg("orch", "Stopped demo run.");
     bumpMap();
-  }, [addMsg, bumpMap, clearTimers]);
+  }, [addMsg, bumpMap, clearTimers, upsertDemoJobs]);
 
   const skipAgent = useCallback(
     (agentId: string) => {
@@ -953,6 +1063,7 @@ export function useOrchestration() {
   useEffect(() => {
     if (engine !== "live") {
       setRepos([]);
+      setJobs(readDemoJobs());
       return;
     }
     let cancelled = false;
@@ -966,6 +1077,13 @@ export function useOrchestration() {
       })
       .finally(() => {
         if (!cancelled) setReposLoading(false);
+      });
+    fetchJobs()
+      .then((list) => {
+        if (!cancelled) setJobs(list);
+      })
+      .catch(() => {
+        /* SSE snapshot will fill in */
       });
     return () => {
       cancelled = true;
@@ -1257,6 +1375,10 @@ export function useOrchestration() {
         }, 1200);
         return;
       }
+      if (e.type === "jobs") {
+        setJobs(e.jobs);
+        return;
+      }
       if (e.type === "goal") {
         setCurrentGoal(e.goal);
         setSuccessSummary(null);
@@ -1385,6 +1507,7 @@ export function useOrchestration() {
     workProgress,
     currentGoal,
     plannedTasks,
+    jobs,
     activeWorkspace,
     workspaceUrl,
     setWorkspaceUrl,

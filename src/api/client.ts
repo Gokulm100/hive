@@ -71,9 +71,33 @@ export type LiveEvent =
       agentId: string;
       phase: "active" | "done" | "skipped";
       task?: string;
+    }
+  | {
+      type: "jobs";
+      jobs: Array<{
+        id: string;
+        goal: string;
+        mode: "build" | "brainstorm";
+        status: "running" | "done" | "cancelled" | "error";
+        summary?: string;
+        workspaceUrl?: string | null;
+        startedAt: number;
+        finishedAt?: number;
+      }>;
     };
 
 export type RunMode = "build" | "brainstorm";
+
+export type HiveJobPayload = {
+  id: string;
+  goal: string;
+  mode: RunMode;
+  status: "running" | "done" | "cancelled" | "error";
+  summary?: string;
+  workspaceUrl?: string | null;
+  startedAt: number;
+  finishedAt?: number;
+};
 
 export type TeamMemberPayload = {
   id: string;
@@ -196,4 +220,14 @@ export async function skipAgent(agentId: string): Promise<void> {
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error || `Skip failed (${res.status})`);
+}
+
+export async function fetchJobs(): Promise<HiveJobPayload[]> {
+  const res = await fetch(apiUrl("/api/jobs"));
+  const data = (await res.json().catch(() => ({}))) as {
+    jobs?: HiveJobPayload[];
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error || `Jobs failed (${res.status})`);
+  return data.jobs ?? [];
 }
