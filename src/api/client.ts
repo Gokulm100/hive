@@ -85,11 +85,11 @@ export type Health = {
   cwd: string;
 };
 
-/** Empty in local dev (Vite proxies /api). Set on Vercel to the Render URL. */
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)?.replace(
-  /\/$/,
-  ""
-) ?? "";
+/** Local: empty (Vite proxies /api). Prod: Render API unless VITE_API_URL overrides. */
+const API_BASE = (
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+  (import.meta.env.PROD ? "https://hive-efc7.onrender.com" : "")
+).replace(/\/$/, "");
 
 function apiUrl(path: string) {
   return `${API_BASE}${path}`;
