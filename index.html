@@ -12,7 +12,15 @@
       rel="stylesheet"
     />
   </head>
-  <body class="view-reports">
+  <body class="view-reports theme-dark">
+    <script>
+      try {
+        if (localStorage.getItem("hive-theme") === "light") {
+          document.body.classList.add("theme-light");
+          document.body.classList.remove("theme-dark");
+        }
+      } catch (e) {}
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

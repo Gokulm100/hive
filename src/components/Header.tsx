@@ -1,9 +1,31 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { RunMode } from "../api/client";
 import type { EngineMode } from "../hooks/useOrchestration";
 import { isSoundMuted, toggleSoundMuted } from "../lib/sounds";
 import type { ViewMode } from "../types";
 import { HiveLogo } from "./HiveLogo";
+
+const THEME_KEY = "hive-theme";
+
+type ThemeMode = "dark" | "light";
+
+function readTheme(): ThemeMode {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (v === "light" || v === "dark") return v;
+  } catch {
+    /* ignore */
+  }
+  return "dark";
+}
+
+function applyTheme(mode: ThemeMode) {
+  document.body.classList.toggle("theme-light", mode === "light");
+  document.body.classList.toggle("theme-dark", mode === "dark");
+}
+
+// Apply before first paint when this module loads
+applyTheme(readTheme());
 
 type Props = {
   view: ViewMode;
@@ -25,6 +47,16 @@ export function Header({
   apiError,
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
+  const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
+
+  useEffect(() => {
+    applyTheme(theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
 
   return (
     <header className="top">
@@ -128,6 +160,18 @@ export function Header({
                 ? "Live · Cursor agents"
                 : "Demo mode · scripted"}
         </div>
+        <button
+          type="button"
+          className="btn-ghost theme-toggle"
+          aria-pressed={theme === "light"}
+          aria-label={
+            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+          }
+          title={theme === "light" ? "Dark mode" : "Light mode"}
+          onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+        >
+          {theme === "light" ? "Dark" : "Light"}
+        </button>
       </div>
     </header>
   );

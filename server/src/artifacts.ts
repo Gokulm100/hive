@@ -153,12 +153,103 @@ export function normalizeFinalArtifactBody(
   return text;
 }
 
+/** Filenames that signal internal work, not a shippable product. */
+const INTERNAL_NAME_RE =
+  /\b(brief|plan|outline|checklist|notes?|research|analysis|draft|spec|wireframe|acceptance|criteria|todo|backlog|summary-notes|meeting|scratch|wip|internal)\b/i;
+
+/** Body that looks like planning / process docs, not a finished product. */
+function looksLikeInternalDoc(body: string): boolean {
+  const head = body.slice(0, 900);
+  const hits = [
+    /\bui\s*brief\b/i,
+    /\bproduct\s*brief\b/i,
+    /\bimplementation\s*plan\b/i,
+    /\bproject\s*plan\b/i,
+    /\bacceptance\s*criteria\b/i,
+    /\bnext\s*steps\b/i,
+    /\bopen\s*questions\b/i,
+    /\bscope\s*(and|&)\s*priorit/i,
+    /\brough\s*outline\b/i,
+    /\binternal\s*(only|notes?|doc)\b/i,
+    /^#{1,3}\s*(plan|brief|outline|research|notes|analysis)\b/im,
+    /\b(todo|tbd|wip):\s/i,
+  ].filter((re) => re.test(head)).length;
+  return hits >= 1;
+}
+
+function looksLikeHtmlProduct(body: string): boolean {
+  return (
+    /<!doctype\s+html/i.test(body) ||
+    (/<html[\s>]/i.test(body) && /<\/html>/i.test(body))
+  );
+}
+
+function looksLikeCodeProduct(body: string, ext: string): boolean {
+  const t = body.trim();
+  if (!t || t.length < 8) return false;
+  if (ext === "css") return /[{;:]/.test(t);
+  if (ext === "js" || ext === "mjs") return /(?:function|=>|const|let|var|import|export)\b/.test(t);
+  if (ext === "json") {
+    try {
+      JSON.parse(t);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return t.length > 20;
+}
+
+/**
+ * True only for shippable final products — never plans, briefs, or scratch notes.
+ */
+export function isFinalProductArtifact(name: string, body: string): boolean {
+  const n = safeFileName(name).toLowerCase();
+  const text = body.trim();
+  if (!text) return false;
+
+  if (INTERNAL_NAME_RE.test(n.replace(/[-_]+/g, " "))) return false;
+  if (looksLikeInternalDoc(text) && !looksLikeHtmlProduct(text)) return false;
+
+  if (n.endsWith(".html") || n.endsWith(".htm") || looksLikeHtmlProduct(text)) {
+    return looksLikeHtmlProduct(text) || /<(?:body|main|section|header|div)[\s>]/i.test(text);
+  }
+  if (n.endsWith(".css")) return looksLikeCodeProduct(text, "css");
+  if (n.endsWith(".js") || n.endsWith(".mjs")) return looksLikeCodeProduct(text, "js");
+  if (n.endsWith(".json")) return looksLikeCodeProduct(text, "json");
+  if (n.endsWith(".csv")) return /,/.test(text) && text.split(/\n/).length >= 2;
+  if (n.endsWith(".png") || n.endsWith(".jpg") || n.endsWith(".jpeg") || n.endsWith(".pdf")) {
+    return text.length > 0;
+  }
+
+  // .md / .txt only if they look like a finished write-up, not process docs
+  if (n.endsWith(".md") || n.endsWith(".txt") || n.endsWith("-response.txt")) {
+    if (looksLikeInternalDoc(text)) return false;
+    // Short conversational answers are ok (the answer IS the product)
+    if (text.length <= 1200 && !/^#{1,3}\s/m.test(text.slice(0, 200))) return true;
+    // Longer docs need a product-ish name (landing, copy, page, guide, FAQ…)
+    if (
+      /\b(copy|landing|page|guide|faq|script|email|announcement|release-notes|readme)\b/i.test(
+        n.replace(/[-_]+/g, " ")
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  // Unknown extension: allow only if HTML product slipped through
+  return looksLikeHtmlProduct(text);
+}
+
 export function registerArtifactFile(opts: {
   jobId: string;
   name: string;
   content: string | Buffer;
   agentId?: string;
-}): HiveArtifact {
+  /** Skip final-product gate (internal use only). */
+  force?: boolean;
+}): HiveArtifact | null {
   ensureRoot();
   const jobDir = join(rootDir, opts.jobId);
   mkdirSync(jobDir, { recursive: true });
@@ -169,6 +260,14 @@ export function registerArtifactFile(opts: {
         normalizeFinalArtifactBody(name, opts.content),
         "utf8"
       );
+  if (!opts.force) {
+    const asText = Buffer.isBuffer(normalized)
+      ? normalized.toString("utf8")
+      : String(normalized);
+    if (!isFinalProductArtifact(name, asText)) return null;
+  }
+  if (!normalized.length) return null;
+
   const id = randomUUID();
   const absPath = join(jobDir, `${id.slice(0, 8)}-${name}`);
   writeFileSync(absPath, normalized);
@@ -206,9 +305,9 @@ function collectNamedArtifactBlocks(text: string): Block[] {
   return out;
 }
 
-/** Bare ```html … ``` (or css/js) counts as a final file deliverable. */
+/** Bare code fences that can be real products (not md/txt planning dumps). */
 function collectLanguageBlocks(text: string): Block[] {
-  const re = /```(html|htm|css|js|javascript|json|txt|md|markdown)\s*\r?\n([\s\S]*?)```/gi;
+  const re = /```(html|htm|css|js|javascript)\s*\r?\n([\s\S]*?)```/gi;
   const out: Block[] = [];
   let match: RegExpExecArray | null;
   while ((match = re.exec(text)) !== null) {
@@ -218,9 +317,7 @@ function collectLanguageBlocks(text: string): Block[] {
         ? "html"
         : lang === "javascript"
           ? "js"
-          : lang === "markdown"
-            ? "md"
-            : lang;
+          : lang;
     out.push({
       full: match[0],
       name: ext === "html" ? "index.html" : `deliverable.${ext}`,
@@ -232,7 +329,7 @@ function collectLanguageBlocks(text: string): Block[] {
 
 /**
  * Pull final deliverables from agent text.
- * Named ```artifact``` wins; else language fences (e.g. ```html).
+ * Named ```artifact``` wins; else html/css/js fences. Internal docs are dropped.
  */
 export function harvestArtifactsFromText(
   jobId: string,
@@ -248,12 +345,21 @@ export function harvestArtifactsFromText(
   for (const block of blocks) {
     const body = normalizeFinalArtifactBody(block.name, block.body);
     if (!body.trim()) continue;
+    if (!isFinalProductArtifact(block.name, body)) {
+      // Still strip the fence from chat so plans don't dump as code blocks
+      cleanText = cleanText.replace(block.full, "").trim();
+      continue;
+    }
     const art = registerArtifactFile({
       jobId,
       name: block.name,
       content: body,
       agentId,
     });
+    if (!art) {
+      cleanText = cleanText.replace(block.full, "").trim();
+      continue;
+    }
     found.push(art);
     cleanText = cleanText.replace(block.full, "").trim();
   }
@@ -262,7 +368,10 @@ export function harvestArtifactsFromText(
   return { cleanText, artifacts: found };
 }
 
-/** When no file fence exists, the agent's final reply IS the artifact. */
+/**
+ * Fallback only when the reply itself is a finished product
+ * (full HTML page, or a short answer that is the deliverable — never a plan/brief).
+ */
 export function registerFinalResponseArtifact(opts: {
   jobId: string;
   agentName: string;
@@ -272,12 +381,12 @@ export function registerFinalResponseArtifact(opts: {
   const body = opts.response.trim();
   if (!body) return null;
 
-  // If the reply itself is a full HTML page, save as .html
-  const looksHtml =
-    /<!doctype\s+html/i.test(body) || /<html[\s>]/i.test(body);
+  const looksHtml = looksLikeHtmlProduct(body);
   const name = looksHtml
     ? "index.html"
     : `${safeFileName(opts.agentName)}-response.txt`;
+
+  if (!isFinalProductArtifact(name, body)) return null;
 
   return registerArtifactFile({
     jobId: opts.jobId,
@@ -288,26 +397,26 @@ export function registerFinalResponseArtifact(opts: {
 }
 
 export function artifactsPromptHint(): string {
-  return `FINAL ARTIFACT RULES (strict):
-- Chat may include a short note, but the downloadable file must contain ONLY the final result.
-- Examples:
-  - User asked for an HTML page → artifact is the complete HTML document only (no UI brief, no plan, no “here’s how”).
-  - User asked each agent a question (e.g. “how are you?”) → each agent’s final answer is the artifact (the reply itself).
-- Prefer one fenced block for file deliverables:
+  return `FINAL PRODUCT ARTIFACTS ONLY (strict):
+- Artifacts = finished things the user can use (HTML page, CSS/JS file, finished copy).
+- NEVER attach internal work: plans, briefs, research notes, outlines, checklists, acceptance criteria, scratch pads, or “how we’ll build it”.
+- Those stay in chat only — not as downloads.
+- Chat may include a short note; the downloadable file must contain ONLY the finished product.
+
+When there IS a final product, use:
 
 \`\`\`artifact name="index.html"
 <!DOCTYPE html>
 ...complete final file only...
 \`\`\`
 
-- Or a language fence for code files:
+Or:
 
 \`\`\`html
 <!DOCTYPE html>
 ...complete final file only...
 \`\`\`
 
-- Do NOT put plans, briefs, checklists, or commentary inside the artifact body.
 - Do NOT invent download URLs — Hive shows a Download button.
-- Do NOT edit the project codebase.`;
+- Do NOT edit the project codebase unless this is Build mode and that is the task.`;
 }

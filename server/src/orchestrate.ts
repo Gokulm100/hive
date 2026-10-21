@@ -588,7 +588,8 @@ MODE: CASUAL CONVERSATION
 - Do NOT ask clarifying questions — assume sensible defaults when unsure
 - Do NOT edit the project codebase, commit, or open PRs
 - Keep the spoken reply short
-- If the topic asks for a file (HTML, CSS, etc.), put ONLY that final file in an artifact fence — never a plan or brief
+- If the topic asks for a finished file (HTML, CSS, etc.), put ONLY that final product in an artifact fence
+- Plans, briefs, research notes, and checklists stay in chat — never as artifacts
 
 ${artifactsPromptHint()}
 
@@ -605,8 +606,9 @@ ${wsNote}
 MODE: BRAINSTORM ONLY
 - Give a useful final take for your role
 - Do NOT edit the project codebase, commit, or open PRs
-- If the topic asks for a file (HTML, CSS, etc.), put ONLY that final file in an artifact fence — never a plan or brief
-- If the topic is a question to you, your answer itself is the final result
+- If the topic asks for a finished file (HTML, CSS, etc.), put ONLY that final product in an artifact fence
+- Plans, briefs, research notes, and checklists stay in chat — never as artifacts
+- If the topic is only a question to you, your short answer may be the product (no fence needed)
 
 ${artifactsPromptHint()}
 

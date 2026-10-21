@@ -1,6 +1,8 @@
 :root {
       --bg: #121416;
       --bg-deep: #1a1e22;
+      --bg-glow-1: #1a2824;
+      --bg-glow-2: #1a2430;
       --ink: #e6e9eb;
       --ink-soft: #8b949c;
       --surface: #1c2126;
@@ -26,6 +28,48 @@
       --input: #15191d;
       --msg-user: #e6e9eb;
       --msg-user-ink: #121416;
+      --map-a: #1a3038;
+      --map-b: #1a2c28;
+      --map-c: #1c2834;
+      --map-d: #161c22;
+      --map-e: #141a1e;
+      --bar-bg: rgba(21, 25, 29, 0.92);
+      --modal-scrim: rgba(8, 10, 12, 0.72);
+    }
+
+    body.theme-light {
+      --bg: #f3f1ec;
+      --bg-deep: #ebe7df;
+      --bg-glow-1: #e4efe8;
+      --bg-glow-2: #e2e8f0;
+      --ink: #1a1f24;
+      --ink-soft: #5c6670;
+      --surface: #faf8f5;
+      --stroke: #d5d0c6;
+      --accent: #2f8f72;
+      --accent-soft: #d8eee4;
+      --warn: #b07830;
+      --warn-soft: #f3e6d0;
+      --done: #2f8f72;
+      --done-soft: #d8eee4;
+      --idle: #6a737b;
+      --idle-soft: #e8e4dc;
+      --blocked: #c45a56;
+      --blocked-soft: #f3d8d6;
+      --orch: #3d6f84;
+      --orch-soft: #d7e6ed;
+      --shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
+      --line: #8aa3a8;
+      --input: #ffffff;
+      --msg-user: #1a1f24;
+      --msg-user-ink: #faf8f5;
+      --map-a: #dce8ea;
+      --map-b: #d8e6e0;
+      --map-c: #dde4ec;
+      --map-d: #e8e4dc;
+      --map-e: #efebe3;
+      --bar-bg: rgba(250, 248, 245, 0.94);
+      --modal-scrim: rgba(40, 44, 48, 0.45);
     }
 
     * { box-sizing: border-box; }
@@ -35,11 +79,14 @@
       font-family: var(--font);
       color: var(--ink);
       background:
-        radial-gradient(1000px 520px at 12% -8%, #1a2824 0%, transparent 50%),
-        radial-gradient(800px 420px at 100% 0%, #1a2430 0%, transparent 45%),
+        radial-gradient(1000px 520px at 12% -8%, var(--bg-glow-1) 0%, transparent 50%),
+        radial-gradient(800px 420px at 100% 0%, var(--bg-glow-2) 0%, transparent 45%),
         var(--bg);
       line-height: 1.45;
       color-scheme: dark;
+    }
+    body.theme-light {
+      color-scheme: light;
     }
 
     .app {
@@ -105,6 +152,15 @@
     .sound-toggle[aria-pressed="true"] {
       color: var(--accent);
       border-color: #3a5a4e;
+    }
+    body.theme-light .sound-toggle[aria-pressed="true"] {
+      border-color: #7cbc9f;
+    }
+    .theme-toggle {
+      font-size: 0.78rem;
+      padding: 8px 12px;
+      border-radius: 10px;
+      min-width: 5.5rem;
     }
 
     .badge {
@@ -639,10 +695,10 @@
       border: none;
       border-radius: 0;
       background:
-        radial-gradient(ellipse 80% 60% at 50% 40%, #1a3038 0%, transparent 55%),
-        radial-gradient(circle at 20% 80%, #1a2c28 0%, transparent 40%),
-        radial-gradient(circle at 85% 15%, #1c2834 0%, transparent 35%),
-        linear-gradient(165deg, #161c22 0%, var(--surface) 55%, #141a1e 100%);
+        radial-gradient(ellipse 80% 60% at 50% 40%, var(--map-a) 0%, transparent 55%),
+        radial-gradient(circle at 20% 80%, var(--map-b) 0%, transparent 40%),
+        radial-gradient(circle at 85% 15%, var(--map-c) 0%, transparent 35%),
+        linear-gradient(165deg, var(--map-d) 0%, var(--surface) 55%, var(--map-e) 100%);
       overflow: hidden;
       display: flex;
       flex-direction: column;
@@ -1454,7 +1510,7 @@
       margin-top: 4px;
       border: 1px solid var(--stroke);
       border-radius: 14px;
-      background: rgba(18, 22, 28, 0.95);
+      background: var(--bar-bg);
       animation: fadeIn 0.28s ease;
     }
     .question-form-intro {
@@ -1598,7 +1654,7 @@
       align-items: flex-end;
       padding: 8px 12px;
       border-bottom: 1px solid var(--stroke);
-      background: rgba(21, 25, 29, 0.92);
+      background: var(--bar-bg);
       flex-shrink: 0;
       z-index: 2;
       width: 100%;
@@ -1680,7 +1736,7 @@
       display: grid;
       place-items: center;
       padding: 20px;
-      background: rgba(8, 10, 12, 0.72);
+      background: var(--modal-scrim);
       backdrop-filter: blur(4px);
     }
     .agent-modal {
@@ -2058,7 +2114,7 @@
       gap: 8px;
       padding: 10px 12px;
       border-bottom: 1px solid var(--stroke);
-      background: rgba(18, 22, 28, 0.92);
+      background: var(--bar-bg);
       flex-shrink: 0;
     }
     .panel.chat .repo-picker {
