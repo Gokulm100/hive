@@ -1592,24 +1592,32 @@
 
     .add-agent-bar {
       display: none;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 10px;
       align-items: flex-end;
-      padding: 10px 12px;
+      padding: 8px 12px;
       border-bottom: 1px solid var(--stroke);
       background: rgba(21, 25, 29, 0.92);
       flex-shrink: 0;
       z-index: 2;
+      width: 100%;
+      box-sizing: border-box;
+      min-width: 0;
     }
     body.view-bubbles .add-agent-bar { display: flex; }
     body.view-reports .add-agent-bar-reports { display: flex; }
 
     .add-agent-bar-reports {
       display: none;
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-direction: row;
+      flex-wrap: nowrap;
+      gap: 10px;
       align-items: flex-end;
       margin-bottom: 8px;
+      min-width: 0;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     .add-agent-bar-spacer {
@@ -1617,39 +1625,52 @@
       min-width: 0;
     }
     .add-agent-trigger {
-      flex-shrink: 0;
+      flex: 0 0 auto;
       padding: 8px 14px;
       font-size: 0.8rem;
       white-space: nowrap;
       align-self: flex-end;
+      height: 36px;
     }
 
+    /* Override .repo-picker column layout — must stay a horizontal toolbar */
     .repo-picker.compact {
-      flex: 1;
+      flex: 1 1 auto;
       min-width: 0;
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: row;
+      flex-wrap: nowrap;
       gap: 8px;
       align-items: flex-end;
       padding: 0;
       border: none;
+      border-bottom: none;
       background: transparent;
     }
     .repo-picker.compact .repo-field {
-      flex: 1;
-      min-width: 140px;
+      flex: 1 1 0;
+      min-width: 0;
     }
     .repo-picker.compact .repo-branch {
-      flex: 0 1 120px;
-      min-width: 100px;
+      flex: 0 1 110px;
+      min-width: 88px;
+      max-width: 140px;
     }
     .repo-picker.compact .repo-field span {
-      font-size: 0.65rem;
+      font-size: 0.62rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .repo-picker.compact .repo-field select,
     .repo-picker.compact .repo-field input {
       padding: 7px 9px;
       font-size: 0.8rem;
+      height: 36px;
+      box-sizing: border-box;
+      min-width: 0;
+      width: 100%;
     }
 
     .agent-modal-backdrop {
