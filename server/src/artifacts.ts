@@ -35,7 +35,7 @@ function ensureRoot() {
   mkdirSync(rootDir, { recursive: true });
 }
 
-function safeFileName(raw: string): string {
+export function safeFileName(raw: string): string {
   const base = basename(String(raw || "artifact").trim() || "artifact")
     .replace(/[^\w.\-()+ ]+/g, "_")
     .replace(/\s+/g, "-")
@@ -51,6 +51,9 @@ function guessMime(name: string): string {
   if (lower.endsWith(".csv")) return "text/csv; charset=utf-8";
   if (lower.endsWith(".html") || lower.endsWith(".htm"))
     return "text/html; charset=utf-8";
+  if (lower.endsWith(".css")) return "text/css; charset=utf-8";
+  if (lower.endsWith(".js") || lower.endsWith(".mjs"))
+    return "text/javascript; charset=utf-8";
   if (lower.endsWith(".pdf")) return "application/pdf";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
@@ -58,16 +61,14 @@ function guessMime(name: string): string {
 }
 
 function emitList(jobId?: string) {
-  const jobs = listArtifacts(jobId);
-  bus.emitEvent({ type: "artifacts", artifacts: jobs });
+  bus.emitEvent({ type: "artifacts", artifacts: listArtifacts(jobId) });
 }
 
 export function listArtifacts(jobId?: string): HiveArtifact[] {
-  const rows = [...store.values()]
+  return [...store.values()]
     .filter((a) => (jobId ? a.jobId === jobId : true))
     .sort((a, b) => b.createdAt - a.createdAt)
     .map(({ absPath: _p, ...rest }) => rest);
-  return rows;
 }
 
 export function getArtifact(id: string): Stored | null {
@@ -97,6 +98,61 @@ export function deleteArtifact(id: string): boolean {
   return true;
 }
 
+/** Keep only the final file body — strip plans, commentary, wrappers. */
+export function normalizeFinalArtifactBody(
+  name: string,
+  body: string
+): string {
+  let text = body.replace(/^\uFEFF/, "").trim();
+  if (!text) return text;
+
+  const lowerName = name.toLowerCase();
+
+  // Prefer a complete HTML document if present
+  if (
+    lowerName.endsWith(".html") ||
+    lowerName.endsWith(".htm") ||
+    /<!doctype\s+html/i.test(text) ||
+    /<html[\s>]/i.test(text)
+  ) {
+    const doc = text.match(/<!doctype\s+html[\s\S]*<\/html>/i);
+    if (doc) return doc[0].trim();
+    const htmlOnly = text.match(/<html[\s\S]*<\/html>/i);
+    if (htmlOnly) return htmlOnly[0].trim();
+  }
+
+  // Strip a single outer markdown fence if the whole body is wrapped
+  const fenced = text.match(/^```[\w-]*\r?\n([\s\S]*?)\r?\n```$/);
+  if (fenced) text = fenced[1].trim();
+
+  // Drop leading “here is…” commentary before the real payload
+  const lines = text.split(/\r?\n/);
+  let start = 0;
+  while (start < lines.length) {
+    const line = lines[start].trim();
+    if (!line) {
+      start += 1;
+      continue;
+    }
+    if (
+      /^(here('s| is)|below is|i('ve| have)|sure[,!]?|okay[,!]?|alright[,!]?)/i.test(
+        line
+      ) &&
+      line.length < 120 &&
+      !line.includes("<") &&
+      !line.startsWith("#") &&
+      !line.startsWith("{")
+    ) {
+      start += 1;
+      continue;
+    }
+    break;
+  }
+  text = lines.slice(start).join("\n").trim();
+
+  return text;
+}
+
 export function registerArtifactFile(opts: {
   jobId: string;
   name: string;
@@ -107,18 +163,21 @@ export function registerArtifactFile(opts: {
   const jobDir = join(rootDir, opts.jobId);
   mkdirSync(jobDir, { recursive: true });
   const name = safeFileName(opts.name);
+  const normalized = Buffer.isBuffer(opts.content)
+    ? opts.content
+    : Buffer.from(
+        normalizeFinalArtifactBody(name, opts.content),
+        "utf8"
+      );
   const id = randomUUID();
   const absPath = join(jobDir, `${id.slice(0, 8)}-${name}`);
-  const buf = Buffer.isBuffer(opts.content)
-    ? opts.content
-    : Buffer.from(opts.content, "utf8");
-  writeFileSync(absPath, buf);
+  writeFileSync(absPath, normalized);
   const row: Stored = {
     id,
     jobId: opts.jobId,
     name,
     mime: guessMime(name),
-    size: buf.length,
+    size: normalized.length,
     createdAt: Date.now(),
     agentId: opts.agentId,
     absPath,
@@ -130,50 +189,125 @@ export function registerArtifactFile(opts: {
   return publicRow;
 }
 
-/** Pull ```artifact name="…"``` fences from agent text; returns cleaned text. */
+type Block = { full: string; name: string; body: string };
+
+function collectNamedArtifactBlocks(text: string): Block[] {
+  const re =
+    /```artifact\s+name\s*=\s*["']([^"']+)["']\s*\r?\n([\s\S]*?)```/gi;
+  const out: Block[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    out.push({
+      full: match[0],
+      name: match[1],
+      body: match[2].replace(/^\n/, "").replace(/\n$/, ""),
+    });
+  }
+  return out;
+}
+
+/** Bare ```html … ``` (or css/js) counts as a final file deliverable. */
+function collectLanguageBlocks(text: string): Block[] {
+  const re = /```(html|htm|css|js|javascript|json|txt|md|markdown)\s*\r?\n([\s\S]*?)```/gi;
+  const out: Block[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(text)) !== null) {
+    const lang = match[1].toLowerCase();
+    const ext =
+      lang === "htm" || lang === "html"
+        ? "html"
+        : lang === "javascript"
+          ? "js"
+          : lang === "markdown"
+            ? "md"
+            : lang;
+    out.push({
+      full: match[0],
+      name: ext === "html" ? "index.html" : `deliverable.${ext}`,
+      body: match[2].replace(/^\n/, "").replace(/\n$/, ""),
+    });
+  }
+  return out;
+}
+
+/**
+ * Pull final deliverables from agent text.
+ * Named ```artifact``` wins; else language fences (e.g. ```html).
+ */
 export function harvestArtifactsFromText(
   jobId: string,
   text: string,
   agentId?: string
 ): { cleanText: string; artifacts: HiveArtifact[] } {
   const found: HiveArtifact[] = [];
-  const re =
-    /```artifact\s+name\s*=\s*["']([^"']+)["']\s*\r?\n([\s\S]*?)```/gi;
   let cleanText = text;
-  let match: RegExpExecArray | null;
-  const replacements: Array<{ full: string; name: string; body: string }> = [];
-  while ((match = re.exec(text)) !== null) {
-    replacements.push({
-      full: match[0],
-      name: match[1],
-      body: match[2].replace(/^\n/, "").replace(/\n$/, ""),
-    });
-  }
-  for (const block of replacements) {
+
+  const named = collectNamedArtifactBlocks(text);
+  const blocks = named.length ? named : collectLanguageBlocks(text);
+
+  for (const block of blocks) {
+    const body = normalizeFinalArtifactBody(block.name, block.body);
+    if (!body.trim()) continue;
     const art = registerArtifactFile({
       jobId,
       name: block.name,
-      content: block.body,
+      content: body,
       agentId,
     });
     found.push(art);
     cleanText = cleanText.replace(block.full, "").trim();
   }
-  // Collapse leftover blank lines
+
   cleanText = cleanText.replace(/\n{3,}/g, "\n\n").trim();
   return { cleanText, artifacts: found };
 }
 
-export function artifactsPromptHint(): string {
-  return `DELIVERABLE RULES:
-- Prefer a normal chat reply.
-- If you produce a reusable artifact (brief, outline, notes, checklist, etc.), ALSO include it as one or more fenced blocks exactly like this:
+/** When no file fence exists, the agent's final reply IS the artifact. */
+export function registerFinalResponseArtifact(opts: {
+  jobId: string;
+  agentName: string;
+  agentId?: string;
+  response: string;
+}): HiveArtifact | null {
+  const body = opts.response.trim();
+  if (!body) return null;
 
-\`\`\`artifact name="short-name.md"
-...full file contents...
+  // If the reply itself is a full HTML page, save as .html
+  const looksHtml =
+    /<!doctype\s+html/i.test(body) || /<html[\s>]/i.test(body);
+  const name = looksHtml
+    ? "index.html"
+    : `${safeFileName(opts.agentName)}-response.txt`;
+
+  return registerArtifactFile({
+    jobId: opts.jobId,
+    name,
+    content: body,
+    agentId: opts.agentId,
+  });
+}
+
+export function artifactsPromptHint(): string {
+  return `FINAL ARTIFACT RULES (strict):
+- Chat may include a short note, but the downloadable file must contain ONLY the final result.
+- Examples:
+  - User asked for an HTML page → artifact is the complete HTML document only (no UI brief, no plan, no “here’s how”).
+  - User asked each agent a question (e.g. “how are you?”) → each agent’s final answer is the artifact (the reply itself).
+- Prefer one fenced block for file deliverables:
+
+\`\`\`artifact name="index.html"
+<!DOCTYPE html>
+...complete final file only...
 \`\`\`
 
-- You may include multiple artifact blocks.
-- Do NOT invent download URLs — Hive will offer a download button.
-- Do NOT edit the project codebase; artifacts go only in these fences.`;
+- Or a language fence for code files:
+
+\`\`\`html
+<!DOCTYPE html>
+...complete final file only...
+\`\`\`
+
+- Do NOT put plans, briefs, checklists, or commentary inside the artifact body.
+- Do NOT invent download URLs — Hive shows a Download button.
+- Do NOT edit the project codebase.`;
 }

@@ -19,6 +19,7 @@ import { clearSkipped, isSkipped } from "./skip";
 import {
   artifactsPromptHint,
   harvestArtifactsFromText,
+  registerFinalResponseArtifact,
 } from "./artifacts";
 import { finishJob, startJob } from "./jobs";
 import {
@@ -588,7 +589,8 @@ MODE: CASUAL CONVERSATION
 - Reply like a teammate in a chat — natural, direct, warm
 - Do NOT ask clarifying questions — assume sensible defaults when unsure
 - Do NOT edit the project codebase, commit, or open PRs
-- Keep it short and useful (a few conversational beats)
+- Keep the spoken reply short
+- If the topic asks for a file (HTML, CSS, etc.), put ONLY that final file in an artifact fence — never a plan or brief
 
 ${artifactsPromptHint()}
 
@@ -597,15 +599,16 @@ Topic: ${goal}
 Your angle:
 ${focus}
 
-Reply in plain conversational language (and optional artifact fences).`
+Respond now.`
     : `${roleBrief(member.id, member.name, member.role)}
 
 ${wsNote}
 
 MODE: BRAINSTORM ONLY
-- Discuss ideas, options, risks, open questions
+- Give a useful final take for your role
 - Do NOT edit the project codebase, commit, or open PRs
-- Keep it concrete and useful (a few sharp points)
+- If the topic asks for a file (HTML, CSS, etc.), put ONLY that final file in an artifact fence — never a plan or brief
+- If the topic is a question to you, your answer itself is the final result
 
 ${artifactsPromptHint()}
 
@@ -614,7 +617,7 @@ Topic: ${goal}
 Your angle:
 ${focus}
 
-Reply in plain language (and optional artifact fences).`;
+Respond now.`;
 
   const raw = await runAgentPrompt(member, prompt, {
     asMain: true,
@@ -625,10 +628,23 @@ Reply in plain language (and optional artifact fences).`;
     streamToChat: false,
   });
 
-  const harvested = opts.jobId
-    ? harvestArtifactsFromText(opts.jobId, raw, member.id)
-    : { cleanText: raw, artifacts: [] as { name: string }[] };
-  const reply = harvested.cleanText || raw;
+  let artifacts: { name: string }[] = [];
+  let reply = raw;
+  if (opts.jobId) {
+    const harvested = harvestArtifactsFromText(opts.jobId, raw, member.id);
+    reply = harvested.cleanText || raw;
+    artifacts = harvested.artifacts;
+    // No file fence → the agent's final reply is the artifact (e.g. "how are you?")
+    if (!artifacts.length && reply.trim()) {
+      const fallback = registerFinalResponseArtifact({
+        jobId: opts.jobId,
+        agentName: member.name,
+        agentId: member.id,
+        response: reply,
+      });
+      if (fallback) artifacts = [fallback];
+    }
+  }
 
   bus.emitEvent({
     type: "chat",
@@ -636,16 +652,16 @@ Reply in plain language (and optional artifact fences).`;
     role: "agent",
     text: reply,
   });
-  if (harvested.artifacts.length) {
+  if (artifacts.length) {
     bus.emitEvent({
       type: "chat",
       agentId: member.id,
       role: "system",
-      text: `Ready to download: ${harvested.artifacts.map((a) => a.name).join(", ")}`,
+      text: `Ready to download: ${artifacts.map((a) => a.name).join(", ")}`,
     });
     bus.emitEvent({
       type: "orch",
-      text: `${member.name} attached ${harvested.artifacts.length} artifact${harvested.artifacts.length > 1 ? "s" : ""} — use Download when ready.`,
+      text: `${member.name} attached ${artifacts.length} artifact${artifacts.length > 1 ? "s" : ""} — use Download when ready.`,
       kind: "normal",
     });
   }
@@ -835,12 +851,22 @@ export async function runOrchestration(
         }))
       );
       for (const g of guestReports) {
-        const { cleanText, artifacts } = harvestArtifactsFromText(
+        const harvested = harvestArtifactsFromText(
           job.id,
           g.report,
           `guest-${g.name}`
         );
-        const report = cleanText || g.report;
+        const report = harvested.cleanText || g.report;
+        let arts = harvested.artifacts;
+        if (!arts.length && report.trim()) {
+          const fallback = registerFinalResponseArtifact({
+            jobId: job.id,
+            agentName: g.name,
+            agentId: `guest-${g.name}`,
+            response: report,
+          });
+          if (fallback) arts = [fallback];
+        }
         reports.push({
           id: `guest-${g.name}`,
           name: g.name,
@@ -851,10 +877,10 @@ export async function runOrchestration(
           text: `Guest “${g.name}”: ${report.slice(0, 400)}`,
           kind: "normal",
         });
-        if (artifacts.length) {
+        if (arts.length) {
           bus.emitEvent({
             type: "orch",
-            text: `Guest “${g.name}” attached ${artifacts.length} artifact${artifacts.length > 1 ? "s" : ""} — use Download when ready.`,
+            text: `Guest “${g.name}” attached ${arts.length} artifact${arts.length > 1 ? "s" : ""} — use Download when ready.`,
             kind: "normal",
           });
         }
