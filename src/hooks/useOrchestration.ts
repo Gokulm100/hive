@@ -30,6 +30,7 @@ import {
   redistributeAngles,
 } from "../data/cast";
 import { buildScript } from "../data/script";
+import { readViewFromLocation, syncViewToLocation } from "../lib/viewMode";
 import { uid } from "../lib/utils";
 import type {
   ActivityEntry,
@@ -83,7 +84,11 @@ export function useOrchestration() {
   const [messages, setMessages] = useState<OrchMessage[]>([]);
   const [running, setRunning] = useState(false);
   const [directing, setDirecting] = useState(false);
-  const [view, setView] = useState<ViewMode>("reports");
+  const [view, setViewState] = useState<ViewMode>(() => readViewFromLocation());
+  const setView = useCallback((next: ViewMode) => {
+    setViewState(next);
+    syncViewToLocation(next);
+  }, []);
   const [selected, setSelected] = useState<string | null>(null);
   const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
   const [mapTick, setMapTick] = useState(0);
@@ -760,9 +765,9 @@ export function useOrchestration() {
       setEphemeralAgents([]);
       setChats(() => emptyChats([ORCHESTRATOR, ...teamAgents]));
       bumpMap();
-      void keepEmpty;
+      if (keepEmpty) setView("bubbles");
     },
-    [bumpMap, clearTimers, teamAgents]
+    [bumpMap, clearTimers, setView, teamAgents]
   );
 
   const startReplay = useCallback(() => {
