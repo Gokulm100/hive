@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import {
+  deleteJob as deleteJobApi,
   fetchArtifacts,
   fetchHealth,
   fetchJobs,
@@ -14,6 +15,7 @@ import {
   skipAgent as skipAgentApi,
   startInstruct,
   startOrchestration,
+  stopJob as stopJobApi,
   stopRun as stopRunApi,
   subscribeEvents,
   type ListedRepo,
@@ -793,6 +795,92 @@ export function useOrchestration() {
     addMsg("orch", "Stopped demo run.");
     bumpMap();
   }, [addMsg, bumpMap, clearTimers, upsertDemoJobs]);
+
+  const stopJob = useCallback(
+    (jobId: string) => {
+      const id = jobId.trim();
+      if (!id) return;
+      const job = jobs.find((j) => j.id === id);
+      if (!job || job.status !== "running") return;
+
+      if (engineRef.current === "live") {
+        void stopJobApi(id).catch((err: Error) => {
+          setApiError(err.message);
+          addMsg("orch", err.message);
+          play("error");
+        });
+        return;
+      }
+
+      if (demoJobIdRef.current === id) {
+        stopRun();
+        return;
+      }
+      upsertDemoJobs((prev) =>
+        prev.map((j) =>
+          j.id === id
+            ? {
+                ...j,
+                status: "cancelled" as const,
+                summary: "Stopped by you.",
+                finishedAt: Date.now(),
+              }
+            : j
+        )
+      );
+    },
+    [addMsg, jobs, stopRun, upsertDemoJobs]
+  );
+
+  const deleteJob = useCallback(
+    (jobId: string) => {
+      const id = jobId.trim();
+      if (!id) return;
+
+      if (engineRef.current === "live") {
+        void deleteJobApi(id)
+          .then(() => {
+            setJobs((prev) => prev.filter((j) => j.id !== id));
+          })
+          .catch((err: Error) => {
+            setApiError(err.message);
+            addMsg("orch", err.message);
+            play("error");
+          });
+        // If this was the active run, mirror local stop UI immediately
+        if (running) {
+          setRunning(false);
+          setDirecting(false);
+        }
+        return;
+      }
+
+      const wasActiveDemo = demoJobIdRef.current === id;
+      if (wasActiveDemo) {
+        clearTimers();
+        demoJobIdRef.current = null;
+        setRunning(false);
+        setDirecting(false);
+        setAgentState((s) => {
+          const next = { ...s };
+          for (const key of Object.keys(next)) {
+            if (next[key].status === "working") {
+              next[key] = {
+                ...next[key],
+                status: "idle",
+                report: "Job deleted.",
+              };
+            }
+          }
+          return next;
+        });
+        bumpMap();
+      }
+      upsertDemoJobs((prev) => prev.filter((j) => j.id !== id));
+      if (wasActiveDemo) addMsg("orch", "Deleted demo job.");
+    },
+    [addMsg, bumpMap, clearTimers, running, upsertDemoJobs]
+  );
 
   const skipAgent = useCallback(
     (agentId: string) => {
@@ -1578,6 +1666,8 @@ export function useOrchestration() {
     instructAgent,
     answerQuestions,
     stopRun,
+    stopJob,
+    deleteJob,
     skipAgent,
     addAgent,
     removeAgent,

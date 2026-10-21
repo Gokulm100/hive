@@ -105,7 +105,11 @@ export function BubblesView({ api }: Props) {
           />
         </div>
       </div>
-      <JobsList jobs={api.jobs} />
+      <JobsList
+        jobs={api.jobs}
+        onStopJob={api.stopJob}
+        onDeleteJob={api.deleteJob}
+      />
       <ArtifactsPanel
         artifacts={api.artifacts}
         onRemoved={api.removeArtifact}

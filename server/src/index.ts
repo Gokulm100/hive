@@ -25,7 +25,7 @@ import {
   listArtifacts,
   readArtifactBytes,
 } from "./artifacts";
-import { cancelRunningJobs, listJobs } from "./jobs";
+import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
@@ -92,6 +92,51 @@ app.get("/api/events", (req, res) => {
 
 app.get("/api/jobs", (_req, res) => {
   res.json({ jobs: listJobs() });
+});
+
+/** Stop a running job (same as global stop) then keep it in the list as cancelled. */
+app.post("/api/jobs/:id/stop", async (req, res) => {
+  const id = String(req.params.id || "").trim();
+  const job = id ? getJob(id) : null;
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.status !== "running") {
+    res.json({ ok: true, id, alreadyFinished: true, status: job.status });
+    return;
+  }
+  rejectAllAwaiting("Stopped by user");
+  const cancelled = await requestCancel();
+  bus.emitEvent({
+    type: "cancelled",
+    message: "Stopping job… cancelled active work and any waiting questions.",
+  });
+  res.json({ ok: true, id, cancelled });
+});
+
+/** Delete a job from history. If it is still running, stop it first. */
+app.delete("/api/jobs/:id", async (req, res) => {
+  const id = String(req.params.id || "").trim();
+  if (!id) {
+    res.status(400).json({ error: "id is required" });
+    return;
+  }
+  const job = getJob(id);
+  if (!job) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  if (job.status === "running") {
+    rejectAllAwaiting("Job deleted");
+    await requestCancel();
+  }
+  const removed = deleteJob(id);
+  if (!removed) {
+    res.status(404).json({ error: "Job not found" });
+    return;
+  }
+  res.json({ ok: true, deleted: id, wasRunning: job.status === "running" });
 });
 
 app.get("/api/artifacts", (_req, res) => {

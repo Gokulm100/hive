@@ -162,3 +162,18 @@ export function cancelRunningJobs(message = "Interrupted") {
     emitJobs();
   }
 }
+
+export function getJob(id: string): HiveJob | null {
+  const row = jobs.find((j) => j.id === id);
+  return row ? { ...row } : null;
+}
+
+/** Remove a job from the list (running or finished). */
+export function deleteJob(id: string): HiveJob | null {
+  const idx = jobs.findIndex((j) => j.id === id);
+  if (idx < 0) return null;
+  const [removed] = jobs.splice(idx, 1);
+  persist();
+  emitJobs();
+  return { ...removed };
+}

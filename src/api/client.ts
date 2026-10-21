@@ -253,6 +253,22 @@ export async function fetchJobs(): Promise<HiveJobPayload[]> {
   return data.jobs ?? [];
 }
 
+export async function stopJob(id: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}/stop`), {
+    method: "POST",
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || `Stop job failed (${res.status})`);
+}
+
+export async function deleteJob(id: string): Promise<void> {
+  const res = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}`), {
+    method: "DELETE",
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new Error(data.error || `Delete job failed (${res.status})`);
+}
+
 export async function fetchArtifacts(): Promise<HiveArtifactPayload[]> {
   const res = await fetch(apiUrl("/api/artifacts"));
   const data = (await res.json().catch(() => ({}))) as {

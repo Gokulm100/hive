@@ -2,6 +2,8 @@ import type { HiveJob } from "../types";
 
 type Props = {
   jobs: HiveJob[];
+  onStopJob?: (id: string) => void;
+  onDeleteJob?: (id: string) => void;
 };
 
 function statusLabel(status: HiveJob["status"]) {
@@ -32,7 +34,7 @@ function formatWhen(ts: number) {
   }
 }
 
-export function JobsList({ jobs }: Props) {
+export function JobsList({ jobs, onStopJob, onDeleteJob }: Props) {
   return (
     <section className="jobs-list" aria-label="Recent jobs">
       <div className="jobs-list-head">
@@ -53,7 +55,17 @@ export function JobsList({ jobs }: Props) {
               }`}
             >
               <div className="job-top">
-                <span className={`chip ${job.status === "running" ? "working" : job.status === "error" ? "blocked" : job.status === "done" ? "done" : "idle"}`}>
+                <span
+                  className={`chip ${
+                    job.status === "running"
+                      ? "working"
+                      : job.status === "error"
+                        ? "blocked"
+                        : job.status === "done"
+                          ? "done"
+                          : "idle"
+                  }`}
+                >
                   {statusLabel(job.status)}
                 </span>
                 <span className="job-mode">
@@ -75,6 +87,33 @@ export function JobsList({ jobs }: Props) {
                 <p className="job-repo">
                   {job.workspaceUrl.replace(/^https?:\/\/github\.com\//i, "")}
                 </p>
+              ) : null}
+              {onStopJob || onDeleteJob ? (
+                <div className="job-actions">
+                  {job.status === "running" && onStopJob ? (
+                    <button
+                      type="button"
+                      className="btn-ghost job-action"
+                      onClick={() => onStopJob(job.id)}
+                    >
+                      Stop
+                    </button>
+                  ) : null}
+                  {onDeleteJob ? (
+                    <button
+                      type="button"
+                      className="btn-danger job-action"
+                      onClick={() => onDeleteJob(job.id)}
+                      title={
+                        job.status === "running"
+                          ? "Stop and remove this job"
+                          : "Remove this job"
+                      }
+                    >
+                      {job.status === "running" ? "Stop & delete" : "Delete"}
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </li>
           ))}

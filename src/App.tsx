@@ -58,7 +58,11 @@ export default function App() {
               onWorkspaceBranch={api.setWorkspaceBranch}
               onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
             />
-            <JobsList jobs={api.jobs} />
+            <JobsList
+              jobs={api.jobs}
+              onStopJob={api.stopJob}
+              onDeleteJob={api.deleteJob}
+            />
             <ArtifactsPanel
               artifacts={api.artifacts}
               onRemoved={api.removeArtifact}

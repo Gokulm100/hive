@@ -1994,6 +1994,18 @@
       font-size: 0.68rem;
       color: var(--ink-soft);
     }
+    .job-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .job-action {
+      padding: 5px 10px;
+      font-size: 0.72rem;
+      border-radius: 8px;
+      line-height: 1.2;
+    }
     .job-goal {
       margin: 0;
       font-size: 0.88rem;
