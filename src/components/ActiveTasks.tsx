@@ -42,7 +42,8 @@ export function ActiveTasks({
   onSelect,
   onSkip,
 }: Props) {
-  const brainstorm = runMode === "brainstorm";
+  const discuss = runMode === "brainstorm" || runMode === "casual";
+  const casual = runMode === "casual";
   const byId = new Map(agents.map((a) => [a.id, a]));
 
   const activeLive = agents.filter((a) => {
@@ -110,21 +111,29 @@ export function ActiveTasks({
         >
           <p className="goal-eyebrow">
             {successSummary
-              ? brainstorm
-                ? "Synthesized"
+              ? discuss
+                ? casual
+                  ? "Wrapped"
+                  : "Synthesized"
                 : "Delivered"
-              : brainstorm
-                ? "Brainstorm"
-                : "Overall functionality"}
+              : casual
+                ? "Casual"
+                : discuss
+                  ? "Brainstorm"
+                  : "Overall functionality"}
           </p>
           <h4 className="goal-title">
             {successSummary
-              ? brainstorm
-                ? "Brainstorm wrapped"
-                : "Hive finished this run"
-              : brainstorm
-                ? "Discussion in progress"
-                : "Being implemented"}
+              ? casual
+                ? "Chat wrapped"
+                : discuss
+                  ? "Brainstorm wrapped"
+                  : "Hive finished this run"
+              : casual
+                ? "Conversation in progress"
+                : discuss
+                  ? "Discussion in progress"
+                  : "Being implemented"}
           </h4>
           <p className="goal-body">{successSummary || currentGoal}</p>
           {activeWorkspace?.url ? (
@@ -152,8 +161,10 @@ export function ActiveTasks({
             </div>
           ) : running ? (
             <p className="goal-count">
-              {brainstorm
-                ? "Picking a lean circle…"
+              {discuss
+                ? casual
+                  ? "Opening the chat…"
+                  : "Picking a lean circle…"
                 : "Planning the lineup…"}
             </p>
           ) : null}

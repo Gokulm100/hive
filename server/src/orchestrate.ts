@@ -14,7 +14,7 @@ import {
   throwIfCancelled,
 } from "./pool";
 import { parseSubagentRequest } from "./subagents";
-import { parseRunMode, type RunMode } from "./runMode";
+import { isDiscussMode, parseRunMode, type RunMode } from "./runMode";
 import { clearSkipped, isSkipped } from "./skip";
 import { finishJob, startJob } from "./jobs";
 import {
@@ -132,22 +132,22 @@ function defaultAssignments(
   mode: RunMode
 ): Assignment[] {
   const pool = team.filter((t) => t.id !== "orchestrator");
-  // Brainstorm: lean default — manager + bd only if present
-  const leanIds =
-    mode === "brainstorm"
-      ? ["manager", "bd", "designer"].filter((id) =>
-          pool.some((p) => p.id === id)
-        )
-      : pool.map((p) => p.id);
+  // Discuss modes: lean default — manager + bd only if present
+  const leanIds = isDiscussMode(mode)
+    ? ["manager", "bd", "designer"].filter((id) =>
+        pool.some((p) => p.id === id)
+      )
+    : pool.map((p) => p.id);
   const ids = leanIds.length ? leanIds.slice(0, 3) : pool.slice(0, 2).map((p) => p.id);
   return pool
     .filter((t) => ids.includes(t.id))
     .map((t) => ({
       id: t.id,
-      task:
-        mode === "brainstorm"
-          ? `Brainstorm only (no implementation) for “${goal}” as ${t.name} (${t.role}). Share ideas, risks, and options.`
-          : `For the goal “${goal}”, do your job as ${t.name} (${t.role}).`,
+      task: isDiscussMode(mode)
+        ? mode === "casual"
+          ? `Casual chat only (no implementation, no clarifying questions) for “${goal}” as ${t.name} (${t.role}). Assume sensible defaults and reply conversationally.`
+          : `Brainstorm only (no implementation) for “${goal}” as ${t.name} (${t.role}). Share ideas, risks, and options.`
+        : `For the goal “${goal}”, do your job as ${t.name} (${t.role}).`,
     }));
 }
 
@@ -206,6 +206,20 @@ function extractBrainstormPlan(
   }
   return {
     assignments: defaultAssignments(goal, team, "brainstorm"),
+    guests: [],
+  };
+}
+
+function extractDiscussPlan(
+  text: string,
+  team: TeamMember[],
+  goal: string,
+  mode: RunMode
+): BrainstormPlan {
+  const plan = extractBrainstormPlan(text, team, goal);
+  if (plan.assignments.length || plan.guests.length) return plan;
+  return {
+    assignments: defaultAssignments(goal, team, mode),
     guests: [],
   };
 }
@@ -431,9 +445,11 @@ async function planAssignments(
   bus.emitEvent({
     type: "orch",
     text:
-      mode === "brainstorm"
-        ? "Orchestrator is picking a lean brainstorm circle…"
-        : "Orchestrator is planning the team lineup…",
+      mode === "casual"
+        ? "Orchestrator is opening a casual chat circle…"
+        : mode === "brainstorm"
+          ? "Orchestrator is picking a lean brainstorm circle…"
+          : "Orchestrator is planning the team lineup…",
     kind: "typing",
   });
   bus.emitEvent({
@@ -443,11 +459,11 @@ async function planAssignments(
     text: goal,
   });
 
-  const planPrompt =
-    mode === "brainstorm"
-      ? `${roleBrief(orch.id, orch.name, orch.role)}
+  const planPrompt = isDiscussMode(mode)
+    ? `${roleBrief(orch.id, orch.name, orch.role)}
 
-Mode: BRAINSTORM (discussion only — no coding, no file edits, no commits).
+Mode: ${mode === "casual" ? "CASUAL CONVERSATION" : "BRAINSTORM"} (discussion only — no coding, no file edits, no commits).
+${mode === "casual" ? "Agents must NOT ask clarifying questions — assume sensible defaults and reply like a chat." : ""}
 
 Topic: ${goal}
 
@@ -461,12 +477,12 @@ Return ONLY JSON:
 }
 
 Rules:
-- Invite ONLY people needed for a useful brainstorm (usually 1–3 participants)
+- Invite ONLY people needed (usually 1–3 participants)
 - Do NOT invite the whole team by default
 - guests are optional temporary specialists missing from the roster (max 2)
 - focus lines must be discussion prompts, not implementation tasks
 - You do not implement anything`
-      : `${roleBrief(orch.id, orch.name, orch.role)}
+    : `${roleBrief(orch.id, orch.name, orch.role)}
 
 Goal: ${goal}
 
@@ -488,8 +504,8 @@ Rules:
   });
 
   let plan: BrainstormPlan;
-  if (mode === "brainstorm") {
-    plan = extractBrainstormPlan(planText, team, goal);
+  if (isDiscussMode(mode)) {
+    plan = extractDiscussPlan(planText, team, goal, mode);
   } else {
     const parsed = extractJson(planText);
     plan = {
@@ -512,10 +528,9 @@ Rules:
 
   bus.emitEvent({
     type: "orch",
-    text:
-      mode === "brainstorm"
-        ? `Brainstorm circle:\n${[readable, guestLines].filter(Boolean).join("\n") || "• Orchestrator alone"}`
-        : `Here’s who will do what:\n${readable}`,
+    text: isDiscussMode(mode)
+      ? `${mode === "casual" ? "Casual circle" : "Brainstorm circle"}:\n${[readable, guestLines].filter(Boolean).join("\n") || "• Orchestrator alone"}`
+      : `Here’s who will do what:\n${readable}`,
     kind: "normal",
   });
   bus.emitEvent({
@@ -526,9 +541,11 @@ Rules:
   emitStatus(
     orch.id,
     "working",
-    mode === "brainstorm"
-      ? "Opening the brainstorm…"
-      : "Handing work to each teammate…"
+    mode === "casual"
+      ? "Opening the casual chat…"
+      : mode === "brainstorm"
+        ? "Opening the brainstorm…"
+        : "Handing work to each teammate…"
   );
   return plan;
 }
@@ -536,19 +553,45 @@ Rules:
 async function brainstormDiscuss(
   member: TeamMember,
   focus: string,
-  goal: string
+  goal: string,
+  casual = false
 ): Promise<string> {
   throwIfCancelled();
   const wsNote = workspaceHint(getActiveWorkspace());
-  emitStatus(member.id, "working", `${member.name} is brainstorming…`);
+  emitStatus(
+    member.id,
+    "working",
+    casual
+      ? `${member.name} is chatting…`
+      : `${member.name} is brainstorming…`
+  );
   bus.emitEvent({
     type: "chat",
     agentId: member.id,
     role: "system",
-    text: "Brainstorm mode — discussion only. No implementation.",
+    text: casual
+      ? "Casual mode — conversation only. No clarifying questions; assume sensible defaults."
+      : "Brainstorm mode — discussion only. No implementation.",
   });
 
-  const prompt = `${roleBrief(member.id, member.name, member.role)}
+  const prompt = casual
+    ? `${roleBrief(member.id, member.name, member.role)}
+
+${wsNote}
+
+MODE: CASUAL CONVERSATION
+- Reply like a teammate in a chat — natural, direct, warm
+- Do NOT ask clarifying questions — assume sensible defaults when unsure
+- Do NOT write code, edit files, commit, or open PRs
+- Keep it short and useful (a few conversational beats)
+
+Topic: ${goal}
+
+Your angle:
+${focus}
+
+Reply in plain conversational language.`
+    : `${roleBrief(member.id, member.name, member.role)}
 
 ${wsNote}
 
@@ -566,7 +609,9 @@ Reply in plain language with your brainstorm contribution.`;
 
   return runAgentPrompt(member, prompt, {
     asMain: true,
-    label: `${member.name} is brainstorming…`,
+    label: casual
+      ? `${member.name} is chatting…`
+      : `${member.name} is brainstorming…`,
     streamToChat: true,
   });
 }
@@ -596,7 +641,13 @@ export async function runOrchestration(
       : null,
     mode: runMode,
   });
-  if (runMode === "brainstorm") {
+  if (runMode === "casual") {
+    bus.emitEvent({
+      type: "orch",
+      text: "Casual mode — conversation only. Agents assume defaults and won’t ask clarifying questions.",
+      kind: "normal",
+    });
+  } else if (runMode === "brainstorm") {
     bus.emitEvent({
       type: "orch",
       text: "Brainstorm mode — discussion only. Lean circle; guests may pop in and vanish.",
@@ -660,17 +711,23 @@ export async function runOrchestration(
       bus.emitEvent({
         type: "orch",
         text:
-          runMode === "brainstorm"
-            ? `${member.name} joins the brainstorm.`
-            : `${member.name} is up next.`,
+          runMode === "casual"
+            ? `${member.name} jumps into the chat.`
+            : runMode === "brainstorm"
+              ? `${member.name} joins the brainstorm.`
+              : `${member.name} is up next.`,
         kind: "normal",
       });
 
       try {
-        const report =
-          runMode === "brainstorm"
-            ? await brainstormDiscuss(member, job.task, trimmedGoal)
-            : await askThenImplement(member, job.task, trimmedGoal);
+        const report = isDiscussMode(runMode)
+          ? await brainstormDiscuss(
+              member,
+              job.task,
+              trimmedGoal,
+              runMode === "casual"
+            )
+          : await askThenImplement(member, job.task, trimmedGoal);
         if (isSkipped(member.id)) {
           emitSkipped(member, job.task);
           continue;
@@ -679,9 +736,11 @@ export async function runOrchestration(
         emitStatus(
           member.id,
           "done",
-          runMode === "brainstorm"
-            ? "Shared their ideas."
-            : "Finished their part."
+          runMode === "casual"
+            ? "Chipped in."
+            : runMode === "brainstorm"
+              ? "Shared their ideas."
+              : "Finished their part."
         );
         bus.emitEvent({
           type: "task",
@@ -692,9 +751,11 @@ export async function runOrchestration(
         bus.emitEvent({
           type: "orch",
           text:
-            runMode === "brainstorm"
-              ? `${member.name} shared their take.`
-              : `${member.name} finished.`,
+            runMode === "casual"
+              ? `${member.name} replied.`
+              : runMode === "brainstorm"
+                ? `${member.name} shared their take.`
+                : `${member.name} finished.`,
           kind: "normal",
         });
       } catch (err) {
@@ -715,8 +776,8 @@ export async function runOrchestration(
       }
     }
 
-    // Brainstorm guests — ephemeral bubbles that smoke-vanish when done
-    if (runMode === "brainstorm" && plan.guests.length) {
+    // Discuss-mode guests — ephemeral bubbles that smoke-vanish when done
+    if (isDiscussMode(runMode) && plan.guests.length) {
       throwIfCancelled();
       const orchForGuests = byId.get("orchestrator") ?? {
         id: "orchestrator",
@@ -733,7 +794,10 @@ export async function runOrchestration(
         plan.guests.map((g) => ({
           name: g.name,
           role: g.role,
-          task: `BRAINSTORM ONLY (no code, no edits). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}`,
+          task:
+            runMode === "casual"
+              ? `CASUAL CONVERSATION ONLY (no code, no edits, no clarifying questions — assume defaults). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}`
+              : `BRAINSTORM ONLY (no code, no edits). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}`,
         }))
       );
       for (const g of guestReports) {
@@ -760,16 +824,20 @@ export async function runOrchestration(
     emitStatus(
       orch.id,
       "working",
-      runMode === "brainstorm"
-        ? "Synthesizing the brainstorm…"
-        : "Writing a tiny wrap-up…"
+      runMode === "casual"
+        ? "Wrapping the chat…"
+        : runMode === "brainstorm"
+          ? "Synthesizing the brainstorm…"
+          : "Writing a tiny wrap-up…"
     );
     bus.emitEvent({
       type: "orch",
       text:
-        runMode === "brainstorm"
-          ? "Orchestrator is synthesizing the brainstorm…"
-          : "Orchestrator is writing a brief final summary…",
+        runMode === "casual"
+          ? "Orchestrator is wrapping the casual chat…"
+          : runMode === "brainstorm"
+            ? "Orchestrator is synthesizing the brainstorm…"
+            : "Orchestrator is writing a brief final summary…",
       kind: "typing",
     });
 
@@ -779,18 +847,19 @@ export async function runOrchestration(
 
     const summaryRaw = await runAgentPrompt(
       orch,
-      runMode === "brainstorm"
-        ? `You are the Orchestrator wrapping a BRAINSTORM (discussion only — nothing was built).
+      isDiscussMode(runMode)
+        ? `You are the Orchestrator wrapping a ${runMode === "casual" ? "CASUAL CONVERSATION" : "BRAINSTORM"} (discussion only — nothing was built).
 
 Topic: ${trimmedGoal}
 
-Ideas from the circle:
+What people said:
 ${digest || "(none)"}
 
 Reply with a VERY brief synthesis:
 - Exactly 1–2 short sentences
 - Name the strongest direction or open question
-- Plain language, no bullets, no “next steps” list`
+- Plain language, no bullets, no “next steps” list
+${runMode === "casual" ? "- Keep the tone conversational" : ""}`
         : `You are the Orchestrator. All teammates finished.
 
 Goal: ${goal}
@@ -805,10 +874,9 @@ Reply with a VERY brief final summary for the user:
 - Celebrate completion lightly`,
       {
         asMain: true,
-        label:
-          runMode === "brainstorm"
-            ? "Orchestrator is synthesizing…"
-            : "Orchestrator is wrapping up…",
+        label: isDiscussMode(runMode)
+          ? "Orchestrator is synthesizing…"
+          : "Orchestrator is wrapping up…",
         streamToChat: false,
       }
     );
@@ -858,8 +926,10 @@ export async function instructOne(
   member: TeamMember,
   instruction: string,
   team: TeamMember[] = [],
-  workspace: WorkspaceTarget | null = null
+  workspace: WorkspaceTarget | null = null,
+  mode: RunMode = "build"
 ): Promise<void> {
+  const runMode = parseRunMode(mode);
   if (member.id === "orchestrator") {
     const roster =
       team.length > 0
@@ -869,7 +939,7 @@ export async function instructOne(
             name: r.name,
             role: r.role,
           }));
-    await runOrchestration(instruction, roster, workspace);
+    await runOrchestration(instruction, roster, workspace, runMode);
     return;
   }
 
@@ -877,7 +947,7 @@ export async function instructOne(
   setActiveWorkspace(workspace);
   const job = startJob({
     goal: instruction.trim(),
-    mode: "build",
+    mode: runMode,
     workspaceUrl: workspace?.url ?? null,
   });
   bus.emitEvent({ type: "run", running: true });
@@ -887,6 +957,7 @@ export async function instructOne(
     workspace: workspace
       ? { url: workspace.url, startingRef: workspace.startingRef }
       : null,
+    mode: runMode,
   });
   bus.emitEvent({
     type: "plan",
@@ -909,8 +980,19 @@ export async function instructOne(
       text: instruction,
     });
 
-    const report = await askThenImplement(member, instruction, instruction);
-    emitStatus(member.id, "done", "Finished.");
+    const report = isDiscussMode(runMode)
+      ? await brainstormDiscuss(
+          member,
+          instruction,
+          instruction,
+          runMode === "casual"
+        )
+      : await askThenImplement(member, instruction, instruction);
+    emitStatus(
+      member.id,
+      "done",
+      runMode === "casual" ? "Replied." : "Finished."
+    );
     bus.emitEvent({
       type: "task",
       agentId: member.id,

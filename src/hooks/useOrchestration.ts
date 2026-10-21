@@ -434,17 +434,18 @@ export function useOrchestration() {
       setRunning(true);
       setCurrentGoal(g);
       setSuccessSummary(null);
-      const leanIds =
-        mode === "brainstorm" ? new Set(["manager", "bd"]) : null;
+      const discuss = mode === "brainstorm" || mode === "casual";
+      const leanIds = discuss ? new Set(["manager", "bd"]) : null;
       const demoPlan: PlannedTask[] = castRef.current
         .filter((a) => !a.hub && !a.ephemeral)
         .filter((a) => !leanIds || leanIds.has(a.id))
         .map((a) => ({
           id: a.id,
-          task:
-            mode === "brainstorm"
-              ? `Brainstorm “${g}” as ${a.name} (${a.role}).`
-              : `For “${g}”, contribute as ${a.name} (${a.role}).`,
+          task: discuss
+            ? mode === "casual"
+              ? `Casual chat on “${g}” as ${a.name} (${a.role}).`
+              : `Brainstorm “${g}” as ${a.name} (${a.role}).`
+            : `For “${g}”, contribute as ${a.name} (${a.role}).`,
           phase: "upcoming" as const,
         }));
       setPlannedTasks(demoPlan);
@@ -452,9 +453,11 @@ export function useOrchestration() {
       setAgent("orchestrator", {
         status: "working",
         report:
-          mode === "brainstorm"
-            ? "Opening a lean brainstorm…"
-            : "Routing work to the team…",
+          mode === "casual"
+            ? "Opening a casual chat…"
+            : mode === "brainstorm"
+              ? "Opening a lean brainstorm…"
+              : "Routing work to the team…",
       });
 
       const steps = buildScript(goal, mode);
@@ -584,9 +587,11 @@ export function useOrchestration() {
       later(t + 800, () => {
         setRunning(false);
         const brief =
-          mode === "brainstorm"
-            ? "Brainstorm wrapped — strongest direction noted. Nothing was built."
-            : "Team wrapped the coffee landing plan. Ready for your review.";
+          mode === "casual"
+            ? "Casual chat wrapped — strongest direction noted. Nothing was built."
+            : mode === "brainstorm"
+              ? "Brainstorm wrapped — strongest direction noted. Nothing was built."
+              : "Team wrapped the coffee landing plan. Ready for your review.";
         setAgent("orchestrator", {
           status: "done",
           report: brief,
@@ -650,7 +655,8 @@ export function useOrchestration() {
           { id: a.id, name: a.name, role: a.role },
           task,
           teamPayload(),
-          ws
+          ws,
+          runModeRef.current
         ).catch((err: Error) => {
           setApiError(err.message);
           addMsg("orch", err.message);
@@ -1382,7 +1388,11 @@ export function useOrchestration() {
       if (e.type === "goal") {
         setCurrentGoal(e.goal);
         setSuccessSummary(null);
-        if (e.mode === "brainstorm" || e.mode === "build") {
+        if (
+          e.mode === "brainstorm" ||
+          e.mode === "build" ||
+          e.mode === "casual"
+        ) {
           setRunMode(e.mode);
         }
         setActiveWorkspace(

@@ -38,8 +38,7 @@ function loadJobs(): HiveJob[] {
       .map((row) => ({
         id: String((row as HiveJob).id || ""),
         goal: String((row as HiveJob).goal || "").trim(),
-        mode:
-          (row as HiveJob).mode === "brainstorm" ? "brainstorm" : "build",
+        mode: parseStoredMode((row as HiveJob).mode),
         status: normalizeStatus((row as HiveJob).status),
         summary: (row as HiveJob).summary
           ? String((row as HiveJob).summary)
@@ -62,6 +61,13 @@ function normalizeStatus(raw: unknown): JobStatus {
     return raw;
   }
   return "done";
+}
+
+function parseStoredMode(raw: unknown): RunMode {
+  const v = String(raw ?? "").toLowerCase();
+  if (v === "brainstorm") return "brainstorm";
+  if (v === "casual") return "casual";
+  return "build";
 }
 
 function persist() {
@@ -103,7 +109,7 @@ export function startJob(input: {
   const job: HiveJob = {
     id: randomUUID(),
     goal: input.goal.trim(),
-    mode: input.mode === "brainstorm" ? "brainstorm" : "build",
+    mode: parseStoredMode(input.mode),
     status: "running",
     workspaceUrl: input.workspaceUrl ?? null,
     startedAt: Date.now(),

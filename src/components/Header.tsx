@@ -34,11 +34,13 @@ export function Header({
           <h1>HIVE</h1>
         </div>
         <p id="brandSub">
-          {runMode === "brainstorm"
-            ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
-            : view === "bubbles"
-              ? "Your AI crew on a map — instruct any agent in the side chat"
-              : "One goal in, the hive reports back"}
+          {runMode === "casual"
+            ? "Casual — chat freely; agents assume and don’t ask clarifying questions"
+            : runMode === "brainstorm"
+              ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
+              : view === "bubbles"
+                ? "Your AI crew on a map — instruct any agent in the side chat"
+                : "One goal in, the hive reports back"}
         </p>
       </div>
       <div className="top-actions">
@@ -75,6 +77,14 @@ export function Header({
           >
             Brainstorm
           </button>
+          <button
+            type="button"
+            aria-pressed={runMode === "casual"}
+            onClick={() => onRunMode("casual")}
+            title="Casual chat — assume defaults, no clarifying questions"
+          >
+            Casual
+          </button>
         </div>
         <div className="view-toggle" role="group" aria-label="Engine">
           <button
@@ -106,13 +116,17 @@ export function Header({
           className="badge"
           title={apiError ?? undefined}
         >
-          {runMode === "brainstorm"
+          {runMode === "casual"
             ? engine === "live"
-              ? "Brainstorm · live"
-              : "Brainstorm · demo"
-            : engine === "live"
-              ? "Live · Cursor agents"
-              : "Demo mode · scripted"}
+              ? "Casual · live"
+              : "Casual · demo"
+            : runMode === "brainstorm"
+              ? engine === "live"
+                ? "Brainstorm · live"
+                : "Brainstorm · demo"
+              : engine === "live"
+                ? "Live · Cursor agents"
+                : "Demo mode · scripted"}
         </div>
       </div>
     </header>

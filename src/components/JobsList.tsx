@@ -47,7 +47,9 @@ export function JobsList({ jobs }: Props) {
             <li
               key={job.id}
               className={`job-card ${job.status}${
-                job.mode === "brainstorm" ? " brainstorm" : ""
+                job.mode === "brainstorm" || job.mode === "casual"
+                  ? " brainstorm"
+                  : ""
               }`}
             >
               <div className="job-top">
@@ -55,7 +57,11 @@ export function JobsList({ jobs }: Props) {
                   {statusLabel(job.status)}
                 </span>
                 <span className="job-mode">
-                  {job.mode === "brainstorm" ? "Brainstorm" : "Build"}
+                  {job.mode === "casual"
+                    ? "Casual"
+                    : job.mode === "brainstorm"
+                      ? "Brainstorm"
+                      : "Build"}
                 </span>
                 <span className="job-when">
                   {formatWhen(job.finishedAt ?? job.startedAt)}

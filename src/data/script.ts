@@ -8,12 +8,15 @@ export function buildScript(
 ): ScriptStep[] {
   const g = goal.trim() || DEFAULT_GOAL;
 
-  if (mode === "brainstorm") {
+  if (mode === "brainstorm" || mode === "casual") {
+    const casual = mode === "casual";
     return [
       {
         delay: 500,
         type: "orch",
-        text: `Brainstorm mode — “${g}”. Lean circle only; guests may pop in.`,
+        text: casual
+          ? `Casual mode — “${g}”. Chat freely; no clarifying questions.`
+          : `Brainstorm mode — “${g}”. Lean circle only; guests may pop in.`,
       },
       { delay: 800, type: "agent", id: "manager", status: "working" },
       {
@@ -52,8 +55,9 @@ export function buildScript(
       {
         delay: 700,
         type: "orch-summary",
-        text:
-          "Brainstorm takeaway: lead with origin story and weekly drops; keep the circle tight and skip a full feature dump.",
+        text: casual
+          ? "Casual takeaway: lead with origin story and weekly drops — keep it simple and ship the vibe."
+          : "Brainstorm takeaway: lead with origin story and weekly drops; keep the circle tight and skip a full feature dump.",
       },
     ];
   }

@@ -59,7 +59,7 @@ export type LiveEvent =
       type: "goal";
       goal: string;
       workspace?: { url: string; startingRef?: string } | null;
-      mode?: "build" | "brainstorm";
+      mode?: "build" | "brainstorm" | "casual";
     }
   | {
       type: "plan";
@@ -77,7 +77,7 @@ export type LiveEvent =
       jobs: Array<{
         id: string;
         goal: string;
-        mode: "build" | "brainstorm";
+        mode: "build" | "brainstorm" | "casual";
         status: "running" | "done" | "cancelled" | "error";
         summary?: string;
         workspaceUrl?: string | null;
@@ -86,7 +86,7 @@ export type LiveEvent =
       }>;
     };
 
-export type RunMode = "build" | "brainstorm";
+export type RunMode = "build" | "brainstorm" | "casual";
 
 export type HiveJobPayload = {
   id: string;
@@ -186,7 +186,8 @@ export async function startInstruct(
   member: TeamMemberPayload,
   instruction: string,
   team: TeamMemberPayload[],
-  workspace?: WorkspacePayload | null
+  workspace?: WorkspacePayload | null,
+  mode: RunMode = "build"
 ): Promise<{ queued?: boolean }> {
   const res = await fetch(apiUrl("/api/instruct"), {
     method: "POST",
@@ -196,6 +197,7 @@ export async function startInstruct(
       instruction,
       team,
       workspace: workspace || undefined,
+      mode,
     }),
   });
   const data = (await res.json().catch(() => ({}))) as {

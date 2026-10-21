@@ -71,7 +71,7 @@ export type HiveEvent =
       type: "goal";
       goal: string;
       workspace?: { url: string; startingRef?: string } | null;
-      mode?: "build" | "brainstorm";
+      mode?: "build" | "brainstorm" | "casual";
     }
   | {
       type: "plan";
@@ -89,7 +89,7 @@ export type HiveEvent =
       jobs: Array<{
         id: string;
         goal: string;
-        mode: "build" | "brainstorm";
+        mode: "build" | "brainstorm" | "casual";
         status: "running" | "done" | "cancelled" | "error";
         summary?: string;
         workspaceUrl?: string | null;

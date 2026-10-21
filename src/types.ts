@@ -82,7 +82,7 @@ export type JobStatus = "running" | "done" | "cancelled" | "error";
 export type HiveJob = {
   id: string;
   goal: string;
-  mode: "build" | "brainstorm";
+  mode: "build" | "brainstorm" | "casual";
   status: JobStatus;
   summary?: string;
   workspaceUrl?: string | null;

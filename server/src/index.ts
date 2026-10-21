@@ -194,6 +194,7 @@ app.post("/api/instruct", async (req, res) => {
   const instruction = String(req.body?.instruction ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
   const workspace = parseWorkspaceBody(req.body?.workspace);
+  const mode = parseRunMode(req.body?.mode);
 
   if (!member?.id || !instruction) {
     res.status(400).json({ error: "member and instruction are required" });
@@ -215,8 +216,8 @@ app.post("/api/instruct", async (req, res) => {
 
   // 3) Fresh main instruct / orchestrate
   busy = true;
-  res.json({ ok: true, started: true });
-  void instructOne(member, instruction, team, workspace)
+  res.json({ ok: true, started: true, mode });
+  void instructOne(member, instruction, team, workspace, mode)
     .catch((err) => {
       bus.emitEvent({
         type: "error",
