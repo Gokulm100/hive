@@ -31,70 +31,51 @@ export default function App() {
         apiError={api.apiError}
       />
 
-      {api.view === "reports" ? (
-        <div className="legend" aria-label="Status legend">
-          <span>
-            <i className="dot idle" /> Idle
-          </span>
-          <span>
-            <i className="dot working" /> Working
-          </span>
-          <span>
-            <i className="dot done" /> Done
-          </span>
-          <span>
-            <i className="dot blocked" /> Blocked
-          </span>
-        </div>
-      ) : null}
-
       <div className="layout">
         {api.view === "reports" ? (
-          <>
-            <div className="reports-with-tasks">
-              <ActiveTasks
-                agents={api.cast}
-                agentState={api.agentState}
-                workProgress={api.workProgress}
-                awaitingIds={api.awaitingIds}
-                selected={api.selected}
-                currentGoal={api.currentGoal}
-                plannedTasks={api.plannedTasks}
-                running={api.running}
-                successSummary={api.successSummary}
-                activeWorkspace={api.activeWorkspace}
-                runMode={api.runMode}
-                onSelect={(id) => {
-                  api.selectAgent(id);
-                  api.ensureChatSeed(id);
-                  api.setView("bubbles");
-                }}
-                onSkip={api.skipAgent}
-              />
-              <ReportsView
-                teamAgents={api.teamAgents}
-                agentState={api.agentState}
-                messages={api.messages}
-                running={api.running}
-                onSubmit={api.submitGoal}
-                onReset={() => api.resetAll(true)}
-                onReplay={api.startReplay}
-                onStop={api.stopRun}
-                onToggleCard={api.toggleCard}
-                onAddAgent={api.addAgent}
-                successSummary={api.successSummary}
-                showRepoPicker={api.engine === "live"}
-                repos={api.repos}
-                reposLoading={api.reposLoading}
-                workspaceUrl={api.workspaceUrl}
-                workspaceBranch={api.workspaceBranch}
-                workspaceCustomUrl={api.workspaceCustomUrl}
-                onWorkspaceUrl={api.setWorkspaceUrl}
-                onWorkspaceBranch={api.setWorkspaceBranch}
-                onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
-              />
-            </div>
-          </>
+          <aside className="reports-panel" aria-label="Reports">
+            <ReportsView
+              teamAgents={api.teamAgents}
+              agentState={api.agentState}
+              messages={api.messages}
+              running={api.running}
+              onSubmit={api.submitGoal}
+              onReset={() => api.resetAll(true)}
+              onReplay={api.startReplay}
+              onStop={api.stopRun}
+              onToggleCard={api.toggleCard}
+              onAddAgent={api.addAgent}
+              successSummary={api.successSummary}
+              showRepoPicker={api.engine === "live"}
+              repos={api.repos}
+              reposLoading={api.reposLoading}
+              workspaceUrl={api.workspaceUrl}
+              workspaceBranch={api.workspaceBranch}
+              workspaceCustomUrl={api.workspaceCustomUrl}
+              onWorkspaceUrl={api.setWorkspaceUrl}
+              onWorkspaceBranch={api.setWorkspaceBranch}
+              onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
+            />
+            <ActiveTasks
+              agents={api.cast}
+              agentState={api.agentState}
+              workProgress={api.workProgress}
+              awaitingIds={api.awaitingIds}
+              selected={api.selected}
+              currentGoal={api.currentGoal}
+              plannedTasks={api.plannedTasks}
+              running={api.running}
+              successSummary={api.successSummary}
+              activeWorkspace={api.activeWorkspace}
+              runMode={api.runMode}
+              onSelect={(id) => {
+                api.selectAgent(id);
+                api.ensureChatSeed(id);
+                api.setView("bubbles");
+              }}
+              onSkip={api.skipAgent}
+            />
+          </aside>
         ) : (
           <BubblesView api={api} />
         )}

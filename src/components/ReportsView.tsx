@@ -76,13 +76,23 @@ export function ReportsView({
   }
 
   return (
-    <>
+    <div className="reports-stack">
       <section className="panel chat" aria-label="Orchestrator chat">
         <div className="chat-head">
           <CharAvatar refAgent={ORCHESTRATOR} className="avatar" />
           <div>
             <h2>Orchestrator</h2>
             <p className="sub">You talk here. Subagents only report.</p>
+          </div>
+          <div className="agent-chat-actions chat-head-actions">
+            {running ? (
+              <button type="button" className="btn-danger" onClick={onStop}>
+                Stop
+              </button>
+            ) : null}
+            <button type="button" className="btn-ghost" onClick={onReplay}>
+              Replay demo
+            </button>
           </div>
         </div>
         <div className="messages" ref={messagesRef}>
@@ -109,7 +119,10 @@ export function ReportsView({
             ))
           )}
         </div>
-        {showRepoPicker && onWorkspaceUrl && onWorkspaceBranch && onWorkspaceCustomUrl ? (
+        {showRepoPicker &&
+        onWorkspaceUrl &&
+        onWorkspaceBranch &&
+        onWorkspaceCustomUrl ? (
           <RepoPicker
             repos={repos}
             loading={reposLoading}
@@ -158,19 +171,9 @@ export function ReportsView({
         </form>
       </section>
 
-      <aside className="rail" aria-label="Subagent reports">
+      <aside className="rail reports-rail" aria-label="Subagent reports">
         <div className="rail-head">
           <h3>Team reports</h3>
-          <div className="agent-chat-actions">
-            {running ? (
-              <button type="button" className="btn-danger" onClick={onStop}>
-                Stop
-              </button>
-            ) : null}
-            <button type="button" className="btn-ghost" onClick={onReplay}>
-              Replay demo
-            </button>
-          </div>
         </div>
         <form className="add-agent-bar-reports" onSubmit={add}>
           <input
@@ -227,6 +230,6 @@ export function ReportsView({
           })}
         </div>
       </aside>
-    </>
+    </div>
   );
 }

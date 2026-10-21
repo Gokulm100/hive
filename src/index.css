@@ -190,31 +190,15 @@
 
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+      grid-template-columns: 1fr;
       gap: 16px;
       flex: 1;
       min-height: 0;
       align-content: stretch;
     }
 
-    body.view-reports .layout {
-      grid-template-columns: 1fr;
-    }
-    .reports-with-tasks {
-      display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
-      gap: 16px;
-      min-height: 0;
-      align-content: start;
-    }
-    .reports-with-tasks > .active-tasks {
-      grid-column: 1 / -1;
-    }
-
-    body.view-bubbles .layout {
-      grid-template-columns: 1fr;
-    }
-    body.view-bubbles .active-tasks {
+    body.view-bubbles .active-tasks,
+    body.view-reports .active-tasks {
       display: flex;
     }
 
@@ -222,28 +206,36 @@
     body.view-bubbles .rail { display: none; }
     body.view-reports .map-panel { display: none; }
 
-    body.view-bubbles {
+    body.view-bubbles,
+    body.view-reports {
       height: auto;
       min-height: 100%;
       overflow-x: hidden;
       overflow-y: auto;
     }
-    body.view-bubbles .app {
+    body.view-bubbles .app,
+    body.view-reports .app {
       max-width: none;
       height: auto;
       min-height: 0;
       padding: 16px 20px 40px;
     }
-    body.view-bubbles .layout {
+    body.view-bubbles .layout,
+    body.view-reports .layout {
       flex: 0 0 auto;
       min-height: 0;
     }
-    body.view-bubbles .map-panel {
+    body.view-bubbles .map-panel,
+    body.view-reports .reports-panel {
+      display: flex;
+      flex-direction: column;
       flex: 0 0 auto;
       min-height: 0;
       gap: 20px;
     }
-    body.view-bubbles .map-stack {
+    body.view-bubbles .map-stack,
+    body.view-reports .reports-stack {
+      display: flex;
       flex: 0 0 auto;
       height: calc(100vh - 110px);
       min-height: 480px;
@@ -265,6 +257,35 @@
       border: 1px solid var(--stroke);
       border-radius: var(--radius);
       overflow: hidden;
+    }
+    body.view-reports .reports-stack .chat {
+      flex: 7 1 0;
+      min-width: 0;
+      min-height: 0;
+      max-height: none;
+      height: auto;
+    }
+    body.view-reports .reports-stack .reports-rail {
+      flex: 3 1 0;
+      min-width: 260px;
+      max-width: none;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--surface);
+    }
+    body.view-reports .reports-stack .cards {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+    }
+    body.view-reports .chat-head-actions {
+      margin-left: auto;
     }
     body.view-bubbles .agent-chat-column {
       flex: 3 1 0;
@@ -292,14 +313,14 @@
       background: var(--surface);
       overflow: hidden;
     }
-    body.view-bubbles .legend {
+    .legend {
       display: none;
     }
 
     @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
-      body.view-reports .rail { order: -1; }
-      body.view-bubbles .map-stack {
+      body.view-bubbles .map-stack,
+      body.view-reports .reports-stack {
         flex-direction: column;
         height: auto;
         min-height: 0;
@@ -309,6 +330,17 @@
         flex: 0 0 auto;
         height: min(70vh, 520px);
         min-height: 280px;
+      }
+      body.view-reports .reports-stack .chat {
+        flex: 0 0 auto;
+        min-height: 360px;
+        height: min(70vh, 520px);
+        max-height: none;
+      }
+      body.view-reports .reports-stack .reports-rail {
+        flex: 0 0 auto;
+        min-height: 280px;
+        max-height: 420px;
       }
       body.view-bubbles .agent-chat {
         flex: 0 0 auto;
@@ -329,18 +361,18 @@
     .chat {
       display: flex;
       flex-direction: column;
-      min-height: 560px;
-      max-height: calc(100vh - 150px);
+      min-height: 0;
     }
 
     .chat-head {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 16px 18px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--stroke);
       background: linear-gradient(180deg, var(--orch-soft), transparent);
       border-radius: var(--radius) var(--radius) 0 0;
+      flex-shrink: 0;
     }
     .avatar {
       width: 44px; height: 44px;
@@ -492,15 +524,17 @@
     }
 
     @media (max-width: 860px) {
-      .cards {
+      body.view-reports .reports-stack .cards {
         flex-direction: row;
         overflow-x: auto;
         max-height: none;
         padding-bottom: 6px;
         scroll-snap-type: x mandatory;
       }
-      .card { min-width: 240px; scroll-snap-align: start; }
-      .chat { min-height: 380px; max-height: none; }
+      body.view-reports .reports-stack .card {
+        min-width: 240px;
+        scroll-snap-align: start;
+      }
     }
 
     .card {
