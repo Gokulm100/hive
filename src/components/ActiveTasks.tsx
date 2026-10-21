@@ -1,4 +1,4 @@
-import type { WorkspacePayload } from "../api/client";
+import type { RunMode, WorkspacePayload } from "../api/client";
 import { CharAvatar } from "./CharAvatar";
 import type { AgentDef, AgentRuntime, PlannedTask } from "../types";
 
@@ -15,6 +15,7 @@ type Props = {
   running: boolean;
   successSummary?: string | null;
   activeWorkspace?: WorkspacePayload | null;
+  runMode?: RunMode;
   onSelect: (id: string) => void;
 };
 
@@ -36,8 +37,10 @@ export function ActiveTasks({
   running,
   successSummary,
   activeWorkspace,
+  runMode = "build",
   onSelect,
 }: Props) {
+  const brainstorm = runMode === "brainstorm";
   const byId = new Map(agents.map((a) => [a.id, a]));
 
   const activeLive = agents.filter((a) => {
@@ -101,10 +104,22 @@ export function ActiveTasks({
           }`}
         >
           <p className="goal-eyebrow">
-            {successSummary ? "Delivered" : "Overall functionality"}
+            {successSummary
+              ? brainstorm
+                ? "Synthesized"
+                : "Delivered"
+              : brainstorm
+                ? "Brainstorm"
+                : "Overall functionality"}
           </p>
           <h4 className="goal-title">
-            {successSummary ? "Hive finished this run" : "Being implemented"}
+            {successSummary
+              ? brainstorm
+                ? "Brainstorm wrapped"
+                : "Hive finished this run"
+              : brainstorm
+                ? "Discussion in progress"
+                : "Being implemented"}
           </h4>
           <p className="goal-body">{successSummary || currentGoal}</p>
           {activeWorkspace?.url ? (
@@ -130,7 +145,11 @@ export function ActiveTasks({
               </p>
             </div>
           ) : running ? (
-            <p className="goal-count">Planning the lineup…</p>
+            <p className="goal-count">
+              {brainstorm
+                ? "Picking a lean circle…"
+                : "Planning the lineup…"}
+            </p>
           ) : null}
         </article>
       ) : null}
@@ -170,7 +189,7 @@ export function ActiveTasks({
                     <div className="meta">
                       <p className="name">
                         {a.name}
-                        {a.ephemeral ? " · helper" : ""}
+                        {a.ephemeral ? " · guest" : ""}
                       </p>
                       <p className="role">{a.role}</p>
                     </div>

@@ -13,6 +13,7 @@ import {
   throwIfCancelled,
 } from "./pool";
 import { parseSubagentRequest } from "./subagents";
+import { parseRunMode, type RunMode } from "./runMode";
 import {
   getActiveWorkspace,
   setActiveWorkspace,
@@ -26,9 +27,21 @@ export type TeamMember = {
   role: string;
 };
 
-export type { WorkspaceTarget };
+export type { WorkspaceTarget, RunMode };
+export { parseRunMode };
 
 type Assignment = { id: string; task: string };
+
+type BrainstormGuest = {
+  name: string;
+  role: string;
+  focus: string;
+};
+
+type BrainstormPlan = {
+  assignments: Assignment[];
+  guests: BrainstormGuest[];
+};
 
 function humanStatus(status: string) {
   switch (status) {
@@ -86,13 +99,88 @@ function extractJson(text: string): Assignment[] | null {
   }
 }
 
-function defaultAssignments(goal: string, team: TeamMember[]): Assignment[] {
-  return team
-    .filter((t) => t.id !== "orchestrator")
+function defaultAssignments(
+  goal: string,
+  team: TeamMember[],
+  mode: RunMode
+): Assignment[] {
+  const pool = team.filter((t) => t.id !== "orchestrator");
+  // Brainstorm: lean default — manager + bd only if present
+  const leanIds =
+    mode === "brainstorm"
+      ? ["manager", "bd", "designer"].filter((id) =>
+          pool.some((p) => p.id === id)
+        )
+      : pool.map((p) => p.id);
+  const ids = leanIds.length ? leanIds.slice(0, 3) : pool.slice(0, 2).map((p) => p.id);
+  return pool
+    .filter((t) => ids.includes(t.id))
     .map((t) => ({
       id: t.id,
-      task: `For the goal “${goal}”, do your job as ${t.name} (${t.role}).`,
+      task:
+        mode === "brainstorm"
+          ? `Brainstorm only (no implementation) for “${goal}” as ${t.name} (${t.role}). Share ideas, risks, and options.`
+          : `For the goal “${goal}”, do your job as ${t.name} (${t.role}).`,
     }));
+}
+
+function extractBrainstormPlan(
+  text: string,
+  team: TeamMember[],
+  goal: string
+): BrainstormPlan {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const raw = (fenced?.[1] ?? text).trim();
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start >= 0 && end > start) {
+    try {
+      const parsed = JSON.parse(raw.slice(start, end + 1)) as {
+        participants?: unknown;
+        assignments?: unknown;
+        guests?: unknown;
+      };
+      const source = Array.isArray(parsed.participants)
+        ? parsed.participants
+        : parsed.assignments;
+      const assignments: Assignment[] = [];
+      if (Array.isArray(source)) {
+        for (const row of source) {
+          if (!row || typeof row !== "object") continue;
+          const o = row as Record<string, unknown>;
+          const id = String(o.id ?? "").trim();
+          const task = String(o.focus ?? o.task ?? "").trim();
+          if (!id || !task) continue;
+          if (!team.some((t) => t.id === id) || id === "orchestrator") continue;
+          assignments.push({ id, task });
+        }
+      }
+      const guests: BrainstormGuest[] = [];
+      if (Array.isArray(parsed.guests)) {
+        for (const g of parsed.guests.slice(0, 2)) {
+          if (!g || typeof g !== "object") continue;
+          const o = g as Record<string, unknown>;
+          const name = String(o.name ?? "").trim().slice(0, 28);
+          const role = String(o.role ?? "Specialist").trim().slice(0, 48);
+          const focus = String(o.focus ?? o.task ?? "").trim();
+          if (!name || !focus) continue;
+          guests.push({ name, role: role || "Specialist", focus });
+        }
+      }
+      if (assignments.length || guests.length) {
+        return {
+          assignments: assignments.slice(0, 4),
+          guests,
+        };
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  return {
+    assignments: defaultAssignments(goal, team, "brainstorm"),
+    guests: [],
+  };
 }
 
 async function askThenImplement(
@@ -298,8 +386,9 @@ Now implement / complete the assignment yourself in the workspace above. Use hel
 
 async function planAssignments(
   goal: string,
-  team: TeamMember[]
-): Promise<Assignment[]> {
+  team: TeamMember[],
+  mode: RunMode
+): Promise<BrainstormPlan> {
   const roster = team
     .filter((t) => t.id !== "orchestrator")
     .map((t) => `- ${t.id}: ${t.name} — ${t.role}`)
@@ -314,7 +403,10 @@ async function planAssignments(
   emitStatus(orch.id, "working", "Figuring out who should do what…");
   bus.emitEvent({
     type: "orch",
-    text: "Orchestrator is planning the team lineup…",
+    text:
+      mode === "brainstorm"
+        ? "Orchestrator is picking a lean brainstorm circle…"
+        : "Orchestrator is planning the team lineup…",
     kind: "typing",
   });
   bus.emitEvent({
@@ -324,7 +416,30 @@ async function planAssignments(
     text: goal,
   });
 
-  const planPrompt = `${roleBrief(orch.id, orch.name, orch.role)}
+  const planPrompt =
+    mode === "brainstorm"
+      ? `${roleBrief(orch.id, orch.name, orch.role)}
+
+Mode: BRAINSTORM (discussion only — no coding, no file edits, no commits).
+
+Topic: ${goal}
+
+Team roster (use these ids exactly when inviting existing teammates):
+${roster}
+
+Return ONLY JSON:
+{
+  "participants":[{"id":"bd","focus":"what they should discuss"}],
+  "guests":[{"name":"Short name","role":"specialty","focus":"discussion angle"}]
+}
+
+Rules:
+- Invite ONLY people needed for a useful brainstorm (usually 1–3 participants)
+- Do NOT invite the whole team by default
+- guests are optional temporary specialists missing from the roster (max 2)
+- focus lines must be discussion prompts, not implementation tasks
+- You do not implement anything`
+      : `${roleBrief(orch.id, orch.name, orch.role)}
 
 Goal: ${goal}
 
@@ -335,7 +450,7 @@ Return ONLY JSON (no prose) in this shape:
 {"assignments":[{"id":"manager","task":"..."},{"id":"bd","task":"..."}]}
 
 Rules:
-- Include every teammate that should work this goal
+- Include ONLY teammates who are truly needed (not everyone by default)
 - One clear task per id
 - Tasks must match each role
 - Do not implement the work yourself`;
@@ -345,37 +460,99 @@ Rules:
     label: "Orchestrator is writing the plan…",
   });
 
-  const parsed = extractJson(planText);
-  const assignments = parsed?.length ? parsed : defaultAssignments(goal, team);
+  let plan: BrainstormPlan;
+  if (mode === "brainstorm") {
+    plan = extractBrainstormPlan(planText, team, goal);
+  } else {
+    const parsed = extractJson(planText);
+    plan = {
+      assignments: parsed?.length
+        ? parsed
+        : defaultAssignments(goal, team, mode),
+      guests: [],
+    };
+  }
 
-  const readable = assignments
+  const readable = plan.assignments
     .map((a) => {
       const m = team.find((t) => t.id === a.id);
       return `• ${m?.name || a.id}: ${a.task}`;
     })
     .join("\n");
+  const guestLines = plan.guests
+    .map((g) => `• Guest “${g.name}” (${g.role}): ${g.focus}`)
+    .join("\n");
 
   bus.emitEvent({
     type: "orch",
-    text: `Here’s who will do what:\n${readable}`,
+    text:
+      mode === "brainstorm"
+        ? `Brainstorm circle:\n${[readable, guestLines].filter(Boolean).join("\n") || "• Orchestrator alone"}`
+        : `Here’s who will do what:\n${readable}`,
     kind: "normal",
   });
   bus.emitEvent({
     type: "plan",
     goal: goal.trim(),
-    assignments,
+    assignments: plan.assignments,
   });
-  emitStatus(orch.id, "working", "Handing work to each teammate…");
-  return assignments;
+  emitStatus(
+    orch.id,
+    "working",
+    mode === "brainstorm"
+      ? "Opening the brainstorm…"
+      : "Handing work to each teammate…"
+  );
+  return plan;
+}
+
+async function brainstormDiscuss(
+  member: TeamMember,
+  focus: string,
+  goal: string
+): Promise<string> {
+  throwIfCancelled();
+  const wsNote = workspaceHint(getActiveWorkspace());
+  emitStatus(member.id, "working", `${member.name} is brainstorming…`);
+  bus.emitEvent({
+    type: "chat",
+    agentId: member.id,
+    role: "system",
+    text: "Brainstorm mode — discussion only. No implementation.",
+  });
+
+  const prompt = `${roleBrief(member.id, member.name, member.role)}
+
+${wsNote}
+
+MODE: BRAINSTORM ONLY
+- Discuss ideas, options, risks, open questions
+- Do NOT write code, edit files, commit, or open PRs
+- Keep it concrete and useful (a few sharp points)
+
+Topic: ${goal}
+
+Your angle:
+${focus}
+
+Reply in plain language with your brainstorm contribution.`;
+
+  return runAgentPrompt(member, prompt, {
+    asMain: true,
+    label: `${member.name} is brainstorming…`,
+    streamToChat: true,
+  });
 }
 
 export async function runOrchestration(
   goal: string,
   team: TeamMember[],
-  workspace: WorkspaceTarget | null = null
+  workspace: WorkspaceTarget | null = null,
+  mode: RunMode = "build"
 ): Promise<void> {
   clearCancelFlag();
   const trimmedGoal = goal.trim();
+  const runMode = parseRunMode(mode);
   setActiveWorkspace(workspace);
   bus.emitEvent({ type: "run", running: true });
   bus.emitEvent({
@@ -384,7 +561,15 @@ export async function runOrchestration(
     workspace: workspace
       ? { url: workspace.url, startingRef: workspace.startingRef }
       : null,
+    mode: runMode,
   });
+  if (runMode === "brainstorm") {
+    bus.emitEvent({
+      type: "orch",
+      text: "Brainstorm mode — discussion only. Lean circle; guests may pop in and vanish.",
+      kind: "normal",
+    });
+  }
   if (workspace?.url) {
     bus.emitEvent({
       type: "orch",
@@ -406,10 +591,10 @@ export async function runOrchestration(
             role: r.role,
           }));
 
-    const assignments = await planAssignments(trimmedGoal, roster);
+    const plan = await planAssignments(trimmedGoal, roster, runMode);
     const byId = new Map(roster.map((t) => [t.id, t]));
 
-    for (const job of assignments) {
+    for (const job of plan.assignments) {
       throwIfCancelled();
       const member = byId.get(job.id);
       if (!member || member.id === "orchestrator") continue;
@@ -434,14 +619,26 @@ export async function runOrchestration(
       });
       bus.emitEvent({
         type: "orch",
-        text: `${member.name} is up next.`,
+        text:
+          runMode === "brainstorm"
+            ? `${member.name} joins the brainstorm.`
+            : `${member.name} is up next.`,
         kind: "normal",
       });
 
       try {
-        const report = await askThenImplement(member, job.task, trimmedGoal);
+        const report =
+          runMode === "brainstorm"
+            ? await brainstormDiscuss(member, job.task, trimmedGoal)
+            : await askThenImplement(member, job.task, trimmedGoal);
         reports.push({ id: member.id, name: member.name, report });
-        emitStatus(member.id, "done", "Finished their part.");
+        emitStatus(
+          member.id,
+          "done",
+          runMode === "brainstorm"
+            ? "Shared their ideas."
+            : "Finished their part."
+        );
         bus.emitEvent({
           type: "task",
           agentId: member.id,
@@ -450,7 +647,10 @@ export async function runOrchestration(
         });
         bus.emitEvent({
           type: "orch",
-          text: `${member.name} finished.`,
+          text:
+            runMode === "brainstorm"
+              ? `${member.name} shared their take.`
+              : `${member.name} finished.`,
           kind: "normal",
         });
       } catch (err) {
@@ -467,6 +667,41 @@ export async function runOrchestration(
       }
     }
 
+    // Brainstorm guests — ephemeral bubbles that smoke-vanish when done
+    if (runMode === "brainstorm" && plan.guests.length) {
+      throwIfCancelled();
+      const orchForGuests = byId.get("orchestrator") ?? {
+        id: "orchestrator",
+        name: "Orchestrator",
+        role: "Routes work",
+      };
+      bus.emitEvent({
+        type: "orch",
+        text: `Orchestrator is bringing in ${plan.guests.length} guest specialist${plan.guests.length > 1 ? "s" : ""}…`,
+        kind: "normal",
+      });
+      const guestReports = await runRequestedSubagents(
+        orchForGuests,
+        plan.guests.map((g) => ({
+          name: g.name,
+          role: g.role,
+          task: `BRAINSTORM ONLY (no code, no edits). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}`,
+        }))
+      );
+      for (const g of guestReports) {
+        reports.push({
+          id: `guest-${g.name}`,
+          name: g.name,
+          report: g.report,
+        });
+        bus.emitEvent({
+          type: "orch",
+          text: `Guest “${g.name}”: ${g.report.slice(0, 400)}`,
+          kind: "normal",
+        });
+      }
+    }
+
     throwIfCancelled();
 
     const orch = byId.get("orchestrator") ?? {
@@ -474,10 +709,19 @@ export async function runOrchestration(
       name: "Orchestrator",
       role: "Routes work",
     };
-    emitStatus(orch.id, "working", "Writing a tiny wrap-up…");
+    emitStatus(
+      orch.id,
+      "working",
+      runMode === "brainstorm"
+        ? "Synthesizing the brainstorm…"
+        : "Writing a tiny wrap-up…"
+    );
     bus.emitEvent({
       type: "orch",
-      text: "Orchestrator is writing a brief final summary…",
+      text:
+        runMode === "brainstorm"
+          ? "Orchestrator is synthesizing the brainstorm…"
+          : "Orchestrator is writing a brief final summary…",
       kind: "typing",
     });
 
@@ -487,7 +731,19 @@ export async function runOrchestration(
 
     const summaryRaw = await runAgentPrompt(
       orch,
-      `You are the Orchestrator. All teammates finished.
+      runMode === "brainstorm"
+        ? `You are the Orchestrator wrapping a BRAINSTORM (discussion only — nothing was built).
+
+Topic: ${trimmedGoal}
+
+Ideas from the circle:
+${digest || "(none)"}
+
+Reply with a VERY brief synthesis:
+- Exactly 1–2 short sentences
+- Name the strongest direction or open question
+- Plain language, no bullets, no “next steps” list`
+        : `You are the Orchestrator. All teammates finished.
 
 Goal: ${goal}
 
@@ -501,7 +757,10 @@ Reply with a VERY brief final summary for the user:
 - Celebrate completion lightly`,
       {
         asMain: true,
-        label: "Orchestrator is wrapping up…",
+        label:
+          runMode === "brainstorm"
+            ? "Orchestrator is synthesizing…"
+            : "Orchestrator is wrapping up…",
         streamToChat: false,
       }
     );

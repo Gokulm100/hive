@@ -85,4 +85,19 @@ export type ScriptStep =
       id: string;
       status: AgentStatus;
       report?: string;
+    }
+  | {
+      delay: number;
+      type: "guest-spawn";
+      id: string;
+      name: string;
+      role: string;
+      task: string;
+    }
+  | {
+      delay: number;
+      type: "guest-done";
+      id: string;
+      name: string;
+      report?: string;
     };

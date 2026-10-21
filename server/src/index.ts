@@ -12,6 +12,7 @@ import {
 } from "./pool";
 import {
   instructOne,
+  parseRunMode,
   runOrchestration,
   spawnSideQuery,
   tryProvideAnswers,
@@ -97,6 +98,7 @@ app.post("/api/orchestrate", async (req, res) => {
   const goal = String(req.body?.goal ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
   const workspace = parseWorkspaceBody(req.body?.workspace);
+  const mode = parseRunMode(req.body?.mode);
   if (!goal) {
     res.status(400).json({ error: "goal is required" });
     return;
@@ -117,8 +119,8 @@ app.post("/api/orchestrate", async (req, res) => {
   }
 
   busy = true;
-  res.json({ ok: true, started: true });
-  void runOrchestration(goal, team, workspace)
+  res.json({ ok: true, started: true, mode });
+  void runOrchestration(goal, team, workspace, mode)
     .catch((err) => {
       bus.emitEvent({
         type: "error",

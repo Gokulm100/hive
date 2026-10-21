@@ -23,6 +23,11 @@ export default function App() {
           play("toggle");
           api.setEngine(e);
         }}
+        runMode={api.runMode}
+        onRunMode={(m) => {
+          play("toggle");
+          api.setRunMode(m);
+        }}
         apiError={api.apiError}
       />
 
@@ -58,6 +63,7 @@ export default function App() {
                 running={api.running}
                 successSummary={api.successSummary}
                 activeWorkspace={api.activeWorkspace}
+                runMode={api.runMode}
                 onSelect={(id) => {
                   api.selectAgent(id);
                   api.ensureChatSeed(id);

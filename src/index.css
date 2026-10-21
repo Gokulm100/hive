@@ -669,6 +669,7 @@
       transform: scale(0.82);
       opacity: 0.95;
       animation: subPopIn 0.42s cubic-bezier(0.22, 1.2, 0.36, 1) both;
+      filter: none;
     }
     .agent-bubble.ephemeral .droplet {
       box-shadow: 0 0 0 2px rgba(255, 200, 120, 0.35);
@@ -679,22 +680,41 @@
       border-color: rgba(255, 180, 80, 0.35);
     }
     .agent-bubble.ephemeral.done {
-      animation: subPopOut 0.55s ease forwards;
+      animation: smokeVanish 1.15s ease-in forwards;
+      pointer-events: none;
     }
     @keyframes subPopIn {
       from {
         opacity: 0;
         transform: scale(0.35);
+        filter: blur(0);
       }
       to {
         opacity: 0.95;
         transform: scale(0.82);
+        filter: blur(0);
       }
     }
-    @keyframes subPopOut {
-      to {
+    @keyframes smokeVanish {
+      0% {
+        opacity: 0.95;
+        transform: scale(0.82) translateY(0);
+        filter: blur(0);
+      }
+      35% {
+        opacity: 0.55;
+        transform: scale(0.9) translateY(-10px);
+        filter: blur(1.5px);
+      }
+      70% {
+        opacity: 0.2;
+        transform: scale(1.05) translateY(-28px);
+        filter: blur(6px);
+      }
+      100% {
         opacity: 0;
-        transform: scale(0.2);
+        transform: scale(1.2) translateY(-48px);
+        filter: blur(14px);
       }
     }
     .map-canvas svg .connector.ephemeral:not(.active) {

@@ -59,6 +59,7 @@ export type LiveEvent =
       type: "goal";
       goal: string;
       workspace?: { url: string; startingRef?: string } | null;
+      mode?: "build" | "brainstorm";
     }
   | {
       type: "plan";
@@ -71,6 +72,8 @@ export type LiveEvent =
       phase: "active" | "done" | "skipped";
       task?: string;
     };
+
+export type RunMode = "build" | "brainstorm";
 
 export type TeamMemberPayload = {
   id: string;
@@ -138,12 +141,18 @@ export async function fetchRepos(): Promise<ListedRepo[]> {
 export async function startOrchestration(
   goal: string,
   team: TeamMemberPayload[],
-  workspace?: WorkspacePayload | null
+  workspace?: WorkspacePayload | null,
+  mode: RunMode = "build"
 ): Promise<void> {
   const res = await fetch(apiUrl("/api/orchestrate"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ goal, team, workspace: workspace || undefined }),
+    body: JSON.stringify({
+      goal,
+      team,
+      workspace: workspace || undefined,
+      mode,
+    }),
   });
   const data = (await res.json().catch(() => ({}))) as { error?: string };
   if (!res.ok) throw new Error(data.error || `Orchestrate failed (${res.status})`);

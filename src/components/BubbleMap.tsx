@@ -334,7 +334,7 @@ export function BubbleMap({
                 ${charHtml(n, n.anim)}
               </div>
               <span class="label">${n.name}</span>
-              <span class="mini-chip">${n.ephemeral ? "helper" : n.status}</span>
+              <span class="mini-chip">${n.ephemeral ? "guest" : n.status}</span>
             </button>
           `
         )

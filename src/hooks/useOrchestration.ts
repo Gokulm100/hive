@@ -15,6 +15,7 @@ import {
   subscribeEvents,
   type ListedRepo,
   type LiveEvent,
+  type RunMode,
   type TeamMemberPayload,
   type WorkspacePayload,
 } from "../api/client";
@@ -87,6 +88,7 @@ export function useOrchestration() {
   const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
   const [mapTick, setMapTick] = useState(0);
   const [engine, setEngine] = useState<EngineMode>("demo");
+  const [runMode, setRunMode] = useState<RunMode>("build");
   const [apiError, setApiError] = useState<string | null>(null);
   const [awaitingIds, setAwaitingIds] = useState<Set<string>>(() => new Set());
   const [pendingQuestions, setPendingQuestions] = useState<
@@ -117,6 +119,7 @@ export function useOrchestration() {
   const runningRef = useRef(running);
   const directingRef = useRef(directing);
   const engineRef = useRef(engine);
+  const runModeRef = useRef(runMode);
 
   castRef.current = cast;
   agentStateRef.current = agentState;
@@ -126,6 +129,7 @@ export function useOrchestration() {
   runningRef.current = running;
   directingRef.current = directing;
   engineRef.current = engine;
+  runModeRef.current = runMode;
 
   const teamPayload = useCallback((): TeamMemberPayload[] => {
     return castRef.current
@@ -354,24 +358,34 @@ export function useOrchestration() {
     (goal: string) => {
       clearTimers();
       const g = goal.trim() || DEFAULT_GOAL;
+      const mode = runModeRef.current;
       setRunning(true);
       setCurrentGoal(g);
       setSuccessSummary(null);
+      const leanIds =
+        mode === "brainstorm" ? new Set(["manager", "bd"]) : null;
       const demoPlan: PlannedTask[] = castRef.current
         .filter((a) => !a.hub && !a.ephemeral)
+        .filter((a) => !leanIds || leanIds.has(a.id))
         .map((a) => ({
           id: a.id,
-          task: `For “${g}”, contribute as ${a.name} (${a.role}).`,
+          task:
+            mode === "brainstorm"
+              ? `Brainstorm “${g}” as ${a.name} (${a.role}).`
+              : `For “${g}”, contribute as ${a.name} (${a.role}).`,
           phase: "upcoming" as const,
         }));
       setPlannedTasks(demoPlan);
       logActivity("orchestrator", "instruct", g);
       setAgent("orchestrator", {
         status: "working",
-        report: "Routing work to the team…",
+        report:
+          mode === "brainstorm"
+            ? "Opening a lean brainstorm…"
+            : "Routing work to the team…",
       });
 
-      const steps = buildScript(goal);
+      const steps = buildScript(goal, mode);
       let t = 0;
 
       steps.forEach((step) => {
@@ -392,6 +406,76 @@ export function useOrchestration() {
                 step.text,
                 step.type === "orch-summary" ? "summary" : ""
               );
+            });
+            return;
+          }
+          if (step.type === "guest-spawn") {
+            setEphemeralAgents((list) => {
+              if (list.some((a) => a.id === step.id)) return list;
+              const parent = castRef.current.find((a) => a.id === "orchestrator");
+              return [
+                ...list,
+                makeEphemeralAgent(
+                  step.id,
+                  step.name,
+                  step.role,
+                  "orchestrator",
+                  parent
+                ),
+              ];
+            });
+            setAgentState((s) => ({
+              ...s,
+              [step.id]: {
+                status: "working",
+                report: step.task,
+                open: false,
+              },
+            }));
+            setChats((c) => ({
+              ...c,
+              [step.id]: [
+                {
+                  role: "system",
+                  text: "Brainstorm guest — pops in, then vanishes like smoke.",
+                },
+              ],
+            }));
+            if (viewRef.current === "bubbles") setSelected(step.id);
+            bumpMap();
+            play("add");
+            return;
+          }
+          if (step.type === "guest-done") {
+            setAgentState((s) => ({
+              ...s,
+              [step.id]: {
+                ...(s[step.id] ?? { status: "idle", report: "", open: false }),
+                status: "done",
+                report: step.report?.slice(0, 160) || "Finished.",
+              },
+            }));
+            setFlashIds((f) => new Set(f).add(step.id));
+            bumpMap();
+            later(1200, () => {
+              setEphemeralAgents((list) => list.filter((a) => a.id !== step.id));
+              setAgentState((s) => {
+                const next = { ...s };
+                delete next[step.id];
+                return next;
+              });
+              setChats((c) => {
+                const next = { ...c };
+                delete next[step.id];
+                return next;
+              });
+              setFlashIds((f) => {
+                const n = new Set(f);
+                n.delete(step.id);
+                return n;
+              });
+              setSelected((sel) => (sel === step.id ? "orchestrator" : sel));
+              bumpMap();
             });
             return;
           }
@@ -427,7 +511,9 @@ export function useOrchestration() {
       later(t + 800, () => {
         setRunning(false);
         const brief =
-          "Team wrapped the coffee landing plan. Ready for your review.";
+          mode === "brainstorm"
+            ? "Brainstorm wrapped — strongest direction noted. Nothing was built."
+            : "Team wrapped the coffee landing plan. Ready for your review.";
         setAgent("orchestrator", {
           status: "done",
           report: brief,
@@ -437,7 +523,7 @@ export function useOrchestration() {
         play("success");
       });
     },
-    [addMsg, clearTimers, later, logActivity, setAgent, showTyping]
+    [addMsg, bumpMap, clearTimers, later, logActivity, setAgent, showTyping]
   );
 
   const selectAgent = useCallback((id: string | null) => {
@@ -692,13 +778,16 @@ export function useOrchestration() {
         setApiError(null);
         const ws = workspacePayload();
         setActiveWorkspace(ws);
-        void startOrchestration(DEFAULT_GOAL, teamPayload(), ws).catch(
-          (err: Error) => {
-            setRunning(false);
-            setApiError(err.message);
-            addMsg("orch", err.message);
-          }
-        );
+        void startOrchestration(
+          DEFAULT_GOAL,
+          teamPayload(),
+          ws,
+          runModeRef.current
+        ).catch((err: Error) => {
+          setRunning(false);
+          setApiError(err.message);
+          addMsg("orch", err.message);
+        });
       } else {
         runScript(DEFAULT_GOAL);
       }
@@ -729,7 +818,12 @@ export function useOrchestration() {
         setApiError(null);
         const ws = workspacePayload();
         setActiveWorkspace(ws);
-        void startOrchestration(t, teamPayload(), ws).catch((err: Error) => {
+        void startOrchestration(
+          t,
+          teamPayload(),
+          ws,
+          runModeRef.current
+        ).catch((err: Error) => {
           setApiError(err.message);
           addMsg("orch", err.message);
           play("error");
@@ -1038,7 +1132,7 @@ export function useOrchestration() {
             [e.id]: [
               {
                 role: "system",
-                text: `Temporary helper for ${e.parentId}`,
+                text: `Guest bubble for ${e.parentId} — vanishes when done.`,
               },
             ],
           }));
@@ -1050,7 +1144,7 @@ export function useOrchestration() {
               name: e.name,
               kind: "system",
               status: "working",
-              text: `Spawned under ${e.parentId}${e.task ? `: ${e.task}` : ""}`,
+              text: `Guest joined under ${e.parentId}${e.task ? `: ${e.task}` : ""}`,
             },
           ]);
           play("add");
@@ -1080,7 +1174,7 @@ export function useOrchestration() {
             text:
               e.action === "error"
                 ? `Helper left with error: ${e.report || "failed"}`
-                : "Helper finished — leaving the map.",
+                : "Guest finished — vanishing like smoke.",
           },
         ]);
         bumpMap();
@@ -1108,12 +1202,15 @@ export function useOrchestration() {
           });
           setSelected((sel) => (sel === e.id ? e.parentId : sel));
           bumpMap();
-        }, 1400);
+        }, 1200);
         return;
       }
       if (e.type === "goal") {
         setCurrentGoal(e.goal);
         setSuccessSummary(null);
+        if (e.mode === "brainstorm" || e.mode === "build") {
+          setRunMode(e.mode);
+        }
         setActiveWorkspace(
           e.workspace?.url
             ? {
@@ -1198,6 +1295,8 @@ export function useOrchestration() {
     mapTick,
     engine,
     setEngine,
+    runMode,
+    setRunMode,
     apiError,
     awaitingIds,
     pendingQuestions,

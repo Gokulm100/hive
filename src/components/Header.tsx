@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { RunMode } from "../api/client";
 import type { EngineMode } from "../hooks/useOrchestration";
 import { isSoundMuted, toggleSoundMuted } from "../lib/sounds";
 import type { ViewMode } from "../types";
@@ -9,10 +10,20 @@ type Props = {
   onView: (v: ViewMode) => void;
   engine: EngineMode;
   onEngine: (e: EngineMode) => void;
+  runMode: RunMode;
+  onRunMode: (m: RunMode) => void;
   apiError: string | null;
 };
 
-export function Header({ view, onView, engine, onEngine, apiError }: Props) {
+export function Header({
+  view,
+  onView,
+  engine,
+  onEngine,
+  runMode,
+  onRunMode,
+  apiError,
+}: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
 
   return (
@@ -23,9 +34,11 @@ export function Header({ view, onView, engine, onEngine, apiError }: Props) {
           <h1>HIVE</h1>
         </div>
         <p id="brandSub">
-          {view === "bubbles"
-            ? "Your AI crew on a map — instruct any agent in the side chat"
-            : "One goal in, the hive reports back"}
+          {runMode === "brainstorm"
+            ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
+            : view === "bubbles"
+              ? "Your AI crew on a map — instruct any agent in the side chat"
+              : "One goal in, the hive reports back"}
         </p>
       </div>
       <div className="top-actions">
@@ -43,6 +56,24 @@ export function Header({ view, onView, engine, onEngine, apiError }: Props) {
             onClick={() => onView("bubbles")}
           >
             Bubbles
+          </button>
+        </div>
+        <div className="view-toggle" role="group" aria-label="Run mode">
+          <button
+            type="button"
+            aria-pressed={runMode === "build"}
+            onClick={() => onRunMode("build")}
+            title="Full build — implement with needed agents"
+          >
+            Build
+          </button>
+          <button
+            type="button"
+            aria-pressed={runMode === "brainstorm"}
+            onClick={() => onRunMode("brainstorm")}
+            title="Discussion only — lean circle, temporary guests"
+          >
+            Brainstorm
           </button>
         </div>
         <div className="view-toggle" role="group" aria-label="Engine">
@@ -75,9 +106,13 @@ export function Header({ view, onView, engine, onEngine, apiError }: Props) {
           className="badge"
           title={apiError ?? undefined}
         >
-          {engine === "live"
-            ? "Live · Cursor agents"
-            : "Demo mode · scripted"}
+          {runMode === "brainstorm"
+            ? engine === "live"
+              ? "Brainstorm · live"
+              : "Brainstorm · demo"
+            : engine === "live"
+              ? "Live · Cursor agents"
+              : "Demo mode · scripted"}
         </div>
       </div>
     </header>
