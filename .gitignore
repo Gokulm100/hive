@@ -1,0 +1,10 @@
+node_modules
+dist
+.DS_Store
+*.local
+_extract.js
+.env
+.env.local
+
+.manager-step1-response.json
+*.local.json
