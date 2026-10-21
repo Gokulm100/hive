@@ -18,21 +18,12 @@ export function createInitialAgents(): AgentDef[] {
   const anims = [...ANIMS].sort(() => Math.random() - 0.5);
   const base: AgentDef[] = [
     {
-      id: "manager",
-      name: "Manager",
-      role: "Plans & prioritizes",
-      char: "manager",
-      angle: -90,
-      shape: 0,
-      anim: "anim-bob",
-    },
-    {
       id: "bd",
       name: "BD",
       role: "Business development",
       char: "bd",
-      angle: -18,
-      shape: 1,
+      angle: -90,
+      shape: 0,
       anim: "anim-wiggle",
     },
     {
@@ -40,8 +31,8 @@ export function createInitialAgents(): AgentDef[] {
       name: "UI Designer",
       role: "Visual & UX",
       char: "designer",
-      angle: 54,
-      shape: 2,
+      angle: 0,
+      shape: 1,
       anim: "anim-bounce",
     },
     {
@@ -49,8 +40,8 @@ export function createInitialAgents(): AgentDef[] {
       name: "Dev",
       role: "Implementation",
       char: "dev",
-      angle: 126,
-      shape: 3,
+      angle: 90,
+      shape: 2,
       anim: "anim-squash",
     },
     {
@@ -58,8 +49,8 @@ export function createInitialAgents(): AgentDef[] {
       name: "QA",
       role: "Quality checks",
       char: "qa",
-      angle: 198,
-      shape: 4,
+      angle: 180,
+      shape: 3,
       anim: "anim-tilt",
     },
   ];

@@ -16,13 +16,7 @@ export const BUILTIN_ROLES: RoleDef[] = [
     id: "orchestrator",
     name: "Orchestrator",
     role: "Routes work to the team",
-    brief: `You are the Orchestrator. You break goals into clear tasks for specialists; you do not implement features yourself. ${ASK_FIRST} Prefer short plans and clear summaries.`,
-  },
-  {
-    id: "manager",
-    name: "Manager",
-    role: "Plans & prioritizes",
-    brief: `You are the Manager. Scope work, story flow, priorities, and acceptance criteria. ${ASK_FIRST}`,
+    brief: `You are the Orchestrator. You break goals into clear tasks for specialists; you do not implement features yourself. ${ASK_FIRST} Prefer short plans and clear summaries. Own scoping, priorities, and acceptance criteria — there is no separate Manager.`,
   },
   {
     id: "bd",

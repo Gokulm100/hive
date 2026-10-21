@@ -137,11 +137,9 @@ function defaultAssignments(
   mode: RunMode
 ): Assignment[] {
   const pool = team.filter((t) => t.id !== "orchestrator");
-  // Discuss modes: lean default — manager + bd only if present
+  // Discuss modes: lean default — bd + designer only if present
   const leanIds = isDiscussMode(mode)
-    ? ["manager", "bd", "designer"].filter((id) =>
-        pool.some((p) => p.id === id)
-      )
+    ? ["bd", "designer"].filter((id) => pool.some((p) => p.id === id))
     : pool.map((p) => p.id);
   const ids = leanIds.length ? leanIds.slice(0, 3) : pool.slice(0, 2).map((p) => p.id);
   return pool
@@ -495,7 +493,7 @@ Team roster (use these ids exactly):
 ${roster}
 
 Return ONLY JSON (no prose) in this shape:
-{"assignments":[{"id":"manager","task":"..."},{"id":"bd","task":"..."}]}
+{"assignments":[{"id":"bd","task":"..."},{"id":"designer","task":"..."}]}
 
 Rules:
 - Include ONLY teammates who are truly needed (not everyone by default)
