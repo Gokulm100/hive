@@ -438,7 +438,7 @@ export function useOrchestration() {
       setCurrentGoal(g);
       setSuccessSummary(null);
       const discuss = mode === "brainstorm" || mode === "casual";
-      const leanIds = discuss ? new Set(["bd", "designer"]) : null;
+      const leanIds = discuss ? new Set(["researcher", "bd"]) : null;
       const demoPlan: PlannedTask[] = castRef.current
         .filter((a) => !a.hub && !a.ephemeral)
         .filter((a) => !leanIds || leanIds.has(a.id))

@@ -21,17 +21,19 @@ export const CHAR = {
           <path d="M20 48c4 8 20 8 24 0" fill="#2A6F7A"/>
         </svg>`;
       },
-      manager() {
+      researcher() {
         return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
           <circle cx="32" cy="34" r="17" fill="#E8C4A0"/>
-          <path d="M16 30c3-12 29-12 32 0v2c-4 6-28 6-32 0z" fill="#3D2B1F"/>
-          <rect x="20" y="28" width="24" height="10" rx="5" fill="none" stroke="#5A4A3A" stroke-width="1.6"/>
-          <ellipse class="eye" cx="25" cy="35" rx="2.2" ry="2.6" fill="#222"/>
-          <ellipse class="eye delay" cx="39" cy="35" rx="2.2" ry="2.6" fill="#222"/>
+          <path d="M16 30c3-12 29-12 32 0v2c-4 6-28 6-32 0z" fill="#2C3E50"/>
+          <circle cx="25" cy="35" r="5.2" fill="none" stroke="#5D6D7E" stroke-width="1.8"/>
+          <circle cx="39" cy="35" r="5.2" fill="none" stroke="#5D6D7E" stroke-width="1.8"/>
+          <path d="M30.2 35h3.6" stroke="#5D6D7E" stroke-width="1.6"/>
+          <ellipse class="eye" cx="25" cy="35" rx="2" ry="2.4" fill="#222"/>
+          <ellipse class="eye delay" cx="39" cy="35" rx="2" ry="2.4" fill="#222"/>
           <path d="M28 42h8" stroke="#B07A5A" stroke-width="2" stroke-linecap="round"/>
-          <rect x="42" y="38" width="12" height="14" rx="2" fill="#F4E8D0" stroke="#8A7A60" stroke-width="1"/>
-          <path d="M44 42h8M44 46h6" stroke="#6A9B7A" stroke-width="1.4"/>
-          <path d="M18 48c5 9 23 9 28 0" fill="#4A6FA5"/>
+          <rect x="42" y="36" width="13" height="16" rx="1.5" fill="#F4E8D0" stroke="#8A7A60" stroke-width="1"/>
+          <path d="M45 40h7M45 44h7M45 48h5" stroke="#5B8A72" stroke-width="1.3"/>
+          <path d="M18 48c5 9 23 9 28 0" fill="#5B8A72"/>
         </svg>`;
       },
       bd() {

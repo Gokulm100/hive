@@ -18,7 +18,16 @@ export function buildScript(
           ? `Casual mode — “${g}”. Chat freely; no clarifying questions.`
           : `Brainstorm mode — “${g}”. Lean circle only; guests may pop in.`,
       },
-      { delay: 800, type: "agent", id: "bd", status: "working" },
+      { delay: 800, type: "agent", id: "researcher", status: "working" },
+      {
+        delay: 1100,
+        type: "agent",
+        id: "researcher",
+        status: "done",
+        report:
+          "Specialty coffee pages that win lead with origin + weekly drops. Feature lists underperform. Risk: stock photos feel fake.",
+      },
+      { delay: 700, type: "agent", id: "bd", status: "working" },
       {
         delay: 1100,
         type: "agent",
@@ -26,15 +35,6 @@ export function buildScript(
         status: "done",
         report:
           "Strong angle: weekly roast drops + origin story. Weak angle: feature laundry lists.",
-      },
-      { delay: 700, type: "agent", id: "designer", status: "working" },
-      {
-        delay: 1100,
-        type: "agent",
-        id: "designer",
-        status: "done",
-        report:
-          "Keep the hero to one photo and one line — cream/espresso, no feature dump.",
       },
       {
         delay: 600,
@@ -72,6 +72,15 @@ export function buildScript(
       delay: 900,
       type: "orch",
       text: "Scope: 1-page hero → story → CTA. Priority: brand warmth over feature lists.",
+    },
+    { delay: 700, type: "agent", id: "researcher", status: "working" },
+    {
+      delay: 1100,
+      type: "agent",
+      id: "researcher",
+      status: "done",
+      report:
+        "Comps: origin-first heroes convert better than menu dumps. Constraint: keep one CTA. Unknown: roast cadence — assume weekly.",
     },
     { delay: 700, type: "agent", id: "bd", status: "working" },
     {
@@ -119,7 +128,7 @@ export function buildScript(
       delay: 800,
       type: "orch-summary",
       text:
-        "Team report: Orchestrator scoped hero → story → CTA; BD set offer + audience; Designer defined cream/espresso visuals; Dev stubbed the page; QA cleared the CTA contrast issue. Next: approve copy, then ship the hero.",
+        "Team report: Orchestrator scoped hero → story → CTA; Researcher flagged origin-first comps; BD set offer + audience; Designer defined cream/espresso visuals; Dev stubbed the page; QA cleared the CTA contrast issue. Next: approve copy, then ship the hero.",
     },
   ];
 }
