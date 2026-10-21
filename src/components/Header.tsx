@@ -33,11 +33,20 @@ export function Header({
           <HiveLogo className="brand-mark" />
           <h1>HIVE</h1>
         </div>
-        <p id="brandSub">
+        <p
+          id="brandSub"
+          title={
+            runMode === "brainstorm"
+              ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
+              : view === "bubbles"
+                ? "Your AI crew on a map — instruct any agent in the side chat"
+                : "One goal in, the hive reports back"
+          }
+        >
           {runMode === "brainstorm"
-            ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
+            ? "Brainstorm — discussion only"
             : view === "bubbles"
-              ? "Your AI crew on a map — instruct any agent in the side chat"
+              ? "Crew map — instruct any agent"
               : "One goal in, the hive reports back"}
         </p>
       </div>
