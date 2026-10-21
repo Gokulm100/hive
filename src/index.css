@@ -118,6 +118,32 @@
       height: 40px;
       filter: drop-shadow(0 2px 8px rgba(212, 161, 92, 0.28));
     }
+    .theme-icon-btn {
+      flex-shrink: 0;
+      display: inline-grid;
+      place-items: center;
+      width: 36px;
+      height: 36px;
+      margin-left: 2px;
+      padding: 0;
+      border-radius: 10px;
+      border: 1px solid var(--stroke);
+      background: var(--surface);
+      color: var(--ink-soft);
+      cursor: pointer;
+      transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+    .theme-icon-btn:hover {
+      color: var(--ink);
+      border-color: var(--accent);
+    }
+    .theme-icon-btn:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .theme-icon {
+      display: block;
+    }
     .brand h1 {
       font-family: var(--logo);
       font-size: clamp(1.9rem, 3.3vw, 2.5rem);
@@ -155,12 +181,6 @@
     }
     body.theme-light .sound-toggle[aria-pressed="true"] {
       border-color: #7cbc9f;
-    }
-    .theme-toggle {
-      font-size: 0.78rem;
-      padding: 8px 12px;
-      border-radius: 10px;
-      min-width: 5.5rem;
     }
 
     .badge {

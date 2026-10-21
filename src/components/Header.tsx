@@ -64,6 +64,45 @@ export function Header({
         <div className="brand-lockup">
           <HiveLogo className="brand-mark" />
           <h1>HIVE</h1>
+          <button
+            type="button"
+            className="theme-icon-btn"
+            aria-pressed={theme === "light"}
+            aria-label={
+              theme === "light" ? "Switch to dark mode" : "Switch to light mode"
+            }
+            title={theme === "light" ? "Dark mode" : "Light mode"}
+            onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+          >
+            {theme === "light" ? (
+              <svg
+                className="theme-icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                aria-hidden="true"
+              >
+                <path
+                  fill="currentColor"
+                  d="M12.1 2.1a1 1 0 0 1 .9 1.1 8 8 0 1 0 7.9 9.4 1 1 0 0 1 1.9.3A10 10 0 1 1 12 2a1 1 0 0 1 .1.1z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className="theme-icon"
+                viewBox="0 0 24 24"
+                width="18"
+                height="18"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="4" fill="currentColor" />
+                <path
+                  fill="currentColor"
+                  d="M12 1.5a1 1 0 0 1 1 1V4a1 1 0 1 1-2 0V2.5a1 1 0 0 1 1-1zm0 16a1 1 0 0 1 1 1v1.5a1 1 0 1 1-2 0V18.5a1 1 0 0 1 1-1zM4.2 4.2a1 1 0 0 1 1.4 0l1.1 1.1a1 1 0 0 1-1.4 1.4L4.2 5.6a1 1 0 0 1 0-1.4zm13.1 13.1a1 1 0 0 1 1.4 0l1.1 1.1a1 1 0 1 1-1.4 1.4l-1.1-1.1a1 1 0 0 1 0-1.4zM1.5 12a1 1 0 0 1 1-1H4a1 1 0 1 1 0 2H2.5a1 1 0 0 1-1-1zm16 0a1 1 0 0 1 1-1h1.5a1 1 0 1 1 0 2H18.5a1 1 0 0 1-1-1zM4.2 19.8a1 1 0 0 1 0-1.4l1.1-1.1a1 1 0 1 1 1.4 1.4l-1.1 1.1a1 1 0 0 1-1.4 0zm13.1-13.1a1 1 0 0 1 0-1.4l1.1-1.1a1 1 0 1 1 1.4 1.4l-1.1 1.1a1 1 0 0 1-1.4 0z"
+                />
+              </svg>
+            )}
+          </button>
         </div>
         <p id="brandSub">
           {runMode === "casual"
@@ -160,18 +199,6 @@ export function Header({
                 ? "Live · Cursor agents"
                 : "Demo mode · scripted"}
         </div>
-        <button
-          type="button"
-          className="btn-ghost theme-toggle"
-          aria-pressed={theme === "light"}
-          aria-label={
-            theme === "light" ? "Switch to dark mode" : "Switch to light mode"
-          }
-          title={theme === "light" ? "Dark mode" : "Light mode"}
-          onClick={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
-        >
-          {theme === "light" ? "Dark" : "Light"}
-        </button>
       </div>
     </header>
   );
