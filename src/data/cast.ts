@@ -7,7 +7,7 @@ export const DEFAULT_GOAL =
 export const ORCHESTRATOR: AgentDef = {
   id: "orchestrator",
   name: "Orchestrator",
-  role: "Routes work to the team",
+  role: "Splits work and keeps the team on track",
   char: "orchestrator",
   hub: true,
   anim: "anim-spin",
@@ -20,7 +20,7 @@ export function createInitialAgents(): AgentDef[] {
     {
       id: "bd",
       name: "BD",
-      role: "Business development",
+      role: "Who it’s for and why they care",
       char: "bd",
       angle: -90,
       shape: 0,
@@ -29,7 +29,7 @@ export function createInitialAgents(): AgentDef[] {
     {
       id: "designer",
       name: "UI Designer",
-      role: "Visual & UX",
+      role: "How it looks and feels to use",
       char: "designer",
       angle: 0,
       shape: 1,
@@ -38,7 +38,7 @@ export function createInitialAgents(): AgentDef[] {
     {
       id: "dev",
       name: "Dev",
-      role: "Implementation",
+      role: "Builds the working piece",
       char: "dev",
       angle: 90,
       shape: 2,
@@ -47,7 +47,7 @@ export function createInitialAgents(): AgentDef[] {
     {
       id: "qa",
       name: "QA",
-      role: "Quality checks",
+      role: "Finds what breaks for real users",
       char: "qa",
       angle: 180,
       shape: 3,
