@@ -751,8 +751,64 @@ export function useOrchestration() {
     [instructAgent, pendingQuestions]
   );
 
+  /** Stop every agent still working on the current job in the UI. */
+  const haltAllAgentsLocal = useCallback(
+    (reason: string) => {
+      setRunning(false);
+      setDirecting(false);
+      setAwaitingIds(new Set());
+      setPendingQuestions({});
+      setWorkProgress({});
+      setPlannedTasks((tasks) =>
+        tasks.map((t) =>
+          t.phase === "active" || t.phase === "upcoming"
+            ? { ...t, phase: "skipped" as const }
+            : t
+        )
+      );
+
+      const ephemeralIds = new Set(
+        castRef.current.filter((a) => a.ephemeral).map((a) => a.id)
+      );
+
+      setAgentState((s) => {
+        const next = { ...s };
+        for (const id of Object.keys(next)) {
+          const cur = next[id];
+          if (ephemeralIds.has(id)) {
+            next[id] = { ...cur, status: "done", report: reason };
+            continue;
+          }
+          if (cur.status === "working" || cur.status === "blocked") {
+            next[id] = { ...cur, status: "idle", report: reason };
+          }
+        }
+        return next;
+      });
+
+      if (ephemeralIds.size) {
+        const ids = [...ephemeralIds];
+        window.setTimeout(() => {
+          setEphemeralAgents((prev) =>
+            prev.filter((a) => !ids.includes(a.id))
+          );
+          setAgentState((s) => {
+            const n = { ...s };
+            for (const id of ids) delete n[id];
+            return n;
+          });
+          bumpMap();
+        }, 500);
+      }
+
+      bumpMap();
+    },
+    [bumpMap]
+  );
+
   const stopRun = useCallback(() => {
     if (engineRef.current === "live") {
+      haltAllAgentsLocal("Stopped with this job.");
       void stopRunApi().catch((err: Error) => {
         setApiError(err.message);
         addMsg("orch", err.message);
@@ -761,21 +817,7 @@ export function useOrchestration() {
       return;
     }
     clearTimers();
-    setRunning(false);
-    setDirecting(false);
-    setAgentState((s) => {
-      const next = { ...s };
-      for (const id of Object.keys(next)) {
-        if (next[id].status === "working") {
-          next[id] = {
-            ...next[id],
-            status: "idle",
-            report: "Stopped by user.",
-          };
-        }
-      }
-      return next;
-    });
+    haltAllAgentsLocal("Stopped by user.");
     const stoppedId = demoJobIdRef.current;
     demoJobIdRef.current = null;
     if (stoppedId) {
@@ -792,9 +834,8 @@ export function useOrchestration() {
         )
       );
     }
-    addMsg("orch", "Stopped demo run.");
-    bumpMap();
-  }, [addMsg, bumpMap, clearTimers, upsertDemoJobs]);
+    addMsg("orch", "Stopped demo run — all agents halted.");
+  }, [addMsg, clearTimers, haltAllAgentsLocal, upsertDemoJobs]);
 
   const stopJob = useCallback(
     (jobId: string) => {
@@ -804,6 +845,7 @@ export function useOrchestration() {
       if (!job || job.status !== "running") return;
 
       if (engineRef.current === "live") {
+        haltAllAgentsLocal("Stopped with this job.");
         void stopJobApi(id).catch((err: Error) => {
           setApiError(err.message);
           addMsg("orch", err.message);
@@ -829,7 +871,7 @@ export function useOrchestration() {
         )
       );
     },
-    [addMsg, jobs, stopRun, upsertDemoJobs]
+    [addMsg, haltAllAgentsLocal, jobs, stopRun, upsertDemoJobs]
   );
 
   const deleteJob = useCallback(
@@ -838,6 +880,9 @@ export function useOrchestration() {
       if (!id) return;
 
       if (engineRef.current === "live") {
+        const wasRunning =
+          running || jobs.some((j) => j.id === id && j.status === "running");
+        if (wasRunning) haltAllAgentsLocal("Job deleted — all agents stopped.");
         void deleteJobApi(id)
           .then(() => {
             setJobs((prev) => prev.filter((j) => j.id !== id));
@@ -847,11 +892,6 @@ export function useOrchestration() {
             addMsg("orch", err.message);
             play("error");
           });
-        // If this was the active run, mirror local stop UI immediately
-        if (running) {
-          setRunning(false);
-          setDirecting(false);
-        }
         return;
       }
 
@@ -859,27 +899,19 @@ export function useOrchestration() {
       if (wasActiveDemo) {
         clearTimers();
         demoJobIdRef.current = null;
-        setRunning(false);
-        setDirecting(false);
-        setAgentState((s) => {
-          const next = { ...s };
-          for (const key of Object.keys(next)) {
-            if (next[key].status === "working") {
-              next[key] = {
-                ...next[key],
-                status: "idle",
-                report: "Job deleted.",
-              };
-            }
-          }
-          return next;
-        });
-        bumpMap();
+        haltAllAgentsLocal("Job deleted.");
       }
       upsertDemoJobs((prev) => prev.filter((j) => j.id !== id));
-      if (wasActiveDemo) addMsg("orch", "Deleted demo job.");
+      if (wasActiveDemo) addMsg("orch", "Deleted demo job — all agents halted.");
     },
-    [addMsg, bumpMap, clearTimers, running, upsertDemoJobs]
+    [
+      addMsg,
+      clearTimers,
+      haltAllAgentsLocal,
+      jobs,
+      running,
+      upsertDemoJobs,
+    ]
   );
 
   const skipAgent = useCallback(
@@ -1310,10 +1342,10 @@ export function useOrchestration() {
         return;
       }
       if (e.type === "cancelled") {
-        setRunning(false);
-        setDirecting(false);
+        haltAllAgentsLocal(
+          e.message?.trim() || "Stopped — all agents on this job halted."
+        );
         if (e.message) addMsg("orch", e.message, "", { syncAgent: false });
-        bumpMap();
         return;
       }
       if (e.type === "queued") {
@@ -1616,7 +1648,7 @@ export function useOrchestration() {
     };
 
     return subscribeEvents(apply);
-  }, [engine, addMsg, bumpMap]);
+  }, [engine, addMsg, bumpMap, haltAllAgentsLocal]);
 
   return {
     cast,

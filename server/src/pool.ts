@@ -65,19 +65,58 @@ export function isMainBusy(agentId?: string) {
   return mainBusy.size > 0;
 }
 
-export async function requestCancel(): Promise<number> {
+/**
+ * Stop every in-flight Cursor run for the current job and mark busy agents idle.
+ * Covers main agents, mid-chat helpers, and discuss-mode guests.
+ */
+export async function requestCancel(
+  message = "Stopped by user"
+): Promise<number> {
   cancelRequested = true;
+
+  const agentIds = new Set<string>([...mainBusy, ...runsByAgent.keys()]);
+  const uniqueRuns = new Map<string, Run>();
+  for (const run of activeRuns.values()) uniqueRuns.set(run.id, run);
+  for (const run of runsByAgent.values()) uniqueRuns.set(run.id, run);
+
   let n = 0;
-  for (const run of activeRuns.values()) {
-    try {
-      if (run.supports("cancel")) {
-        await run.cancel();
-        n += 1;
+  await Promise.all(
+    [...uniqueRuns.values()].map(async (run) => {
+      try {
+        if (run.supports("cancel")) {
+          await run.cancel();
+          n += 1;
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
+    })
+  );
+
+  // Unblock the UI immediately — finally blocks still clean maps
+  mainBusy.clear();
+  for (const agentId of agentIds) {
+    bus.emitEvent({
+      type: "status",
+      agentId,
+      status: "idle",
+      report: message,
+    });
+    bus.emitEvent({
+      type: "task",
+      agentId,
+      phase: "skipped",
+      task: message,
+    });
+    bus.emitEvent({
+      type: "log",
+      agentId,
+      kind: "status",
+      text: `Stopped — ${message}`,
+      status: "idle",
+    });
   }
+
   return n;
 }
 
@@ -426,6 +465,23 @@ async function runEphemeralAgent(opts: {
     });
     return text;
   } catch (err) {
+    if (err instanceof CancelledError) {
+      bus.emitEvent({
+        type: "status",
+        agentId: opts.id,
+        status: "idle",
+        report: "Stopped with the job.",
+      });
+      emitSubagent("done", {
+        id: opts.id,
+        parentId: opts.parentId,
+        name: opts.name,
+        role: opts.role,
+        task: opts.task,
+        report: "Stopped with the job.",
+      });
+      throw err;
+    }
     const msg = explainCursorError(err);
     bus.emitEvent({
       type: "status",

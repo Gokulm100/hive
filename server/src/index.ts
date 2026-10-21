@@ -107,10 +107,11 @@ app.post("/api/jobs/:id/stop", async (req, res) => {
     return;
   }
   rejectAllAwaiting("Stopped by user");
-  const cancelled = await requestCancel();
+  const cancelled = await requestCancel("Stopped with this job.");
   bus.emitEvent({
     type: "cancelled",
-    message: "Stopping job… cancelled active work and any waiting questions.",
+    message:
+      "Stopping job… all agents on this job were told to stop.",
   });
   res.json({ ok: true, id, cancelled });
 });
@@ -129,7 +130,11 @@ app.delete("/api/jobs/:id", async (req, res) => {
   }
   if (job.status === "running") {
     rejectAllAwaiting("Job deleted");
-    await requestCancel();
+    await requestCancel("Job deleted — all agents stopped.");
+    bus.emitEvent({
+      type: "cancelled",
+      message: "Job deleted — all agents on that job were stopped.",
+    });
   }
   const removed = deleteJob(id);
   if (!removed) {
@@ -177,10 +182,10 @@ app.delete("/api/artifacts/:id", (req, res) => {
 
 app.post("/api/stop", async (_req, res) => {
   rejectAllAwaiting("Stopped by user");
-  const cancelled = await requestCancel();
+  const cancelled = await requestCancel("Stopped by user.");
   bus.emitEvent({
     type: "cancelled",
-    message: "Stopping… cancelled active work and any waiting questions.",
+    message: "Stopping… all agents on this job were told to stop.",
   });
   res.json({ ok: true, cancelled });
 });
