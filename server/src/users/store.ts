@@ -4,7 +4,10 @@ import path from "node:path";
 export type StoredUser = {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash?: string;
+  githubId?: number;
+  login?: string;
+  avatarUrl?: string;
   createdAt: string;
 };
 
@@ -51,6 +54,47 @@ export async function findUserByEmail(
   const db = await loadDb();
   const key = normalizeEmail(email);
   return db.users.find((u) => u.email === key);
+}
+
+export async function findUserByGithubId(
+  githubId: number
+): Promise<StoredUser | undefined> {
+  const db = await loadDb();
+  return db.users.find((u) => u.githubId === githubId);
+}
+
+export async function upsertGitHubUser(opts: {
+  githubId: number;
+  login: string;
+  email: string | null;
+  avatarUrl: string;
+}): Promise<StoredUser> {
+  const db = await loadDb();
+  const existing = db.users.find((u) => u.githubId === opts.githubId);
+  if (existing) {
+    existing.login = opts.login;
+    existing.avatarUrl = opts.avatarUrl;
+    if (opts.email) existing.email = normalizeEmail(opts.email);
+    await saveDb(db);
+    return existing;
+  }
+
+  const email =
+    opts.email != null && opts.email.trim()
+      ? normalizeEmail(opts.email)
+      : `${opts.login}@users.noreply.github.com`;
+
+  const user: StoredUser = {
+    id: crypto.randomUUID(),
+    email,
+    githubId: opts.githubId,
+    login: opts.login,
+    avatarUrl: opts.avatarUrl,
+    createdAt: new Date().toISOString(),
+  };
+  db.users.push(user);
+  await saveDb(db);
+  return user;
 }
 
 export async function createUser(

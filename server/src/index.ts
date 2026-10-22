@@ -29,6 +29,8 @@ import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
+import { requireAuth } from "./auth/session";
+import { authRouter } from "./routes/auth";
 
 // Stale "running" rows from a previous process crash
 cancelRunningJobs("Server restarted");
@@ -38,8 +40,23 @@ const PORT = Number(
   process.env.PORT || process.env.HIVE_PORT || process.env.NEXUS_PORT || 8787
 );
 
-app.use(cors({ origin: true }));
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "1mb" }));
+
+app.use("/api/auth", authRouter);
+
+app.use((req, res, next) => {
+  const path = req.path;
+  if (!path.startsWith("/api/")) return next();
+  if (path === "/api/health") return next();
+  if (path.startsWith("/api/auth")) return next();
+  requireAuth(req, res, next);
+});
 
 let busy = false;
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { RunMode } from "../api/client";
+import type { AuthUser, RunMode } from "../api/client";
 import type { EngineMode } from "../hooks/useOrchestration";
 import { isSoundMuted, toggleSoundMuted } from "../lib/sounds";
 import type { ViewMode } from "../types";
@@ -35,6 +35,8 @@ type Props = {
   runMode: RunMode;
   onRunMode: (m: RunMode) => void;
   apiError: string | null;
+  authUser: AuthUser | null;
+  onSignOut?: () => void;
 };
 
 export function Header({
@@ -45,6 +47,8 @@ export function Header({
   runMode,
   onRunMode,
   apiError,
+  authUser,
+  onSignOut,
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
@@ -183,6 +187,27 @@ export function Header({
         >
           {soundOff ? "Sound off" : "Sound on"}
         </button>
+        {authUser ? (
+          <div className="auth-user-pill">
+            {authUser.avatarUrl ? (
+              <img
+                className="auth-user-avatar"
+                src={authUser.avatarUrl}
+                alt=""
+                width={28}
+                height={28}
+              />
+            ) : null}
+            <span className="auth-user-name">
+              {authUser.login ?? authUser.email.split("@")[0]}
+            </span>
+            {onSignOut ? (
+              <button type="button" className="auth-sign-out" onClick={onSignOut}>
+                Sign out
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         <div
           className="badge"
           title={apiError ?? undefined}
