@@ -51,7 +51,7 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
 
       <div className="layout">
         {api.view === "reports" ? (
-          <aside className="reports-panel" aria-label="Reports">
+          <aside className="reports-panel" aria-label="Board">
             <ReportsView
               addAgentToken={addAgentToken}
               teamAgents={api.teamAgents}

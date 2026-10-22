@@ -2709,42 +2709,82 @@
       color: var(--ink);
       border-color: color-mix(in srgb, var(--accent) 40%, var(--stroke));
     }
-    .auth-user-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 4px 10px 4px 4px;
-      border-radius: 999px;
-      border: 1px solid var(--stroke);
-      background: var(--bar-bg);
-      max-width: min(180px, 36vw);
-      min-width: 0;
-    }
-    .auth-user-avatar {
-      border-radius: 50%;
-      object-fit: cover;
+    .auth-profile-menu {
+      position: relative;
       flex-shrink: 0;
     }
-    .auth-user-name {
-      font-size: 0.8rem;
+    .auth-profile-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: 2px solid var(--stroke);
+      border-radius: 50%;
+      background: var(--bar-bg);
+      cursor: pointer;
+      line-height: 0;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .auth-profile-trigger:hover,
+    .auth-profile-trigger[aria-expanded="true"] {
+      border-color: color-mix(in srgb, var(--accent) 55%, var(--stroke));
+      box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+    }
+    .auth-profile-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+    .auth-profile-avatar--empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--ink-soft);
+      background: color-mix(in srgb, var(--surface) 80%, var(--stroke));
+    }
+    .auth-profile-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      z-index: 120;
+      min-width: 168px;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: var(--surface);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+    }
+    .auth-profile-dropdown-name {
+      margin: 0;
+      padding: 8px 10px 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
       color: var(--ink-soft);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      max-width: 200px;
     }
-    .auth-sign-out {
-      flex-shrink: 0;
-      background: none;
+    .auth-profile-dropdown-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 9px 10px;
       border: none;
-      padding: 8px 4px;
+      border-radius: 8px;
+      background: none;
       font-family: var(--font);
-      font-size: 0.78rem;
-      color: var(--accent);
+      font-size: 0.85rem;
+      color: var(--ink);
       cursor: pointer;
-      white-space: nowrap;
     }
-    .auth-sign-out:hover {
-      text-decoration: underline;
+    .auth-profile-dropdown-item:hover {
+      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    }
+    .auth-profile-dropdown-item--signout {
+      color: var(--accent);
     }
 
     .auth-gate {
@@ -2880,12 +2920,6 @@
       .badge {
         width: 100%;
         justify-content: center;
-      }
-      .auth-user-pill {
-        max-width: min(180px, 46vw);
-      }
-      .auth-user-name {
-        max-width: 72px;
       }
 
       body.view-bubbles .app,

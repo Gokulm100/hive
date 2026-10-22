@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AuthUser, RunMode } from "../api/client";
 import type { EngineMode } from "../hooks/useOrchestration";
 import { isSoundMuted, toggleSoundMuted } from "../lib/sounds";
@@ -55,6 +55,8 @@ export function Header({
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     applyTheme(theme);
@@ -75,13 +77,26 @@ export function Header({
   }, []);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!menuOpen && !profileOpen) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setMenuOpen(false);
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setProfileOpen(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [menuOpen]);
+  }, [menuOpen, profileOpen]);
+
+  useEffect(() => {
+    if (!profileOpen) return;
+    function onPointerDown(e: MouseEvent) {
+      const el = profileRef.current;
+      if (el && !el.contains(e.target as Node)) setProfileOpen(false);
+    }
+    window.addEventListener("pointerdown", onPointerDown);
+    return () => window.removeEventListener("pointerdown", onPointerDown);
+  }, [profileOpen]);
 
   return (
     <header className="top">
@@ -141,25 +156,65 @@ export function Header({
       </div>
       <div className="top-end">
         {authUser ? (
-          <div className="auth-user-pill">
-            {authUser.avatarUrl ? (
-              <img
-                className="auth-user-avatar"
-                src={authUser.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-              />
+          <div className="auth-profile-menu" ref={profileRef}>
+            <button
+              type="button"
+              className="auth-profile-trigger"
+              aria-expanded={profileOpen}
+              aria-haspopup="menu"
+              aria-label={`Profile: ${authUser.login ?? authUser.email.split("@")[0]}`}
+              title={authUser.login ?? authUser.email.split("@")[0]}
+              onClick={() => setProfileOpen((open) => !open)}
+            >
+              {authUser.avatarUrl ? (
+                <img
+                  className="auth-profile-avatar"
+                  src={authUser.avatarUrl}
+                  alt=""
+                  width={36}
+                  height={36}
+                />
+              ) : (
+                <span className="auth-profile-avatar auth-profile-avatar--empty">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <path
+                      fill="currentColor"
+                      d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4.42 0-8 2.24-8 5v1h16v-1c0-2.76-3.58-5-8-5z"
+                    />
+                  </svg>
+                </span>
+              )}
+            </button>
+            {profileOpen ? (
+              <div className="auth-profile-dropdown" role="menu">
+                <p className="auth-profile-dropdown-name">
+                  {authUser.login ?? authUser.email.split("@")[0]}
+                </p>
+                <button
+                  type="button"
+                  role="menuitem"
+                  className="auth-profile-dropdown-item"
+                  aria-pressed={!soundOff}
+                  onClick={() => setSoundOff(toggleSoundMuted())}
+                >
+                  {soundOff ? "Sound off" : "Sound on"}
+                </button>
+                {onSignOut ? (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="auth-profile-dropdown-item auth-profile-dropdown-item--signout"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      onSignOut();
+                    }}
+                  >
+                    Sign out
+                  </button>
+                ) : null}
+              </div>
             ) : null}
-            <span className="auth-user-name">
-              {authUser.login ?? authUser.email.split("@")[0]}
-            </span>
           </div>
-        ) : null}
-        {authUser && onSignOut ? (
-          <button type="button" className="auth-sign-out" onClick={onSignOut}>
-            Sign out
-          </button>
         ) : null}
         <button
           type="button"
@@ -181,7 +236,7 @@ export function Header({
             aria-pressed={view === "reports"}
             onClick={() => onView("reports")}
           >
-            Reports
+            Board
           </button>
           <button
             type="button"
@@ -246,15 +301,6 @@ export function Header({
             Add agent
           </button>
         ) : null}
-        <button
-          type="button"
-          className="btn-ghost sound-toggle"
-          aria-pressed={!soundOff}
-          title={soundOff ? "Unmute sounds" : "Mute sounds"}
-          onClick={() => setSoundOff(toggleSoundMuted())}
-        >
-          {soundOff ? "Sound off" : "Sound on"}
-        </button>
         <div
           className="badge"
           title={apiError ?? undefined}
