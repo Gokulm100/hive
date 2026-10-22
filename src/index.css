@@ -1996,7 +1996,7 @@
     .btn-danger:hover { background: var(--blocked-soft); }
     .btn-danger[hidden] { display: none; }
 
-    /* —— Artifacts (brainstorm / casual downloads) —— */
+    /* —— Artifacts (casual downloads) —— */
     .artifacts-panel {
       display: flex;
       flex-direction: column;
@@ -2126,7 +2126,7 @@
     .job-card.error {
       border-color: rgba(212, 122, 118, 0.4);
     }
-    .job-card.brainstorm {
+    .job-card.casual {
       background:
         radial-gradient(ellipse 90% 80% at 100% 0%, rgba(142, 180, 196, 0.1), transparent 55%),
         var(--bg-deep);

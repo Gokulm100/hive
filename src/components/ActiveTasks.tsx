@@ -42,7 +42,6 @@ export function ActiveTasks({
   onSelect,
   onSkip,
 }: Props) {
-  const discuss = runMode === "brainstorm" || runMode === "casual";
   const casual = runMode === "casual";
   const byId = new Map(agents.map((a) => [a.id, a]));
 
@@ -111,29 +110,21 @@ export function ActiveTasks({
         >
           <p className="goal-eyebrow">
             {successSummary
-              ? discuss
-                ? casual
-                  ? "Wrapped"
-                  : "Synthesized"
+              ? casual
+                ? "Wrapped"
                 : "Delivered"
               : casual
                 ? "Casual"
-                : discuss
-                  ? "Brainstorm"
-                  : "Overall functionality"}
+                : "Overall functionality"}
           </p>
           <h4 className="goal-title">
             {successSummary
               ? casual
                 ? "Chat wrapped"
-                : discuss
-                  ? "Brainstorm wrapped"
-                  : "Hive finished this run"
+                : "Hive finished this run"
               : casual
                 ? "Conversation in progress"
-                : discuss
-                  ? "Discussion in progress"
-                  : "Being implemented"}
+                : "Being implemented"}
           </h4>
           <p className="goal-body">{successSummary || currentGoal}</p>
           {activeWorkspace?.url ? (
@@ -161,11 +152,7 @@ export function ActiveTasks({
             </div>
           ) : running ? (
             <p className="goal-count">
-              {discuss
-                ? casual
-                  ? "Opening the chat…"
-                  : "Picking a lean circle…"
-                : "Planning the lineup…"}
+              {casual ? "Opening the chat…" : "Planning the lineup…"}
             </p>
           ) : null}
         </article>
