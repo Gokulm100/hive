@@ -214,9 +214,9 @@ function taskForRole(
         ? `Small fix for “${goal}”: make the minimal correct change${scope.needsPr ? ", open/update a PR" : ""}, summarize what changed.`
         : `Build the feature for “${goal}”: smallest working slice${scope.needsPr ? ", open a PR" : ""}, summarize what you shipped.`;
     case "qa":
-      return `QA the work for “${goal}”: try it like a user, list blockers first, note quick fixes.`;
+      return `Pre-merge QA for “${goal}”: read-only PR/diff review + run unit tests. NEVER edit code. If issues: QA_VERDICT: REQUEST_CHANGES with a concrete Dev fix list. If clean: QA_VERDICT: APPROVE. No live/E2E unless a preview URL is given.`;
     case "merger":
-      return `Review the PR for “${goal}”. If solid, merge to main. If not, list required changes — do not merge.`;
+      return `Merge only after QA approved (diff review + unit tests). Review the PR for “${goal}”. If solid, merge to main. If not, list required changes — do not merge.`;
     default:
       return `For the goal “${goal}”, do your job.`;
   }
@@ -367,6 +367,204 @@ function extractDiscussPlan(
   };
 }
 
+const QA_MAX_ROUNDS = 3;
+
+function parseQaVerdict(report: string): "approve" | "request_changes" | "unknown" {
+  const m = report.match(/QA_VERDICT:\s*(APPROVE|REQUEST_CHANGES)/i);
+  if (!m) {
+    // Soft fallbacks if the model forgets the marker
+    if (/\bapprove for merge\b/i.test(report) && !/\brequest changes\b/i.test(report)) {
+      return "approve";
+    }
+    if (/\brequest changes\b/i.test(report) || /\bQA_VERDICT:\s*REQUEST/i.test(report)) {
+      return "request_changes";
+    }
+    return "unknown";
+  }
+  return m[1].toUpperCase() === "APPROVE" ? "approve" : "request_changes";
+}
+
+function markAgentActive(member: TeamMember, task: string) {
+  bus.emitEvent({
+    type: "task",
+    agentId: member.id,
+    phase: "active",
+    task,
+  });
+  bus.emitEvent({
+    type: "log",
+    agentId: member.id,
+    kind: "instruct",
+    text: task,
+  });
+}
+
+function markAgentDone(member: TeamMember, task: string, note: string) {
+  emitStatus(member.id, "done", note);
+  bus.emitEvent({
+    type: "task",
+    agentId: member.id,
+    phase: "done",
+    task,
+  });
+}
+
+/**
+ * QA is read-only. On REQUEST_CHANGES → Dev patches → QA again until APPROVE
+ * (or max rounds). QA stage completes only on APPROVE.
+ */
+async function runQaWithDevLoop(opts: {
+  qa: TeamMember;
+  dev: TeamMember | undefined;
+  qaTask: string;
+  goal: string;
+  priorDevReport?: string;
+}): Promise<{ qaReport: string; extraReports: { id: string; name: string; report: string }[] }> {
+  const { qa, dev, qaTask, goal } = opts;
+  const extraReports: { id: string; name: string; report: string }[] = [];
+  let context = opts.priorDevReport
+    ? `\n\nLatest Dev summary:\n${opts.priorDevReport.slice(0, 4000)}`
+    : "";
+
+  for (let round = 1; round <= QA_MAX_ROUNDS; round++) {
+    throwIfCancelled();
+    if (isSkipped(qa.id)) throw new SkippedError(qa.id);
+
+    const roundTask =
+      round === 1
+        ? `${qaTask}${context}`
+        : `Re-check after Dev’s patch (round ${round}/${QA_MAX_ROUNDS}).${context}
+
+${qaTask}
+
+Remember: read-only. End with QA_VERDICT: APPROVE or QA_VERDICT: REQUEST_CHANGES.`;
+
+    markAgentActive(qa, roundTask);
+    bus.emitEvent({
+      type: "orch",
+      text:
+        round === 1
+          ? `${qa.name} is reviewing the diff and running unit tests…`
+          : `${qa.name} is re-checking after Dev’s fixes (round ${round})…`,
+      kind: "normal",
+    });
+    bus.emitEvent({
+      type: "chat",
+      agentId: qa.id,
+      role: "user",
+      text: roundTask,
+    });
+
+    const qaReport = await askThenImplement(qa, roundTask, goal);
+    if (isSkipped(qa.id)) throw new SkippedError(qa.id);
+
+    const verdict = parseQaVerdict(qaReport);
+    bus.emitEvent({
+      type: "chat",
+      agentId: qa.id,
+      role: "system",
+      text:
+        verdict === "approve"
+          ? "QA approved — stage complete."
+          : verdict === "request_changes"
+            ? "QA requested changes — sending back to Dev."
+            : "QA did not emit a clear verdict — treating as request changes.",
+    });
+
+    if (verdict === "approve") {
+      markAgentDone(qa, qaTask, "QA approved — review + unit tests passed.");
+      return { qaReport, extraReports };
+    }
+
+    // Needs Dev — or stop if no Dev / last round
+    if (!dev || isSkipped(dev.id)) {
+      markAgentDone(
+        qa,
+        qaTask,
+        "QA still has issues but Dev is unavailable — stage ended with open findings."
+      );
+      bus.emitEvent({
+        type: "orch",
+        text: `${qa.name} needs Dev fixes, but Dev isn’t available. Continuing.`,
+        kind: "normal",
+      });
+      return { qaReport, extraReports };
+    }
+
+    if (round >= QA_MAX_ROUNDS) {
+      markAgentDone(
+        qa,
+        qaTask,
+        "Max QA↔Dev rounds reached — open findings remain."
+      );
+      bus.emitEvent({
+        type: "orch",
+        text: `${qa.name} and ${dev.name} hit the round limit. Merger should treat as not fully approved.`,
+        kind: "normal",
+      });
+      return { qaReport, extraReports };
+    }
+
+    // Hand back to Dev (QA not done yet)
+    emitStatus(qa.id, "idle", "Waiting on Dev to patch QA findings.");
+    bus.emitEvent({
+      type: "task",
+      agentId: qa.id,
+      phase: "active",
+      task: "Waiting on Dev fixes…",
+    });
+    bus.emitEvent({
+      type: "orch",
+      text: `${qa.name} → ${dev.name}: please implement the QA fix list, then hand back.`,
+      kind: "normal",
+    });
+
+    const patchTask = `QA sent your work back. Implement ONLY these fixes, update the PR/commits, then stop so QA can re-check.
+
+Goal: ${goal}
+
+QA report (fix list):
+${qaReport.slice(0, 6000)}
+
+Do not do unrelated refactors. Summarize what you changed.`;
+
+    markAgentActive(dev, patchTask);
+    bus.emitEvent({
+      type: "chat",
+      agentId: dev.id,
+      role: "user",
+      text: patchTask,
+    });
+    bus.emitEvent({
+      type: "chat",
+      agentId: qa.id,
+      role: "system",
+      text: `Sent findings to ${dev.name}. Waiting for their patch.`,
+    });
+
+    const devReport = await askThenImplement(dev, patchTask, goal);
+    if (isSkipped(dev.id)) throw new SkippedError(dev.id);
+
+    extraReports.push({ id: dev.id, name: dev.name, report: devReport });
+    markAgentDone(dev, patchTask, "Patch for QA handed back.");
+    bus.emitEvent({
+      type: "orch",
+      text: `${dev.name} finished the patch — back to ${qa.name}.`,
+      kind: "normal",
+    });
+    bus.emitEvent({
+      type: "chat",
+      agentId: qa.id,
+      role: "system",
+      text: `${dev.name} handed work back for re-check.`,
+    });
+
+    context = `\n\nDev patch summary (round ${round}):\n${devReport.slice(0, 4000)}`;
+  }
+
+  return { qaReport: "QA loop ended without approval.", extraReports };
+}
+
 async function askThenImplement(
   member: TeamMember,
   task: string,
@@ -495,6 +693,35 @@ Rules for questions:
   }
 
   throwIfCancelled();
+
+  // QA is read-only: no helpers, no code edits — review + unit tests only
+  if (member.id === "qa") {
+    emitStatus(member.id, "working", `${member.name} is reviewing (read-only)…`);
+    const reviewPrompt = `${roleBrief(member.id, member.name, member.role)}
+
+${wsNote}
+
+Overall goal: ${goal}
+
+Your assignment:
+${task}
+
+User answers / guidance:
+${answers}
+
+READ-ONLY RULES (hard):
+- Do NOT create, edit, delete, or commit any files.
+- Do NOT “fix it yourself.” Send fixes to Dev via QA_VERDICT: REQUEST_CHANGES.
+- Run existing unit tests; report command + results.
+- End with exactly one line: QA_VERDICT: APPROVE  or  QA_VERDICT: REQUEST_CHANGES`;
+
+    return runAgentPrompt(member, reviewPrompt, {
+      asMain: true,
+      label: `${member.name} is reviewing the diff / running tests…`,
+      streamToChat: true,
+    });
+  }
+
   emitStatus(
     member.id,
     "working",
@@ -660,7 +887,7 @@ Return ONLY JSON (no prose) in this shape:
 
 Hard rules for lineup:
 1. SMALL FIX → only "dev", then "merger" last ONLY if a PR/repo/merge is in play. Do NOT include researcher, qa, designer, or bd.
-2. FEATURE → "researcher" → "dev" → "qa" → "merger" (in that order).
+2. FEATURE → "researcher" → "dev" → "qa" → "merger" (in that order). QA = diff review + unit tests (not live E2E).
 3. Include "designer" ONLY if the goal is clearly about UI/visual/brand/layout.
 4. Include "bd" ONLY if the goal is clearly about who-it’s-for / offer / GTM / marketing.
 5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.`;
@@ -937,6 +1164,32 @@ export async function runOrchestration(
       });
 
       try {
+        if (!isDiscussMode(runMode) && member.id === "qa") {
+          const priorDev = [...reports].reverse().find((r) => r.id === "dev");
+          const { qaReport, extraReports } = await runQaWithDevLoop({
+            qa: member,
+            dev: byId.get("dev"),
+            qaTask: job.task,
+            goal: trimmedGoal,
+            priorDevReport: priorDev?.report,
+          });
+          if (isSkipped(member.id)) {
+            emitSkipped(member, job.task);
+            continue;
+          }
+          reports.push(...extraReports);
+          reports.push({ id: member.id, name: member.name, report: qaReport });
+          bus.emitEvent({
+            type: "orch",
+            text:
+              parseQaVerdict(qaReport) === "approve"
+                ? `${member.name} approved — stage complete.`
+                : `${member.name} finished with open findings.`,
+            kind: "normal",
+          });
+          continue;
+        }
+
         const report = isDiscussMode(runMode)
           ? await brainstormDiscuss(member, job.task, trimmedGoal, {
               casual: runMode === "casual",

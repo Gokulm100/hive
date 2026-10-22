@@ -2,7 +2,6 @@ import { ActiveTasks } from "./ActiveTasks";
 import { AgentChat } from "./AgentChat";
 import { ArtifactsPanel } from "./ArtifactsPanel";
 import { BubbleMap } from "./BubbleMap";
-import { DetailLog } from "./DetailLog";
 import { JobsList } from "./JobsList";
 import type { OrchestrationApi } from "../hooks/useOrchestration";
 
@@ -131,11 +130,6 @@ export function BubblesView({ api }: Props) {
           api.ensureChatSeed(id);
         }}
         onSkip={api.skipAgent}
-      />
-      <DetailLog
-        cast={api.cast}
-        agentState={api.agentState}
-        activityLog={api.activityLog}
       />
     </aside>
   );

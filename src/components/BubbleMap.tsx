@@ -43,13 +43,20 @@ const STRESS_FX = `<span class="stress-fx" aria-hidden="true">
   <i class="sweat d1"></i><i class="sweat d2"></i><i class="sweat d3"></i>
 </span>`;
 
+type HeatPhase = "none" | "fuming" | "cooling";
+
+/** Working > 3 min → red-hot fume 10s → slow cooldown back to normal. */
+const WORK_BEFORE_FUME_MS = 3 * 60 * 1000;
+const FUME_HOLD_MS = 10 * 1000;
+const COOLDOWN_MS = 8 * 1000;
+
 function bubbleClassNames(
   id: string,
   isHub: boolean,
   status: string,
   selected: string | null,
   flashIds: Set<string>,
-  overheating: boolean,
+  heatPhase: HeatPhase,
   celebrate: boolean,
   ephemeral = false
 ) {
@@ -57,12 +64,24 @@ function bubbleClassNames(
   const glow =
     selected === id || status === "working" || celebrate ? "glow" : "";
   const flash = flashIds.has(id) ? "flash" : "";
-  const heat = overheating ? "overheating" : "";
+  const heat =
+    heatPhase === "fuming"
+      ? "overheating"
+      : heatPhase === "cooling"
+        ? "cooling"
+        : "";
   const cheer = celebrate ? "celebrate" : "";
   const sub = ephemeral ? "ephemeral" : "";
   return `agent-bubble ${isHub ? "hub" : ""} ${status} ${flash} ${sel} ${glow} ${heat} ${cheer} ${sub}`
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function heatChipLabel(status: string, phase: HeatPhase, ephemeral: boolean) {
+  if (ephemeral) return status === "done" ? "done" : "helper";
+  if (phase === "fuming" && status === "working") return "fuming…";
+  if (phase === "cooling" && status === "working") return "cooling…";
+  return status;
 }
 
 export function BubbleMap({
@@ -93,8 +112,10 @@ export function BubbleMap({
   const teamRef = useRef(teamAgents);
   const flashRef = useRef(flashIds);
   const celebrateRef = useRef(celebrateOrch);
-  const heatRef = useRef(new Set<string>());
-  const sinceRef = useRef(new Map<string, number>());
+  /** id → heat cycle phase */
+  const heatPhaseRef = useRef(new Map<string, { phase: HeatPhase; since: number }>());
+  /** When this working stretch started (reset after a full cool-down). */
+  const workSinceRef = useRef(new Map<string, number>());
   const onSelectRef = useRef(onSelect);
   const onPersistRef = useRef(onPersistPos);
 
@@ -110,43 +131,72 @@ export function BubbleMap({
   const [, setHeatTick] = useState(0);
   const layoutKeyRef = useRef("");
 
-  // Track blocked immediately + long-running working → overheating
+  function heatPhaseOf(id: string): HeatPhase {
+    return heatPhaseRef.current.get(id)?.phase ?? "none";
+  }
+
+  function applyHeatClassesToDom() {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.querySelectorAll<HTMLElement>(".agent-bubble[data-id]").forEach((node) => {
+      const id = node.dataset.id!;
+      const phase = heatPhaseOf(id);
+      node.classList.toggle("overheating", phase === "fuming");
+      node.classList.toggle("cooling", phase === "cooling");
+      const status = agentStateRef.current[id]?.status || "idle";
+      const ephemeral = !!teamRef.current.find((a) => a.id === id)?.ephemeral;
+      const chip = node.querySelector(".mini-chip");
+      if (chip && id !== "orchestrator") {
+        chip.textContent = heatChipLabel(status, phase, ephemeral);
+      }
+    });
+  }
+
+  // Working > 3 min → fume 10s → cooldown → reset timer
   useEffect(() => {
     const now = Date.now();
-    const since = sinceRef.current;
+    const workSince = workSinceRef.current;
+    const phases = heatPhaseRef.current;
     for (const [id, runtime] of Object.entries(agentState)) {
-      if (runtime.status === "working" || runtime.status === "blocked") {
-        if (!since.has(id)) since.set(id, now);
+      if (runtime.status === "working") {
+        if (!workSince.has(id)) workSince.set(id, now);
       } else {
-        since.delete(id);
-        heatRef.current.delete(id);
+        workSince.delete(id);
+        phases.delete(id);
       }
     }
+    for (const id of [...phases.keys()]) {
+      if (agentStateRef.current[id]?.status !== "working") phases.delete(id);
+    }
+
     const tick = window.setInterval(() => {
       const t = Date.now();
       let changed = false;
-      for (const [id, started] of sinceRef.current) {
-        const status = agentStateRef.current[id]?.status;
-        const waitMs = status === "blocked" ? 1200 : 18000;
-        const hot = t - started >= waitMs;
-        if (hot && !heatRef.current.has(id)) {
-          heatRef.current.add(id);
-          changed = true;
+      for (const [id, started] of workSinceRef.current) {
+        if (agentStateRef.current[id]?.status !== "working") continue;
+        let entry = heatPhaseRef.current.get(id);
+        if (!entry || entry.phase === "none") {
+          if (t - started >= WORK_BEFORE_FUME_MS) {
+            heatPhaseRef.current.set(id, { phase: "fuming", since: t });
+            changed = true;
+          }
+          continue;
         }
-        if (!hot && heatRef.current.has(id)) {
-          heatRef.current.delete(id);
+        if (entry.phase === "fuming" && t - entry.since >= FUME_HOLD_MS) {
+          heatPhaseRef.current.set(id, { phase: "cooling", since: t });
+          changed = true;
+          continue;
+        }
+        if (entry.phase === "cooling" && t - entry.since >= COOLDOWN_MS) {
+          heatPhaseRef.current.delete(id);
+          // Fresh stretch — another 3 min of work before the next fume
+          workSinceRef.current.set(id, t);
           changed = true;
         }
       }
       if (changed) setHeatTick((n) => n + 1);
-      // Keep class in sync on DOM without full remount
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      canvas.querySelectorAll<HTMLElement>(".agent-bubble[data-id]").forEach((node) => {
-        const id = node.dataset.id!;
-        node.classList.toggle("overheating", heatRef.current.has(id));
-      });
-    }, 800);
+      applyHeatClassesToDom();
+    }, 500);
     return () => clearInterval(tick);
   }, [agentState]);
 
@@ -167,13 +217,14 @@ export function BubbleMap({
         const status = agentStateRef.current[id]?.status || "idle";
         const keepZoom = node.classList.contains("zoom-play");
         const ephemeral = !!teamRef.current.find((a) => a.id === id)?.ephemeral;
+        const phase = heatPhaseOf(id);
         node.className = bubbleClassNames(
           id,
           isHub,
           status,
           selectedRef.current,
           flashRef.current,
-          heatRef.current.has(id),
+          phase,
           isHub && celebrateRef.current,
           ephemeral
         );
@@ -183,13 +234,7 @@ export function BubbleMap({
           chip.textContent =
             isHub && celebrateRef.current
               ? "success"
-              : ephemeral
-                ? status === "done"
-                  ? "done"
-                  : "helper"
-                : heatRef.current.has(id) && status === "working"
-                  ? "slow…"
-                  : status;
+              : heatChipLabel(status, phase, ephemeral);
         }
         if (svg) {
           const line = svg.querySelector(`line.connector[data-to="${id}"]`);
@@ -344,7 +389,7 @@ export function BubbleMap({
         agentStateRef.current.orchestrator?.status || "idle";
 
       const hubHtml = `
-        <button type="button" class="${bubbleClassNames("orchestrator", true, orchStatus, selectedRef.current, flashRef.current, heatRef.current.has("orchestrator"), celebrateRef.current)}"
+        <button type="button" class="${bubbleClassNames("orchestrator", true, orchStatus, selectedRef.current, flashRef.current, heatPhaseOf("orchestrator"), celebrateRef.current)}"
           data-id="orchestrator"
           style="left:${hub.x}px;top:${hub.y}px"
           aria-label="Orchestrator, ${orchStatus}">
@@ -362,7 +407,7 @@ export function BubbleMap({
       const agentHtml = nodes
         .map(
           (n) => `
-            <button type="button" class="${bubbleClassNames(n.id, false, n.status, selectedRef.current, flashRef.current, heatRef.current.has(n.id), false, !!n.ephemeral)}" data-id="${n.id}"
+            <button type="button" class="${bubbleClassNames(n.id, false, n.status, selectedRef.current, flashRef.current, heatPhaseOf(n.id), false, !!n.ephemeral)}" data-id="${n.id}"
               style="left:${n.x}px;top:${n.y}px" aria-label="${n.name}, ${n.status}${n.ephemeral ? ", temporary helper" : ""}">
               <span class="rainbow-glow" aria-hidden="true"></span>
               ${STRESS_FX}
@@ -370,7 +415,7 @@ export function BubbleMap({
                 ${charHtml(n, n.anim)}
               </div>
               <span class="label">${n.name}</span>
-              <span class="mini-chip">${n.ephemeral ? "guest" : n.status}</span>
+              <span class="mini-chip">${heatChipLabel(n.status, heatPhaseOf(n.id), !!n.ephemeral)}</span>
             </button>
           `
         )
@@ -572,13 +617,14 @@ export function BubbleMap({
       const status = agentState[id]?.status || "idle";
       const keepZoom = node.classList.contains("zoom-play");
       const ephemeral = !!teamAgents.find((a) => a.id === id)?.ephemeral;
+      const phase = heatPhaseOf(id);
       node.className = bubbleClassNames(
         id,
         isHub,
         status,
         selected,
         flashIds,
-        heatRef.current.has(id),
+        phase,
         isHub && celebrateOrch,
         ephemeral
       );
@@ -588,13 +634,7 @@ export function BubbleMap({
         chip.textContent =
           isHub && celebrateOrch
             ? "success"
-            : ephemeral
-              ? status === "done"
-                ? "done"
-                : "helper"
-              : heatRef.current.has(id) && status === "working"
-                ? "slow…"
-                : status;
+            : heatChipLabel(status, phase, ephemeral);
       }
       const line = svg?.querySelector(`line.connector[data-to="${id}"]`);
       if (line) {

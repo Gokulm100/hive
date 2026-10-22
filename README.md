@@ -57,7 +57,7 @@ Toggle **Live / Demo** in the header. Live needs a valid key; Demo uses the old 
 1. Orchestrator agent plans JSON assignments
 2. Each teammate bubble has its own Cursor `Agent` (created lazily, reused)
 3. Agents run locally against `HIVE_CWD` (or `NEXUS_CWD`; default: this repo)
-4. SSE streams status, chat, and detail-log updates to the UI
+4. SSE streams status and chat updates to the UI
 
 ## Build
 

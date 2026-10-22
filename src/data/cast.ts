@@ -56,7 +56,7 @@ export function createInitialAgents(): AgentDef[] {
     {
       id: "qa",
       name: "QA",
-      role: "Finds what breaks for real users",
+      role: "Read-only PR review + unit tests; sends fixes back to Dev",
       char: "qa",
       angle: 198,
       shape: 4,

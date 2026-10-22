@@ -37,7 +37,6 @@ import {
 import { buildScript } from "../data/script";
 import { uid } from "../lib/utils";
 import type {
-  ActivityEntry,
   AgentDef,
   AgentRuntime,
   AgentStatus,
@@ -131,7 +130,6 @@ export function useOrchestration() {
   );
 
   const [chats, setChats] = useState<Record<string, ChatMessage[]>>(boot.chats);
-  const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
   const [messages, setMessages] = useState<OrchMessage[]>([]);
   const [running, setRunning] = useState(false);
   const [directing, setDirecting] = useState(false);
@@ -228,24 +226,10 @@ export function useOrchestration() {
   const bumpMap = useCallback(() => setMapTick((t) => t + 1), []);
 
   const logActivity = useCallback(
-    (id: string, kind: ActivityEntry["kind"], text: string, status?: AgentStatus) => {
-      const a = findAgent(id);
-      setActivityLog((prev) => [
-        ...prev,
-        {
-          t: Date.now(),
-          id,
-          name: a?.name || id,
-          kind,
-          status:
-            status ||
-            agentStateRef.current[id]?.status ||
-            "idle",
-          text: String(text || "").trim(),
-        },
-      ]);
+    (_id: string, _kind: string, _text: string, _status?: AgentStatus) => {
+      /* Detail log UI removed — keep hook for call-site compatibility */
     },
-    [findAgent]
+    []
   );
 
   const ensureChatSeed = useCallback(
@@ -1034,7 +1018,6 @@ export function useOrchestration() {
       setDirecting(false);
       setSelected(null);
       setFlashIds(new Set());
-      setActivityLog([]);
       setMessages([]);
       setSuccessSummary(null);
       setCelebrateOrch(false);
@@ -1322,18 +1305,6 @@ export function useOrchestration() {
         return;
       }
       if (e.type === "log") {
-        const a = castRef.current.find((x) => x.id === e.agentId);
-        setActivityLog((prev) => [
-          ...prev,
-          {
-            t: Date.now(),
-            id: e.agentId,
-            name: a?.name || e.agentId,
-            kind: e.kind,
-            status: e.status || agentStateRef.current[e.agentId]?.status || "idle",
-            text: e.text,
-          },
-        ]);
         return;
       }
       if (e.type === "error") {
@@ -1453,17 +1424,6 @@ export function useOrchestration() {
               },
             ],
           }));
-          setActivityLog((prev) => [
-            ...prev,
-            {
-              t: Date.now(),
-              id: e.id,
-              name: e.name,
-              kind: "system",
-              status: "working",
-              text: `Guest joined under ${e.parentId}${e.task ? `: ${e.task}` : ""}`,
-            },
-          ]);
           play("add");
           if (viewRef.current === "bubbles") setSelected(e.id);
           bumpMap();
@@ -1480,20 +1440,6 @@ export function useOrchestration() {
           },
         }));
         setFlashIds((f) => new Set(f).add(e.id));
-        setActivityLog((prev) => [
-          ...prev,
-          {
-            t: Date.now(),
-            id: e.id,
-            name: e.name,
-            kind: "system",
-            status: e.action === "error" ? "blocked" : "done",
-            text:
-              e.action === "error"
-                ? `Helper left with error: ${e.report || "failed"}`
-                : "Guest finished — vanishing like smoke.",
-          },
-        ]);
         bumpMap();
         window.setTimeout(() => {
           setEphemeralAgents((list) => list.filter((a) => a.id !== e.id));
@@ -1657,7 +1603,6 @@ export function useOrchestration() {
     ephemeralAgents,
     agentState,
     chats,
-    activityLog,
     messages,
     running,
     directing,
