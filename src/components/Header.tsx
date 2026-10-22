@@ -37,6 +37,7 @@ type Props = {
   apiError: string | null;
   authUser: AuthUser | null;
   onSignOut?: () => void;
+  onRequestAddAgent?: () => void;
 };
 
 export function Header({
@@ -49,6 +50,7 @@ export function Header({
   apiError,
   authUser,
   onSignOut,
+  onRequestAddAgent,
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
@@ -242,6 +244,18 @@ export function Header({
             Demo
           </button>
         </div>
+        {onRequestAddAgent ? (
+          <button
+            type="button"
+            className="btn-primary menu-add-agent"
+            onClick={() => {
+              onRequestAddAgent();
+              setMenuOpen(false);
+            }}
+          >
+            Add agent
+          </button>
+        ) : null}
         <button
           type="button"
           className="btn-ghost sound-toggle"
