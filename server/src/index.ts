@@ -40,6 +40,9 @@ const PORT = Number(
   process.env.PORT || process.env.HIVE_PORT || process.env.NEXUS_PORT || 8787
 );
 
+// Needed on Render so req.secure / proto match the public https URL
+app.set("trust proxy", 1);
+
 app.use(
   cors({
     origin: true,

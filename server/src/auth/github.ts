@@ -6,35 +6,49 @@ import {
 } from "../users/store";
 import { createSession, sessionFromStored } from "./session";
 
-const oauthStates = new Map<string, { createdAt: number }>();
+type OAuthState = { createdAt: number; redirectUri: string };
+
+const oauthStates = new Map<string, OAuthState>();
 const STATE_TTL_MS = 10 * 60 * 1000;
 
+function envTrim(name: string): string {
+  return (process.env[name] || "")
+    .trim()
+    .replace(/^["']|["']$/g, "");
+}
+
 function githubConfigured(): boolean {
-  return Boolean(
-    process.env.GITHUB_CLIENT_ID?.trim() &&
-      process.env.GITHUB_CLIENT_SECRET?.trim()
-  );
+  return Boolean(envTrim("GITHUB_CLIENT_ID") && envTrim("GITHUB_CLIENT_SECRET"));
 }
 
 function appOrigin(): string {
   const fromEnv =
-    process.env.HIVE_APP_URL?.trim() ||
-    process.env.VITE_APP_URL?.trim() ||
+    envTrim("HIVE_APP_URL") ||
+    envTrim("VITE_APP_URL") ||
     "http://localhost:5173";
   return fromEnv.replace(/\/$/, "");
 }
 
 function apiOrigin(req: Request): string {
-  const fromEnv = process.env.HIVE_API_URL?.trim();
+  const fromEnv = envTrim("HIVE_API_URL");
   if (fromEnv) return fromEnv.replace(/\/$/, "");
   const host = req.get("host") || `localhost:${process.env.PORT || 8787}`;
-  const proto = req.secure || req.get("x-forwarded-proto") === "https" ? "https" : "http";
+  const forwarded = String(req.get("x-forwarded-proto") || "")
+    .split(",")[0]
+    .trim();
+  // Render / proxies: prefer forwarded proto; .onrender.com is always https
+  const proto =
+    forwarded === "https" ||
+    req.secure ||
+    host.endsWith(".onrender.com")
+      ? "https"
+      : "http";
   return `${proto}://${host}`;
 }
 
 function redirectUri(req: Request): string {
-  const fromEnv = process.env.GITHUB_CALLBACK_URL?.trim();
-  if (fromEnv) return fromEnv;
+  const fromEnv = envTrim("GITHUB_CALLBACK_URL");
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
   return `${apiOrigin(req)}/api/auth/github/callback`;
 }
 
@@ -45,10 +59,12 @@ function pruneStates(): void {
   }
 }
 
-export function authStatus(_req: Request, res: Response): void {
+export function authStatus(req: Request, res: Response): void {
   res.json({
     github: githubConfigured(),
     appOrigin: appOrigin(),
+    /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
+    redirectUri: redirectUri(req),
   });
 }
 
@@ -68,12 +84,14 @@ export function startGitHubOAuth(req: Request, res: Response): void {
 
   pruneStates();
   const state = crypto.randomUUID();
-  oauthStates.set(state, { createdAt: Date.now() });
+  const callback = redirectUri(req);
+  // Pin the exact redirect_uri used at authorize time for the token exchange
+  oauthStates.set(state, { createdAt: Date.now(), redirectUri: callback });
 
-  const clientId = process.env.GITHUB_CLIENT_ID!.trim();
+  const clientId = envTrim("GITHUB_CLIENT_ID");
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: redirectUri(req),
+    redirect_uri: callback,
     scope: "read:user user:email",
     state,
   });
@@ -84,6 +102,7 @@ export function startGitHubOAuth(req: Request, res: Response): void {
 type GitHubTokenResponse = {
   access_token?: string;
   error?: string;
+  error_description?: string;
 };
 
 type GitHubProfile = {
@@ -94,16 +113,16 @@ type GitHubProfile = {
 };
 
 async function exchangeCode(
-  req: Request,
-  code: string
-): Promise<string | null> {
-  const clientId = process.env.GITHUB_CLIENT_ID!.trim();
-  const clientSecret = process.env.GITHUB_CLIENT_SECRET!.trim();
+  code: string,
+  callbackUri: string
+): Promise<{ token: string | null; error?: string }> {
+  const clientId = envTrim("GITHUB_CLIENT_ID");
+  const clientSecret = envTrim("GITHUB_CLIENT_SECRET");
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
     code,
-    redirect_uri: redirectUri(req),
+    redirect_uri: callbackUri,
   });
 
   const res = await fetch("https://github.com/login/oauth/access_token", {
@@ -115,7 +134,15 @@ async function exchangeCode(
     body,
   });
   const data = (await res.json()) as GitHubTokenResponse;
-  return data.access_token ?? null;
+  if (!data.access_token) {
+    const detail = data.error_description || data.error || `http_${res.status}`;
+    console.error("[auth] GitHub token exchange failed:", detail, {
+      redirect_uri: callbackUri,
+      client_id_prefix: clientId.slice(0, 8),
+    });
+    return { token: null, error: detail };
+  }
+  return { token: data.access_token };
 }
 
 async function fetchGitHubProfile(token: string): Promise<GitHubProfile | null> {
@@ -126,7 +153,10 @@ async function fetchGitHubProfile(token: string): Promise<GitHubProfile | null> 
       "User-Agent": "Hive-OAuth",
     },
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    console.error("[auth] GitHub profile failed:", res.status);
+    return null;
+  }
   const profile = (await res.json()) as GitHubProfile;
 
   if (!profile.email) {
@@ -168,14 +198,15 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
 
   const state = String(req.query.state ?? "");
   const code = String(req.query.code ?? "");
-  if (!state || !oauthStates.has(state) || !code) {
+  const saved = state ? oauthStates.get(state) : undefined;
+  if (!state || !saved || !code) {
     res.redirect(`${appOrigin()}/?auth_error=invalid_oauth_state`);
     return;
   }
   oauthStates.delete(state);
 
   try {
-    const token = await exchangeCode(req, code);
+    const { token } = await exchangeCode(code, saved.redirectUri);
     if (!token) {
       res.redirect(`${appOrigin()}/?auth_error=token_exchange_failed`);
       return;
@@ -199,7 +230,8 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
 
     createSession(res, sessionFromStored(user), req);
     res.redirect(`${appOrigin()}/`);
-  } catch {
+  } catch (e) {
+    console.error("[auth] OAuth finish error:", e);
     res.redirect(`${appOrigin()}/?auth_error=server_error`);
   }
 }

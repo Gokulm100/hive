@@ -34,10 +34,13 @@ In API `.env` / Render env:
 
 ```bash
 GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-HIVE_APP_URL=http://localhost:5173          # prod: your Vercel URL
-# GITHUB_CALLBACK_URL=https://hive-efc7.onrender.com/api/auth/github/callback
+GITHUB_CLIENT_SECRET=...   # no quotes; must match this OAuth App
+HIVE_APP_URL=http://localhost:5173          # prod: your Vercel URL (not localhost)
+GITHUB_CALLBACK_URL=https://hive-efc7.onrender.com/api/auth/github/callback
+# local instead: GITHUB_CALLBACK_URL=http://localhost:8787/api/auth/github/callback
 ```
+
+`GITHUB_CALLBACK_URL` must be **identical** to the GitHub App callback (https, no trailing slash). Wrong secret or mismatched callback → `token_exchange_failed`.
 
 Run **both** API and web (`npm run dev`). The GitHub button opens the API on `:8787`, not Vite — otherwise you get `Cannot GET /api/auth/github`.
 
