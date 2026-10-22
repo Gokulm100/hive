@@ -53,12 +53,15 @@ import type {
 
 export type EngineMode = "live" | "demo";
 
-const DEMO_JOBS_KEY = "hive-demo-jobs";
 const MAX_JOBS = 3;
 
-function readDemoJobs(): HiveJob[] {
+function demoJobsKey(accountId: string): string {
+  return `hive-demo-jobs-${accountId}`;
+}
+
+function readDemoJobs(accountId: string): HiveJob[] {
   try {
-    const raw = localStorage.getItem(DEMO_JOBS_KEY);
+    const raw = localStorage.getItem(demoJobsKey(accountId));
     if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
@@ -74,9 +77,12 @@ function readDemoJobs(): HiveJob[] {
   }
 }
 
-function writeDemoJobs(list: HiveJob[]) {
+function writeDemoJobs(accountId: string, list: HiveJob[]) {
   try {
-    localStorage.setItem(DEMO_JOBS_KEY, JSON.stringify(list.slice(0, MAX_JOBS)));
+    localStorage.setItem(
+      demoJobsKey(accountId),
+      JSON.stringify(list.slice(0, MAX_JOBS))
+    );
   } catch {
     /* ignore */
   }
@@ -112,7 +118,7 @@ function bootstrap() {
   };
 }
 
-export function useOrchestration() {
+export function useOrchestration(accountId: string) {
   const [boot] = useState(bootstrap);
   const [teamAgents, setTeamAgents] = useState<AgentDef[]>(boot.team);
   const [ephemeralAgents, setEphemeralAgents] = useState<AgentDef[]>([]);
@@ -152,7 +158,7 @@ export function useOrchestration() {
   >({});
   const [successSummary, setSuccessSummary] = useState<string | null>(null);
   const [celebrateOrch, setCelebrateOrch] = useState(false);
-  const [jobs, setJobs] = useState<HiveJob[]>(() => readDemoJobs());
+  const [jobs, setJobs] = useState<HiveJob[]>(() => readDemoJobs(accountId));
   const [artifacts, setArtifacts] = useState<HiveArtifact[]>([]);
   const demoJobIdRef = useRef<string | null>(null);
   const [currentGoal, setCurrentGoal] = useState<string | null>(null);
@@ -413,10 +419,10 @@ export function useOrchestration() {
   const upsertDemoJobs = useCallback((updater: (prev: HiveJob[]) => HiveJob[]) => {
     setJobs((prev) => {
       const next = trimJobsList(updater(prev));
-      writeDemoJobs(next);
+      writeDemoJobs(accountId, next);
       return next;
     });
-  }, []);
+  }, [accountId]);
 
   const runScript = useCallback(
     (goal: string) => {
@@ -1202,7 +1208,7 @@ export function useOrchestration() {
   useEffect(() => {
     if (engine !== "live") {
       setRepos([]);
-      setJobs(readDemoJobs());
+      setJobs(readDemoJobs(accountId));
       setArtifacts([]);
       return;
     }
@@ -1235,7 +1241,7 @@ export function useOrchestration() {
     return () => {
       cancelled = true;
     };
-  }, [engine]);
+  }, [engine, accountId]);
 
   useEffect(() => {
     if (engine !== "live") return;

@@ -1,15 +1,74 @@
+import { useCallback, useEffect, useState } from "react";
 import { ActiveTasks } from "./components/ActiveTasks";
 import { ArtifactsPanel } from "./components/ArtifactsPanel";
+import { AuthScreen } from "./components/AuthScreen";
 import { Header } from "./components/Header";
 import { JobsList } from "./components/JobsList";
 import { ReportsView } from "./components/ReportsView";
 import { BubblesView } from "./components/BubblesView";
+import { fetchMe, logout, type AuthUser } from "./api/client";
 import { useOrchestration } from "./hooks/useOrchestration";
 import { useUiSounds } from "./hooks/useUiSounds";
 import { play } from "./lib/sounds";
+import { clearAccessToken, setAccessToken } from "./auth/session";
 
 export default function App() {
-  const api = useOrchestration();
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchMe()
+      .then((user) => {
+        if (!cancelled) setAuthUser(user);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          clearAccessToken();
+          setAuthUser(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAuthReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleAuthed = useCallback((user: AuthUser, token: string) => {
+    setAccessToken(token);
+    setAuthUser(user);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    setAuthUser(null);
+  }, []);
+
+  if (!authReady) {
+    return (
+      <div className="auth-screen">
+        <p className="auth-loading">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <AuthScreen onAuthed={handleAuthed} />;
+  }
+
+  return <HiveShell user={authUser} onLogout={handleLogout} />;
+}
+
+function HiveShell({
+  user,
+  onLogout,
+}: {
+  user: AuthUser;
+  onLogout: () => void;
+}) {
+  const api = useOrchestration(user.id);
   useUiSounds(api.agentState);
 
   return (
@@ -31,6 +90,8 @@ export default function App() {
           api.setRunMode(m);
         }}
         apiError={api.apiError}
+        userEmail={user.email}
+        onLogout={onLogout}
       />
 
       <div className="layout">

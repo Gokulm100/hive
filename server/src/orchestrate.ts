@@ -22,6 +22,7 @@ import {
   registerFinalResponseArtifact,
 } from "./artifacts";
 import { finishJob, startJob } from "./jobs";
+import { setActiveRunUser } from "./runOwner";
 import {
   getActiveWorkspace,
   setActiveWorkspace,
@@ -672,14 +673,20 @@ export async function runOrchestration(
   goal: string,
   team: TeamMember[],
   workspace: WorkspaceTarget | null = null,
-  mode: RunMode = "build"
+  mode: RunMode = "build",
+  ownerUserId?: string
 ): Promise<void> {
   clearCancelFlag();
   clearSkipped();
   const trimmedGoal = goal.trim();
   const runMode = parseRunMode(mode);
   setActiveWorkspace(workspace);
+  if (!ownerUserId) {
+    throw new Error("ownerUserId is required");
+  }
+  setActiveRunUser(ownerUserId);
   const job = startJob({
+    userId: ownerUserId,
     goal: trimmedGoal,
     mode: runMode,
     workspaceUrl: workspace?.url ?? null,
@@ -992,6 +999,7 @@ Reply with a VERY brief final summary for the user:
     finishJob(job.id, jobOutcome, jobSummary);
     bus.emitEvent({ type: "run", running: false });
     setActiveWorkspace(null);
+    setActiveRunUser(null);
   }
 }
 
@@ -1000,7 +1008,8 @@ export async function instructOne(
   instruction: string,
   team: TeamMember[] = [],
   workspace: WorkspaceTarget | null = null,
-  mode: RunMode = "build"
+  mode: RunMode = "build",
+  ownerUserId?: string
 ): Promise<void> {
   const runMode = parseRunMode(mode);
   if (member.id === "orchestrator") {
@@ -1012,13 +1021,25 @@ export async function instructOne(
             name: r.name,
             role: r.role,
           }));
-    await runOrchestration(instruction, roster, workspace, runMode);
+    await runOrchestration(
+      instruction,
+      roster,
+      workspace,
+      runMode,
+      ownerUserId
+    );
     return;
+  }
+
+  if (!ownerUserId) {
+    throw new Error("ownerUserId is required");
   }
 
   clearCancelFlag();
   setActiveWorkspace(workspace);
+  setActiveRunUser(ownerUserId);
   const job = startJob({
+    userId: ownerUserId,
     goal: instruction.trim(),
     mode: runMode,
     workspaceUrl: workspace?.url ?? null,
@@ -1104,6 +1125,7 @@ export async function instructOne(
     finishJob(job.id, jobOutcome, jobSummary);
     bus.emitEvent({ type: "run", running: false });
     setActiveWorkspace(null);
+    setActiveRunUser(null);
   }
 }
 

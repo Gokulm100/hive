@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { basename, join } from "node:path";
 import { bus } from "./bus";
+import { getJob } from "./jobs";
 
 export type HiveArtifact = {
   id: string;
@@ -19,7 +20,7 @@ export type HiveArtifact = {
   agentId?: string;
 };
 
-type Stored = HiveArtifact & { absPath: string };
+type Stored = HiveArtifact & { absPath: string; userId: string };
 
 const rootDir = join(
   process.env.HIVE_CWD?.trim() ||
@@ -61,14 +62,29 @@ function guessMime(name: string): string {
 }
 
 function emitList(jobId?: string) {
-  bus.emitEvent({ type: "artifacts", artifacts: listArtifacts(jobId) });
+  bus.emitEvent({
+    type: "artifacts",
+    artifacts: listArtifacts(jobId ? { jobId } : undefined),
+  });
 }
 
-export function listArtifacts(jobId?: string): HiveArtifact[] {
+export function listArtifacts(filter?: {
+  jobId?: string;
+  userId?: string;
+}): HiveArtifact[] {
   return [...store.values()]
-    .filter((a) => (jobId ? a.jobId === jobId : true))
+    .filter((a) => {
+      if (filter?.jobId && a.jobId !== filter.jobId) return false;
+      if (filter?.userId && a.userId !== filter.userId) return false;
+      return true;
+    })
     .sort((a, b) => b.createdAt - a.createdAt)
-    .map(({ absPath: _p, ...rest }) => rest);
+    .map(({ absPath: _p, userId: _u, ...rest }) => rest);
+}
+
+export function artifactOwnedByUser(id: string, userId: string): boolean {
+  const row = store.get(id);
+  return !!row && row.userId === userId;
 }
 
 export function getArtifact(id: string): Stored | null {
@@ -268,6 +284,9 @@ export function registerArtifactFile(opts: {
   }
   if (!normalized.length) return null;
 
+  const ownerId = getJob(opts.jobId)?.userId;
+  if (!ownerId) return null;
+
   const id = randomUUID();
   const absPath = join(jobDir, `${id.slice(0, 8)}-${name}`);
   writeFileSync(absPath, normalized);
@@ -280,9 +299,10 @@ export function registerArtifactFile(opts: {
     createdAt: Date.now(),
     agentId: opts.agentId,
     absPath,
+    userId: ownerId,
   };
   store.set(id, row);
-  const { absPath: _p, ...publicRow } = row;
+  const { absPath: _p, userId: _u, ...publicRow } = row;
   bus.emitEvent({ type: "artifact", action: "ready", artifact: publicRow });
   emitList();
   return publicRow;

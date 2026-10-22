@@ -2496,6 +2496,108 @@
     .log-agent-entries .status-pill.blocked { color: var(--blocked); }
     .log-agent-entries .status-pill.idle { color: var(--ink-soft); }
 
+    .auth-screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% -10%, var(--bg-glow-1), transparent),
+        radial-gradient(ellipse 60% 50% at 100% 50%, var(--bg-glow-2), transparent),
+        var(--bg);
+    }
+    .auth-loading {
+      color: var(--ink-soft);
+      text-align: center;
+    }
+    .auth-card {
+      width: min(420px, 100%);
+      background: var(--surface);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      padding: 28px 24px 24px;
+      box-shadow: var(--shadow);
+    }
+    .auth-brand h1 {
+      font-family: var(--display);
+      font-size: 1.5rem;
+      margin: 12px 0 6px;
+    }
+    .auth-brand p {
+      margin: 0 0 20px;
+      color: var(--ink-soft);
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+    .auth-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    .auth-tabs button {
+      flex: 1;
+      border: 1px solid var(--stroke);
+      background: var(--input);
+      color: var(--ink-soft);
+      border-radius: 10px;
+      padding: 8px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+    .auth-tabs button.active {
+      border-color: var(--accent);
+      color: var(--ink);
+      background: var(--accent-soft);
+    }
+    .auth-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+      font-size: 0.9rem;
+      color: var(--ink-soft);
+    }
+    .auth-form input {
+      border: 1px solid var(--stroke);
+      background: var(--input);
+      color: var(--ink);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font: inherit;
+    }
+    .auth-hint {
+      margin: -6px 0 12px;
+      font-size: 0.85rem;
+      color: var(--ink-soft);
+    }
+    .auth-error {
+      margin: 0 0 12px;
+      color: var(--blocked);
+      font-size: 0.9rem;
+    }
+    .auth-submit {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 14px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--accent);
+      color: var(--msg-user-ink);
+    }
+    .auth-submit:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+    .auth-user-btn {
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
     @media (max-width: 860px) {
       body.view-reports .map-shell {
         min-height: 260px;

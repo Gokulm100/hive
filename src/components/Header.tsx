@@ -35,6 +35,8 @@ type Props = {
   runMode: RunMode;
   onRunMode: (m: RunMode) => void;
   apiError: string | null;
+  userEmail?: string;
+  onLogout?: () => void;
 };
 
 export function Header({
@@ -45,6 +47,8 @@ export function Header({
   runMode,
   onRunMode,
   apiError,
+  userEmail,
+  onLogout,
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
@@ -183,6 +187,16 @@ export function Header({
         >
           {soundOff ? "Sound off" : "Sound on"}
         </button>
+        {userEmail ? (
+          <button
+            type="button"
+            className="btn-ghost auth-user-btn"
+            title={userEmail}
+            onClick={() => onLogout?.()}
+          >
+            Log out
+          </button>
+        ) : null}
         <div
           className="badge"
           title={apiError ?? undefined}

@@ -8,6 +8,7 @@ export type JobStatus = "running" | "done" | "cancelled" | "error";
 
 export type HiveJob = {
   id: string;
+  userId: string;
   goal: string;
   mode: RunMode;
   status: JobStatus;
@@ -37,6 +38,7 @@ function loadJobs(): HiveJob[] {
       .filter((row): row is HiveJob => !!row && typeof row === "object")
       .map((row) => ({
         id: String((row as HiveJob).id || ""),
+        userId: String((row as HiveJob).userId || ""),
         goal: String((row as HiveJob).goal || "").trim(),
         mode: parseStoredMode((row as HiveJob).mode),
         status: normalizeStatus((row as HiveJob).status),
@@ -49,7 +51,7 @@ function loadJobs(): HiveJob[] {
           ? Number((row as HiveJob).finishedAt)
           : undefined,
       }))
-      .filter((j) => j.id && j.goal)
+      .filter((j) => j.id && j.goal && j.userId)
       .slice(0, MAX_JOBS);
   } catch {
     return [];
@@ -83,6 +85,11 @@ function emitJobs() {
   bus.emitEvent({ type: "jobs", jobs: listJobs() });
 }
 
+function stripUserId(job: HiveJob): Omit<HiveJob, "userId"> {
+  const { userId: _omit, ...rest } = job;
+  return rest;
+}
+
 function trimJobs() {
   while (jobs.length > MAX_JOBS) {
     let dropAt = -1;
@@ -97,17 +104,24 @@ function trimJobs() {
   }
 }
 
-export function listJobs(): HiveJob[] {
-  return jobs.map((j) => ({ ...j }));
+export function listJobs(userId?: string): HiveJob[] {
+  const rows = userId ? jobs.filter((j) => j.userId === userId) : jobs;
+  return rows.map((j) => ({ ...j }));
+}
+
+export function listJobsPublic(userId: string): Omit<HiveJob, "userId">[] {
+  return listJobs(userId).map(stripUserId);
 }
 
 export function startJob(input: {
+  userId: string;
   goal: string;
   mode?: RunMode;
   workspaceUrl?: string | null;
 }): HiveJob {
   const job: HiveJob = {
     id: randomUUID(),
+    userId: input.userId,
     goal: input.goal.trim(),
     mode: parseStoredMode(input.mode),
     status: "running",
@@ -166,6 +180,12 @@ export function cancelRunningJobs(message = "Interrupted") {
 export function getJob(id: string): HiveJob | null {
   const row = jobs.find((j) => j.id === id);
   return row ? { ...row } : null;
+}
+
+export function getJobForUser(id: string, userId: string): HiveJob | null {
+  const row = getJob(id);
+  if (!row || row.userId !== userId) return null;
+  return row;
 }
 
 /** Remove a job from the list (running or finished). */
