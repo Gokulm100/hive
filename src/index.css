@@ -175,10 +175,6 @@
       padding-left: 52px;
       color: var(--ink-soft);
       font-size: 0.95rem;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
     }
     @media (max-width: 520px) {
       .brand p { padding-left: 0; }
@@ -641,6 +637,8 @@
       justify-content: space-between;
       gap: 8px;
       padding: 0 2px;
+      flex-wrap: wrap;
+      min-width: 0;
     }
     .rail-head h3 {
       margin: 0;
@@ -662,15 +660,15 @@
 
     @media (max-width: 860px) {
       body.view-reports .reports-stack .cards {
-        flex-direction: row;
-        overflow-x: auto;
-        max-height: none;
+        flex-direction: column;
+        overflow-x: hidden;
+        overflow-y: auto;
+        max-height: min(50dvh, 420px);
         padding-bottom: 6px;
-        scroll-snap-type: x mandatory;
       }
       body.view-reports .reports-stack .card {
-        min-width: 240px;
-        scroll-snap-align: start;
+        min-width: 0;
+        width: 100%;
       }
     }
 
@@ -2940,15 +2938,22 @@
         -webkit-box-orient: vertical;
         overflow: hidden;
       }
-      .agent-chat-actions {
+      .agent-chat-head .agent-chat-actions,
+      .chat-head .agent-chat-actions {
         width: 100%;
+      }
+      .rail-head .agent-chat-actions {
+        width: auto;
+        margin-left: auto;
+        flex-shrink: 1;
       }
       body.view-bubbles .agent-chat:has(.question-form) {
         min-height: min(60dvh, 520px);
       }
 
       body.view-reports .reports-stack .card {
-        min-width: min(220px, 80vw);
+        min-width: 0;
+        width: 100%;
       }
 
       .log-agent-head {
