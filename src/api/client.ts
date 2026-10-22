@@ -1,3 +1,9 @@
+import {
+  clearAccessToken,
+  getAccessToken,
+  setAccessToken,
+} from "../auth/session";
+
 export type HiveArtifactPayload = {
   id: string;
   jobId: string;
@@ -143,6 +149,11 @@ export type Health = {
   cwd: string;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+};
+
 /** Local: empty (Vite proxies /api). Prod: Render API unless VITE_API_URL overrides. */
 const API_BASE = (
   (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
@@ -153,6 +164,85 @@ function apiUrl(path: string) {
   return `${API_BASE}${path}`;
 }
 
+function apiErrorMessage(data: unknown, status: number): string {
+  if (data && typeof data === "object") {
+    const err = (data as { error?: unknown }).error;
+    if (typeof err === "string" && err.trim()) return err;
+    if (err && typeof err === "object" && "message" in err) {
+      const msg = (err as { message?: unknown }).message;
+      if (typeof msg === "string" && msg.trim()) return msg;
+    }
+  }
+  return `Request failed (${status})`;
+}
+
+function authHeaders(extra?: HeadersInit): Headers {
+  const headers = new Headers(extra);
+  const token = getAccessToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return headers;
+}
+
+async function apiFetch(
+  path: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const headers = authHeaders(init.headers);
+  if (init.body && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  return fetch(apiUrl(path), { ...init, headers });
+}
+
+export async function register(
+  email: string,
+  password: string
+): Promise<{ token: string; user: AuthUser }> {
+  const res = await fetch(apiUrl("/api/auth/register"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
+  const token = String((data as { token?: string }).token || "");
+  const user = (data as { user?: AuthUser }).user;
+  if (!token || !user?.id) throw new Error("Invalid sign-up response");
+  setAccessToken(token);
+  return { token, user };
+}
+
+export async function login(
+  email: string,
+  password: string
+): Promise<{ token: string; user: AuthUser }> {
+  const res = await fetch(apiUrl("/api/auth/login"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
+  const token = String((data as { token?: string }).token || "");
+  const user = (data as { user?: AuthUser }).user;
+  if (!token || !user?.id) throw new Error("Invalid login response");
+  setAccessToken(token);
+  return { token, user };
+}
+
+export async function fetchMe(): Promise<AuthUser> {
+  const res = await apiFetch("/api/auth/me");
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
+  const user = (data as { user?: AuthUser }).user;
+  if (!user?.id) throw new Error("Not logged in");
+  return user;
+}
+
+export function logout(): void {
+  clearAccessToken();
+}
+
 export async function fetchHealth(): Promise<Health> {
   const res = await fetch(apiUrl("/api/health"));
   if (!res.ok) throw new Error("API unreachable");
@@ -160,7 +250,11 @@ export async function fetchHealth(): Promise<Health> {
 }
 
 export function subscribeEvents(onEvent: (e: LiveEvent) => void): () => void {
-  const es = new EventSource(apiUrl("/api/events"));
+  const token = getAccessToken();
+  const qs = token
+    ? `?access_token=${encodeURIComponent(token)}`
+    : "";
+  const es = new EventSource(apiUrl(`/api/events${qs}`));
   es.onmessage = (msg) => {
     try {
       onEvent(JSON.parse(msg.data) as LiveEvent);
@@ -172,12 +266,12 @@ export function subscribeEvents(onEvent: (e: LiveEvent) => void): () => void {
 }
 
 export async function fetchRepos(): Promise<ListedRepo[]> {
-  const res = await fetch(apiUrl("/api/repos"));
+  const res = await apiFetch("/api/repos");
   const data = (await res.json().catch(() => ({}))) as {
     repos?: ListedRepo[];
     error?: string;
   };
-  if (!res.ok) throw new Error(data.error || `Repos failed (${res.status})`);
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
   return data.repos ?? [];
 }
 
@@ -187,9 +281,8 @@ export async function startOrchestration(
   workspace?: WorkspacePayload | null,
   mode: RunMode = "build"
 ): Promise<void> {
-  const res = await fetch(apiUrl("/api/orchestrate"), {
+  const res = await apiFetch("/api/orchestrate", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       goal,
       team,
@@ -197,8 +290,8 @@ export async function startOrchestration(
       mode,
     }),
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(data.error || `Orchestrate failed (${res.status})`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
 }
 
 export async function startInstruct(
@@ -208,9 +301,8 @@ export async function startInstruct(
   workspace?: WorkspacePayload | null,
   mode: RunMode = "build"
 ): Promise<{ queued?: boolean }> {
-  const res = await fetch(apiUrl("/api/instruct"), {
+  const res = await apiFetch("/api/instruct", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       member,
       instruction,
@@ -223,64 +315,65 @@ export async function startInstruct(
     error?: string;
     queued?: boolean;
   };
-  if (!res.ok) throw new Error(data.error || `Instruct failed (${res.status})`);
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
   return { queued: data.queued };
 }
 
 export async function stopRun(): Promise<void> {
-  const res = await fetch(apiUrl("/api/stop"), { method: "POST" });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(data.error || `Stop failed (${res.status})`);
+  const res = await apiFetch("/api/stop", { method: "POST" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
 }
 
 export async function skipAgent(agentId: string): Promise<void> {
-  const res = await fetch(apiUrl("/api/skip"), {
+  const res = await apiFetch("/api/skip", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ agentId }),
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(data.error || `Skip failed (${res.status})`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
 }
 
 export async function fetchJobs(): Promise<HiveJobPayload[]> {
-  const res = await fetch(apiUrl("/api/jobs"));
+  const res = await apiFetch("/api/jobs");
   const data = (await res.json().catch(() => ({}))) as {
     jobs?: HiveJobPayload[];
-    error?: string;
   };
-  if (!res.ok) throw new Error(data.error || `Jobs failed (${res.status})`);
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
   return data.jobs ?? [];
 }
 
 export async function stopJob(id: string): Promise<void> {
-  const res = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}/stop`), {
+  const res = await apiFetch(`/api/jobs/${encodeURIComponent(id)}/stop`, {
     method: "POST",
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(data.error || `Stop job failed (${res.status})`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
 }
 
 export async function deleteJob(id: string): Promise<void> {
-  const res = await fetch(apiUrl(`/api/jobs/${encodeURIComponent(id)}`), {
+  const res = await apiFetch(`/api/jobs/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
-  const data = (await res.json().catch(() => ({}))) as { error?: string };
-  if (!res.ok) throw new Error(data.error || `Delete job failed (${res.status})`);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
 }
 
 export async function fetchArtifacts(): Promise<HiveArtifactPayload[]> {
-  const res = await fetch(apiUrl("/api/artifacts"));
+  const res = await apiFetch("/api/artifacts");
   const data = (await res.json().catch(() => ({}))) as {
     artifacts?: HiveArtifactPayload[];
-    error?: string;
   };
-  if (!res.ok) throw new Error(data.error || `Artifacts failed (${res.status})`);
+  if (!res.ok) throw new Error(apiErrorMessage(data, res.status));
   return data.artifacts ?? [];
 }
 
 export function artifactDownloadUrl(id: string): string {
-  return apiUrl(`/api/artifacts/${encodeURIComponent(id)}/download`);
+  const token = getAccessToken();
+  const base = apiUrl(`/api/artifacts/${encodeURIComponent(id)}/download`);
+  if (!token) return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}access_token=${encodeURIComponent(token)}`;
 }
 
 /** Download to the browser, then delete the server copy. */
@@ -305,11 +398,11 @@ export async function downloadAndDeleteArtifact(
     URL.revokeObjectURL(url);
   }
 
-  const del = await fetch(apiUrl(`/api/artifacts/${encodeURIComponent(artifact.id)}`), {
+  const del = await apiFetch(`/api/artifacts/${encodeURIComponent(artifact.id)}`, {
     method: "DELETE",
   });
   if (!del.ok) {
-    const data = (await del.json().catch(() => ({}))) as { error?: string };
-    throw new Error(data.error || `Cleanup failed (${del.status})`);
+    const data = await del.json().catch(() => ({}));
+    throw new Error(apiErrorMessage(data, del.status));
   }
 }

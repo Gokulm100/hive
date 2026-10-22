@@ -2,6 +2,12 @@
 
 React UI + Node API. **Live** mode runs **one Cursor agent per bubble** via `@cursor/sdk`.
 
+## Sign in
+
+The app requires an account. Use **Sign up** on first visit (email + password, 8+ characters). Sessions use a bearer token stored in the browser; set `HIVE_AUTH_SECRET` on the API in production.
+
+Each account sees its own job history and artifacts on the server. Demo mode keeps a separate local job list per account.
+
 ## Setup
 
 Needs **Node 20+** (Cursor SDK). If you use nvm:

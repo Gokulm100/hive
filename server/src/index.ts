@@ -20,14 +20,20 @@ import {
   type TeamMember,
 } from "./orchestrate";
 import {
+  artifactOwnedByUser,
   deleteArtifact,
   getArtifact,
   listArtifacts,
   readArtifactBytes,
 } from "./artifacts";
-import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
+import { requireAuth, type AuthedRequest } from "./auth/middleware";
+import { authRouter } from "./routes/auth";
+import { cancelRunningJobs, deleteJob, getJobForUser, listJobsPublic } from "./jobs";
 import { listConnectedRepos } from "./repos";
+import { isRunOwnedBy } from "./runOwner";
 import { markSkip, SkippedError } from "./skip";
+import { eventForUser, initialArtifactsForUser } from "./sseFilter";
+import { errorHandler, notFoundHandler, sendError } from "./errors";
 import { parseWorkspaceBody } from "./workspace";
 
 // Stale "running" rows from a previous process crash
@@ -53,7 +59,12 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.get("/api/repos", async (_req, res) => {
+app.use("/api/auth", authRouter);
+
+const api = express.Router();
+api.use(requireAuth);
+
+api.get("/repos", async (_req, res) => {
   if (!isCursorConfigured()) {
     res.status(503).json({ error: "CURSOR_API_KEY missing", repos: [] });
     return;
@@ -69,19 +80,23 @@ app.get("/api/repos", async (_req, res) => {
   }
 });
 
-app.get("/api/events", (req, res) => {
+api.get("/events", (req: AuthedRequest, res) => {
+  const userId = req.user!.id;
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
   res.flushHeaders?.();
 
   const send = (event: HiveEvent) => {
-    res.write(`data: ${JSON.stringify(event)}\n\n`);
+    const filtered = eventForUser(event, userId);
+    if (filtered) {
+      res.write(`data: ${JSON.stringify(filtered)}\n\n`);
+    }
   };
 
   send({ type: "status", agentId: "orchestrator", status: "idle" });
-  send({ type: "jobs", jobs: listJobs() });
-  send({ type: "artifacts", artifacts: listArtifacts() });
+  send({ type: "jobs", jobs: listJobsPublic(userId) });
+  send({ type: "artifacts", artifacts: initialArtifactsForUser(userId) });
   const onEvent = (event: HiveEvent) => send(event);
   bus.on("event", onEvent);
 
@@ -90,14 +105,14 @@ app.get("/api/events", (req, res) => {
   });
 });
 
-app.get("/api/jobs", (_req, res) => {
-  res.json({ jobs: listJobs() });
+api.get("/jobs", (req: AuthedRequest, res) => {
+  res.json({ jobs: listJobsPublic(req.user!.id) });
 });
 
 /** Stop a running job (same as global stop) then keep it in the list as cancelled. */
-app.post("/api/jobs/:id/stop", async (req, res) => {
+api.post("/jobs/:id/stop", async (req: AuthedRequest, res) => {
   const id = String(req.params.id || "").trim();
-  const job = id ? getJob(id) : null;
+  const job = id ? getJobForUser(id, req.user!.id) : null;
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
@@ -117,13 +132,13 @@ app.post("/api/jobs/:id/stop", async (req, res) => {
 });
 
 /** Delete a job from history. If it is still running, stop it first. */
-app.delete("/api/jobs/:id", async (req, res) => {
+api.delete("/jobs/:id", async (req: AuthedRequest, res) => {
   const id = String(req.params.id || "").trim();
   if (!id) {
     res.status(400).json({ error: "id is required" });
     return;
   }
-  const job = getJob(id);
+  const job = getJobForUser(id, req.user!.id);
   if (!job) {
     res.status(404).json({ error: "Job not found" });
     return;
@@ -144,14 +159,18 @@ app.delete("/api/jobs/:id", async (req, res) => {
   res.json({ ok: true, deleted: id, wasRunning: job.status === "running" });
 });
 
-app.get("/api/artifacts", (_req, res) => {
-  res.json({ artifacts: listArtifacts() });
+api.get("/artifacts", (req: AuthedRequest, res) => {
+  res.json({ artifacts: listArtifacts({ userId: req.user!.id }) });
 });
 
-app.get("/api/artifacts/:id/download", (req, res) => {
+api.get("/artifacts/:id/download", (req: AuthedRequest, res) => {
   const id = String(req.params.id || "").trim();
+  if (!id || !artifactOwnedByUser(id, req.user!.id)) {
+    res.status(404).json({ error: "Artifact not found" });
+    return;
+  }
   const meta = getArtifact(id);
-  const bytes = id ? readArtifactBytes(id) : null;
+  const bytes = readArtifactBytes(id);
   if (!meta || !bytes) {
     res.status(404).json({ error: "Artifact not found" });
     return;
@@ -166,10 +185,14 @@ app.get("/api/artifacts/:id/download", (req, res) => {
 });
 
 /** Client calls this after a successful browser download. */
-app.delete("/api/artifacts/:id", (req, res) => {
+api.delete("/artifacts/:id", (req: AuthedRequest, res) => {
   const id = String(req.params.id || "").trim();
   if (!id) {
     res.status(400).json({ error: "id is required" });
+    return;
+  }
+  if (!artifactOwnedByUser(id, req.user!.id)) {
+    res.status(404).json({ error: "Artifact not found" });
     return;
   }
   const ok = deleteArtifact(id);
@@ -180,7 +203,16 @@ app.delete("/api/artifacts/:id", (req, res) => {
   res.json({ ok: true, deleted: id });
 });
 
-app.post("/api/stop", async (_req, res) => {
+api.post("/stop", async (req: AuthedRequest, res) => {
+  if (!isRunOwnedBy(req.user!.id)) {
+    sendError(
+      res,
+      409,
+      "RUN_BUSY",
+      "Another account is running a live job on this server"
+    );
+    return;
+  }
   rejectAllAwaiting("Stopped by user");
   const cancelled = await requestCancel("Stopped by user.");
   bus.emitEvent({
@@ -191,10 +223,19 @@ app.post("/api/stop", async (_req, res) => {
 });
 
 /** Skip one agent/stage; the rest of the run continues. */
-app.post("/api/skip", async (req, res) => {
+api.post("/skip", async (req: AuthedRequest, res) => {
   const agentId = String(req.body?.agentId ?? "").trim();
   if (!agentId) {
     res.status(400).json({ error: "agentId is required" });
+    return;
+  }
+  if (!isRunOwnedBy(req.user!.id)) {
+    sendError(
+      res,
+      409,
+      "RUN_BUSY",
+      "Another account is running a live job on this server"
+    );
     return;
   }
 
@@ -228,7 +269,7 @@ app.post("/api/skip", async (req, res) => {
   res.json({ ok: true, agentId, cancelledRun });
 });
 
-app.post("/api/orchestrate", async (req, res) => {
+api.post("/orchestrate", async (req: AuthedRequest, res) => {
   if (!isCursorConfigured()) {
     res.status(503).json({
       error:
@@ -237,12 +278,23 @@ app.post("/api/orchestrate", async (req, res) => {
     return;
   }
 
+  const userId = req.user!.id;
   const goal = String(req.body?.goal ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
   const workspace = parseWorkspaceBody(req.body?.workspace);
   const mode = parseRunMode(req.body?.mode);
   if (!goal) {
     res.status(400).json({ error: "goal is required" });
+    return;
+  }
+
+  if (busy && !isRunOwnedBy(userId)) {
+    sendError(
+      res,
+      409,
+      "RUN_BUSY",
+      "Another account is running a live job on this server"
+    );
     return;
   }
 
@@ -262,7 +314,7 @@ app.post("/api/orchestrate", async (req, res) => {
 
   busy = true;
   res.json({ ok: true, started: true, mode });
-  void runOrchestration(goal, team, workspace, mode)
+  void runOrchestration(goal, team, workspace, mode, userId)
     .catch((err) => {
       bus.emitEvent({
         type: "error",
@@ -274,7 +326,7 @@ app.post("/api/orchestrate", async (req, res) => {
     });
 });
 
-app.post("/api/instruct", async (req, res) => {
+api.post("/instruct", async (req: AuthedRequest, res) => {
   if (!isCursorConfigured()) {
     res.status(503).json({
       error:
@@ -283,6 +335,7 @@ app.post("/api/instruct", async (req, res) => {
     return;
   }
 
+  const userId = req.user!.id;
   const member = req.body?.member as TeamMember | undefined;
   const instruction = String(req.body?.instruction ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
@@ -291,6 +344,16 @@ app.post("/api/instruct", async (req, res) => {
 
   if (!member?.id || !instruction) {
     res.status(400).json({ error: "member and instruction are required" });
+    return;
+  }
+
+  if (busy && !isRunOwnedBy(userId)) {
+    sendError(
+      res,
+      409,
+      "RUN_BUSY",
+      "Another account is running a live job on this server"
+    );
     return;
   }
 
@@ -310,7 +373,7 @@ app.post("/api/instruct", async (req, res) => {
   // 3) Fresh main instruct / orchestrate
   busy = true;
   res.json({ ok: true, started: true, mode });
-  void instructOne(member, instruction, team, workspace, mode)
+  void instructOne(member, instruction, team, workspace, mode, userId)
     .catch((err) => {
       bus.emitEvent({
         type: "error",
@@ -321,6 +384,10 @@ app.post("/api/instruct", async (req, res) => {
       busy = false;
     });
 });
+
+app.use("/api", api);
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
   console.log(`Hive API http://localhost:${PORT}`);
