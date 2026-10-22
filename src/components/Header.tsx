@@ -52,6 +52,7 @@ export function Header({
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -61,6 +62,24 @@ export function Header({
       /* ignore */
     }
   }, [theme]);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 861px)");
+    const onChange = () => {
+      if (mq.matches) setMenuOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMenuOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   return (
     <header className="top">
@@ -120,7 +139,42 @@ export function Header({
                   : "One goal in, the hive reports back"}
         </p>
       </div>
-      <div className="top-actions">
+      <div className="top-end">
+        {authUser ? (
+          <div className="auth-user-pill">
+            {authUser.avatarUrl ? (
+              <img
+                className="auth-user-avatar"
+                src={authUser.avatarUrl}
+                alt=""
+                width={28}
+                height={28}
+              />
+            ) : null}
+            <span className="auth-user-name">
+              {authUser.login ?? authUser.email.split("@")[0]}
+            </span>
+            {onSignOut ? (
+              <button type="button" className="auth-sign-out" onClick={onSignOut}>
+                Sign out
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          className="nav-menu-btn"
+          aria-expanded={menuOpen}
+          aria-controls="top-actions"
+          onClick={() => setMenuOpen((open) => !open)}
+        >
+          {menuOpen ? "Close" : "Menu"}
+        </button>
+      </div>
+      <div
+        id="top-actions"
+        className={`top-actions${menuOpen ? " is-open" : ""}`}
+      >
         <div className="view-toggle" role="group" aria-label="Team view">
           <button
             type="button"
@@ -197,27 +251,6 @@ export function Header({
         >
           {soundOff ? "Sound off" : "Sound on"}
         </button>
-        {authUser ? (
-          <div className="auth-user-pill">
-            {authUser.avatarUrl ? (
-              <img
-                className="auth-user-avatar"
-                src={authUser.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-              />
-            ) : null}
-            <span className="auth-user-name">
-              {authUser.login ?? authUser.email.split("@")[0]}
-            </span>
-            {onSignOut ? (
-              <button type="button" className="auth-sign-out" onClick={onSignOut}>
-                Sign out
-              </button>
-            ) : null}
-          </div>
-        ) : null}
         <div
           className="badge"
           title={apiError ?? undefined}
