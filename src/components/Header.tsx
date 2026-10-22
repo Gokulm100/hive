@@ -156,12 +156,12 @@ export function Header({
             <span className="auth-user-name">
               {authUser.login ?? authUser.email.split("@")[0]}
             </span>
-            {onSignOut ? (
-              <button type="button" className="auth-sign-out" onClick={onSignOut}>
-                Sign out
-              </button>
-            ) : null}
           </div>
+        ) : null}
+        {authUser && onSignOut ? (
+          <button type="button" className="auth-sign-out" onClick={onSignOut}>
+            Sign out
+          </button>
         ) : null}
         <button
           type="button"
