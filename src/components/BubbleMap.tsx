@@ -465,7 +465,7 @@ export function BubbleMap({
     }
 
     function clampBubble(x: number, y: number, w: number, h: number) {
-      const pad = 56;
+      const pad = Math.min(56, Math.max(36, Math.min(w, h) * 0.14));
       return {
         x: Math.min(w - pad, Math.max(pad, x)),
         y: Math.min(h - pad, Math.max(pad, y)),
@@ -584,6 +584,7 @@ export function BubbleMap({
 
     const onResize = () => renderMap(true);
     window.addEventListener("resize", onResize);
+    window.visualViewport?.addEventListener("resize", onResize);
 
     // Re-draw when the wrap goes from 0→sized (e.g. switching Reports → Bubbles)
     const ro = new ResizeObserver(() => {
@@ -603,6 +604,7 @@ export function BubbleMap({
       canvas.removeEventListener("pointerup", endBubbleDrag);
       canvas.removeEventListener("pointercancel", endBubbleDrag);
       window.removeEventListener("resize", onResize);
+      window.visualViewport?.removeEventListener("resize", onResize);
     };
   }, [teamAgents.map((a) => a.id).join(",")]);
 

@@ -112,38 +112,42 @@ export function ReportsView({
           )}
         </div>
         <form className="composer" onSubmit={submit}>
-          <button
-            type="button"
-            className="btn-ghost"
-            title="Reset run"
-            onClick={onReset}
-          >
-            Reset
-          </button>
-          {running ? (
+          <div className="composer-tools">
             <button
               type="button"
-              className="btn-danger"
-              title="Stop current work"
-              onClick={onStop}
+              className="btn-ghost"
+              title="Reset run"
+              onClick={onReset}
             >
-              Stop
+              Reset
             </button>
-          ) : null}
-          <input
-            type="text"
-            placeholder={
-              running
-                ? "Ask while running (side helper)…"
-                : "Tell the Orchestrator what to build…"
-            }
-            autoComplete="off"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-          />
-          <button type="submit" className="btn-primary">
-            Send
-          </button>
+            {running ? (
+              <button
+                type="button"
+                className="btn-danger"
+                title="Stop current work"
+                onClick={onStop}
+              >
+                Stop
+              </button>
+            ) : null}
+          </div>
+          <div className="composer-row">
+            <input
+              type="text"
+              placeholder={
+                running
+                  ? "Ask while running (side helper)…"
+                  : "Tell the Orchestrator what to build…"
+              }
+              autoComplete="off"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+            />
+            <button type="submit" className="btn-primary">
+              Send
+            </button>
+          </div>
         </form>
       </section>
 
