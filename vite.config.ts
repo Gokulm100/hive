@@ -11,4 +11,13 @@ export default defineConfig({
       },
     },
   },
+  // Same proxy for `vite preview` so /api isn't a dead SPA 404
+  preview: {
+    proxy: {
+      "/api": {
+        target: "http://localhost:8787",
+        changeOrigin: true,
+      },
+    },
+  },
 });

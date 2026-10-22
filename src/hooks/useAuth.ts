@@ -36,14 +36,18 @@ function authErrorMessage(code: string | null): string | null {
 export function useAuth(): AuthState {
   const [phase, setPhase] = useState<AuthPhase>("loading");
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [githubEnabled, setGithubEnabled] = useState(true);
+  const [githubEnabled, setGithubEnabled] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       const status = await fetchAuthStatus();
-      setGithubEnabled(status.github);
+      setGithubEnabled(Boolean(status.github));
+    } catch {
+      setGithubEnabled(false);
+    }
+    try {
       const me = await fetchAuthMe();
       setUser(me.user);
       setPhase("signed-in");

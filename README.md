@@ -23,6 +23,24 @@ npm run dev
 - API (e.g. Render): start with `npx tsx server/src/index.ts`, set `CURSOR_API_KEY`
 - Frontend (e.g. Vercel): set `VITE_API_URL=https://hive-efc7.onrender.com` then redeploy
 
+### GitHub sign-in
+
+Create a GitHub OAuth App (Settings → Developer settings → OAuth Apps):
+
+- Homepage URL: your web app (local `http://localhost:5173`, prod your Vercel URL)
+- Authorization callback URL: `http://localhost:8787/api/auth/github/callback` (local) or `https://hive-efc7.onrender.com/api/auth/github/callback` (prod)
+
+In API `.env` / Render env:
+
+```bash
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+HIVE_APP_URL=http://localhost:5173          # prod: your Vercel URL
+# GITHUB_CALLBACK_URL=https://hive-efc7.onrender.com/api/auth/github/callback
+```
+
+Run **both** API and web (`npm run dev`). The GitHub button opens the API on `:8787`, not Vite — otherwise you get `Cannot GET /api/auth/github`.
+
 ### GitHub workspace (Live)
 
 Before assigning a goal, pick a **repo** in the picker (Cursor-connected repos, `HIVE_REPOS`, or paste a URL). Agents then run as **cloud** Cursor agents on that repo and can open a PR. Leave “Local server folder” to use the API machine’s disk instead.

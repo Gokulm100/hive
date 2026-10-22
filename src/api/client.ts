@@ -149,6 +149,14 @@ const API_BASE = (
   (import.meta.env.PROD ? "https://hive-efc7.onrender.com" : "")
 ).replace(/\/$/, "");
 
+/** Absolute API origin for full-page navigations (OAuth). Never use the Vite host. */
+const API_ORIGIN = (
+  API_BASE ||
+  (typeof window !== "undefined"
+    ? `http://${window.location.hostname}:8787`
+    : "http://localhost:8787")
+).replace(/\/$/, "");
+
 function apiUrl(path: string) {
   return `${API_BASE}${path}`;
 }
@@ -188,7 +196,9 @@ async function apiFetch(
 }
 
 export function githubAuthUrl(): string {
-  return apiUrl("/api/auth/github");
+  // Full-page redirect must hit Express — Vite/preview has no /api/auth/github route
+  // ("Cannot GET /api/auth/github" if this stays same-origin on :5173).
+  return `${API_ORIGIN}/api/auth/github`;
 }
 
 export async function fetchAuthStatus(): Promise<{ github: boolean }> {

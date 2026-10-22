@@ -54,6 +54,11 @@ export function authStatus(_req: Request, res: Response): void {
 
 export function startGitHubOAuth(req: Request, res: Response): void {
   if (!githubConfigured()) {
+    const wantsHtml = String(req.get("accept") || "").includes("text/html");
+    if (wantsHtml) {
+      res.redirect(`${appOrigin()}/?auth_error=github_not_configured`);
+      return;
+    }
     res.status(503).json({
       error: "GitHub sign-in is not configured on this server.",
       code: "GITHUB_NOT_CONFIGURED",
