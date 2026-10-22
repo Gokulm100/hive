@@ -1,14 +1,22 @@
 import { ActiveTasks } from "./components/ActiveTasks";
 import { ArtifactsPanel } from "./components/ArtifactsPanel";
+import { AuthGate } from "./components/AuthGate";
 import { Header } from "./components/Header";
 import { JobsList } from "./components/JobsList";
 import { ReportsView } from "./components/ReportsView";
 import { BubblesView } from "./components/BubblesView";
+import { useAuth } from "./hooks/useAuth";
 import { useOrchestration } from "./hooks/useOrchestration";
 import { useUiSounds } from "./hooks/useUiSounds";
 import { play } from "./lib/sounds";
+import type { AuthUser } from "./api/client";
 
-export default function App() {
+type HiveAppProps = {
+  authUser: AuthUser;
+  onSignOut: () => void;
+};
+
+function HiveApp({ authUser, onSignOut }: HiveAppProps) {
   const api = useOrchestration();
   useUiSounds(api.agentState);
 
@@ -31,6 +39,8 @@ export default function App() {
           api.setRunMode(m);
         }}
         apiError={api.apiError}
+        authUser={authUser}
+        onSignOut={onSignOut}
       />
 
       <div className="layout">
@@ -92,5 +102,36 @@ export default function App() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  const auth = useAuth();
+
+  if (auth.phase === "loading") {
+    return (
+      <div className="auth-gate auth-gate--loading" role="main">
+        <p className="auth-loading">Loading…</p>
+      </div>
+    );
+  }
+
+  if (auth.phase === "guest" || !auth.user) {
+    return (
+      <AuthGate
+        sessionExpired={auth.sessionExpired}
+        githubEnabled={auth.githubEnabled}
+        authError={auth.authError}
+      />
+    );
+  }
+
+  return (
+    <HiveApp
+      authUser={auth.user}
+      onSignOut={() => {
+        void auth.signOut();
+      }}
+    />
   );
 }
