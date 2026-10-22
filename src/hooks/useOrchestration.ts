@@ -1497,7 +1497,8 @@ export function useOrchestration() {
         if (
           e.mode === "brainstorm" ||
           e.mode === "build" ||
-          e.mode === "casual"
+          e.mode === "casual" ||
+          e.mode === "fast"
         ) {
           setRunMode(e.mode);
         }

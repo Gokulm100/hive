@@ -73,7 +73,9 @@ export function JobsList({ jobs, onStopJob, onDeleteJob }: Props) {
                     ? "Casual"
                     : job.mode === "brainstorm"
                       ? "Brainstorm"
-                      : "Build"}
+                      : job.mode === "fast"
+                        ? "Fast"
+                        : "Build"}
                 </span>
                 <span className="job-when">
                   {formatWhen(job.finishedAt ?? job.startedAt)}

@@ -14,7 +14,12 @@ import {
   throwIfCancelled,
 } from "./pool";
 import { parseSubagentRequest } from "./subagents";
-import { isDiscussMode, parseRunMode, type RunMode } from "./runMode";
+import {
+  isDiscussMode,
+  isFastMode,
+  parseRunMode,
+  type RunMode,
+} from "./runMode";
 import { clearSkipped, isSkipped } from "./skip";
 import {
   artifactsPromptHint,
@@ -222,6 +227,17 @@ function taskForRole(
   }
 }
 
+function fastDevTask(goal: string): string {
+  return `FAST MODE — you are the only builder. Do this end-to-end for “${goal}”:
+1. Make the code changes (smallest correct fix).
+2. Commit with a clear message.
+3. Open or update a pull request.
+4. Merge the PR into main (use gh/git; no force-push; don’t skip hooks unless told).
+5. Reply in plain English with what changed and the PR/merge links.
+
+Skip clarifying questions. Assume sensible defaults. Do not wait for other agents.`;
+}
+
 function defaultAssignments(
   goal: string,
   team: TeamMember[],
@@ -230,6 +246,12 @@ function defaultAssignments(
 ): Assignment[] {
   const pool = team.filter((t) => t.id !== "orchestrator");
   const byId = new Map(pool.map((t) => [t.id, t]));
+
+  if (isFastMode(mode)) {
+    const dev = byId.get("dev") ?? pool[0];
+    if (!dev) return [];
+    return [{ id: dev.id, task: fastDevTask(goal) }];
+  }
 
   if (isDiscussMode(mode)) {
     const leanIds = ["researcher", "bd"].filter((id) => byId.has(id));
@@ -568,9 +590,43 @@ Do not do unrelated refactors. Summarize what you changed.`;
 async function askThenImplement(
   member: TeamMember,
   task: string,
-  goal: string
+  goal: string,
+  opts: { fast?: boolean } = {}
 ): Promise<string> {
   throwIfCancelled();
+  const fast = !!opts.fast;
+  const wsNote = workspaceHint(getActiveWorkspace());
+
+  // Fast mode: Dev jumps straight to implement → commit → merge (no ask/helpers)
+  if (fast) {
+    emitStatus(member.id, "working", `${member.name} is shipping fast…`);
+    bus.emitEvent({
+      type: "chat",
+      agentId: member.id,
+      role: "system",
+      text: "Fast mode — skipping questions and helpers. Build, commit, merge.",
+    });
+    const implementPrompt = `${roleBrief(member.id, member.name, member.role)}
+
+${wsNote}
+
+Overall goal: ${goal}
+
+Your assignment:
+${task}
+
+FAST RULES:
+- No clarifying questions — assume defaults.
+- No helpers.
+- Implement, commit, open/update PR, merge to main.
+- Plain English summary + links when done.`;
+
+    return runAgentPrompt(member, implementPrompt, {
+      asMain: true,
+      label: `${member.name} is shipping (fast)…`,
+      streamToChat: true,
+    });
+  }
 
   emitStatus(
     member.id,
@@ -583,8 +639,6 @@ async function askThenImplement(
     role: "system",
     text: `${member.name} will ask any clarifying questions before doing the work.`,
   });
-
-  const wsNote = workspaceHint(getActiveWorkspace());
 
   const askPrompt = `${roleBrief(member.id, member.name, member.role)}
 
@@ -712,8 +766,9 @@ ${answers}
 READ-ONLY RULES (hard):
 - Do NOT create, edit, delete, or commit any files.
 - Do NOT “fix it yourself.” Send fixes to Dev via QA_VERDICT: REQUEST_CHANGES.
-- Run existing unit tests; report command + results.
-- End with exactly one line: QA_VERDICT: APPROVE  or  QA_VERDICT: REQUEST_CHANGES`;
+- Run existing unit tests.
+- Chat in plain English: no exception names, HTTP codes, file paths, or test-file dumps. Say what a teammate needs to know.
+- End with exactly one machine line: QA_VERDICT: APPROVE  or  QA_VERDICT: REQUEST_CHANGES`;
 
     return runAgentPrompt(member, reviewPrompt, {
       asMain: true,
@@ -819,6 +874,41 @@ async function planAssignments(
     name: "Orchestrator",
     role: "Routes work",
   };
+
+  // Fast mode: no planner LLM — hand straight to Dev
+  if (isFastMode(mode)) {
+    const assignments = defaultAssignments(goal, team, mode, workspace);
+    emitStatus(orch.id, "working", "Fast mode — sending Dev alone…");
+    bus.emitEvent({
+      type: "orch",
+      text: "Fast mode — Orchestrator skips the crew. Dev ships, commits, and merges.",
+      kind: "typing",
+    });
+    bus.emitEvent({
+      type: "log",
+      agentId: "orchestrator",
+      kind: "instruct",
+      text: goal,
+    });
+    const readable = assignments
+      .map((a) => {
+        const m = team.find((t) => t.id === a.id);
+        return `• ${m?.name || a.id}: ${a.task}`;
+      })
+      .join("\n");
+    bus.emitEvent({
+      type: "orch",
+      text: `Here’s who will do what:\n${readable}`,
+      kind: "normal",
+    });
+    bus.emitEvent({
+      type: "plan",
+      goal: goal.trim(),
+      assignments,
+    });
+    emitStatus(orch.id, "working", "Handing off to Dev…");
+    return { assignments, guests: [] };
+  }
 
   emitStatus(orch.id, "working", "Figuring out who should do what…");
   bus.emitEvent({
@@ -1097,6 +1187,12 @@ export async function runOrchestration(
       text: "Brainstorm mode — discussion only. Lean circle; guests may pop in and vanish.",
       kind: "normal",
     });
+  } else if (runMode === "fast") {
+    bus.emitEvent({
+      type: "orch",
+      text: "Fast mode — only Dev. Code, commit, open PR, merge to main. No QA / Merger / research.",
+      kind: "normal",
+    });
   }
   if (workspace?.url) {
     bus.emitEvent({
@@ -1195,7 +1291,9 @@ export async function runOrchestration(
               casual: runMode === "casual",
               jobId: job.id,
             })
-          : await askThenImplement(member, job.task, trimmedGoal);
+          : await askThenImplement(member, job.task, trimmedGoal, {
+              fast: isFastMode(runMode),
+            });
         if (isSkipped(member.id)) {
           emitSkipped(member, job.task);
           continue;
@@ -1320,6 +1418,21 @@ export async function runOrchestration(
       name: "Orchestrator",
       role: "Routes work",
     };
+
+    // Fast mode: use Dev’s report as the wrap — no extra Orchestrator LLM call
+    if (isFastMode(runMode)) {
+      const summary =
+        reports.map((r) => r.report).join("\n\n").trim().slice(0, 280) ||
+        "Fast ship complete.";
+      bus.emitEvent({ type: "orch", text: summary, kind: "summary" });
+      emitStatus(orch.id, "done", "Fast ship complete.");
+      bus.emitEvent({ type: "success", summary });
+      bus.emitEvent({ type: "done" });
+      jobSummary = summary;
+      jobOutcome = "done";
+      return;
+    }
+
     emitStatus(
       orch.id,
       "working",
@@ -1484,7 +1597,9 @@ export async function instructOne(
           casual: runMode === "casual",
           jobId: job.id,
         })
-      : await askThenImplement(member, instruction, instruction);
+      : await askThenImplement(member, instruction, instruction, {
+          fast: isFastMode(runMode),
+        });
     emitStatus(
       member.id,
       "done",

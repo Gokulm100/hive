@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { CharAvatar } from "./CharAvatar";
+import { humanizeAgentChat } from "../lib/humanizeChat";
 import type {
   AgentDef,
   AgentStatus,
@@ -152,7 +153,7 @@ export function AgentChat({
                 key={`${m.role}-${i}-${m.text.slice(0, 12)}`}
                 className={`agent-line ${m.role}${m.typing ? " typing" : ""}`}
               >
-                {m.text}
+                {humanizeAgentChat(m.text, m.role)}
               </div>
             ))}
             {showProgress ? (

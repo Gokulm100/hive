@@ -69,7 +69,7 @@ export type LiveEvent =
       type: "goal";
       goal: string;
       workspace?: { url: string; startingRef?: string } | null;
-      mode?: "build" | "brainstorm" | "casual";
+      mode?: "build" | "brainstorm" | "casual" | "fast";
     }
   | {
       type: "plan";
@@ -87,7 +87,7 @@ export type LiveEvent =
       jobs: Array<{
         id: string;
         goal: string;
-        mode: "build" | "brainstorm" | "casual";
+        mode: "build" | "brainstorm" | "casual" | "fast";
         status: "running" | "done" | "cancelled" | "error";
         summary?: string;
         workspaceUrl?: string | null;
@@ -105,7 +105,7 @@ export type LiveEvent =
       artifacts: HiveArtifactPayload[];
     };
 
-export type RunMode = "build" | "brainstorm" | "casual";
+export type RunMode = "build" | "brainstorm" | "casual" | "fast";
 
 export type HiveJobPayload = {
   id: string;

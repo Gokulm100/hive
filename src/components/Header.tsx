@@ -113,9 +113,11 @@ export function Header({
             ? "Casual — chat freely; agents assume and don’t ask clarifying questions"
             : runMode === "brainstorm"
               ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
-              : view === "bubbles"
-                ? "Your AI crew on a map — instruct any agent in the side chat"
-                : "One goal in, the hive reports back"}
+              : runMode === "fast"
+                ? "Fast — Dev only: code, commit, merge the PR"
+                : view === "bubbles"
+                  ? "Your AI crew on a map — instruct any agent in the side chat"
+                  : "One goal in, the hive reports back"}
         </p>
       </div>
       <div className="top-actions">
@@ -143,6 +145,14 @@ export function Header({
             title="Full build — implement with needed agents"
           >
             Build
+          </button>
+          <button
+            type="button"
+            aria-pressed={runMode === "fast"}
+            onClick={() => onRunMode("fast")}
+            title="Fast — Dev alone: code, commit, merge PR"
+          >
+            Fast
           </button>
           <button
             type="button"
@@ -220,7 +230,11 @@ export function Header({
               ? engine === "live"
                 ? "Brainstorm · live"
                 : "Brainstorm · demo"
-              : engine === "live"
+              : runMode === "fast"
+                ? engine === "live"
+                  ? "Fast · Dev only"
+                  : "Fast · demo"
+                : engine === "live"
                 ? "Live · Cursor agents"
                 : "Demo mode · scripted"}
         </div>

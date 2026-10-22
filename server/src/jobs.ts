@@ -67,6 +67,7 @@ function parseStoredMode(raw: unknown): RunMode {
   const v = String(raw ?? "").toLowerCase();
   if (v === "brainstorm") return "brainstorm";
   if (v === "casual") return "casual";
+  if (v === "fast") return "fast";
   return "build";
 }
 
