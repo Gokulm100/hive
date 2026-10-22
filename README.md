@@ -27,7 +27,7 @@ npm run dev
 
 Before assigning a goal, pick a **repo** in the picker (Cursor-connected repos, `HIVE_REPOS`, or paste a URL). Agents then run as **cloud** Cursor agents on that repo and can open a PR. Leave “Local server folder” to use the API machine’s disk instead.
 
-Toggle **Live / Demo** in the header. Live needs a valid key; Demo uses the old scripted run.
+Toggle **Live / Demo** in the header. **Demo** uses the scripted run and needs no account. **Live** needs you to **log in** (open sign-up) and a valid `CURSOR_API_KEY` on the API.
 
 ## How Live works
 

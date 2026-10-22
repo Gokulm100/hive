@@ -112,7 +112,8 @@ function bootstrap() {
   };
 }
 
-export function useOrchestration() {
+export function useOrchestration(opts?: { liveAuthed?: boolean }) {
+  const liveAuthed = opts?.liveAuthed ?? false;
   const [boot] = useState(bootstrap);
   const [teamAgents, setTeamAgents] = useState<AgentDef[]>(boot.team);
   const [ephemeralAgents, setEphemeralAgents] = useState<AgentDef[]>([]);
@@ -1182,7 +1183,6 @@ export function useOrchestration() {
       .then((h) => {
         if (cancelled) return;
         if (h.cursor) {
-          setEngine("live");
           setApiError(null);
         } else {
           setEngine("demo");
@@ -1200,10 +1200,13 @@ export function useOrchestration() {
   }, []);
 
   useEffect(() => {
-    if (engine !== "live") {
+    if (engine !== "live" || !liveAuthed) {
       setRepos([]);
-      setJobs(readDemoJobs());
+      if (engine !== "live") {
+        setJobs(readDemoJobs());
+      }
       setArtifacts([]);
+      if (engine !== "live") return;
       return;
     }
     let cancelled = false;
@@ -1235,10 +1238,10 @@ export function useOrchestration() {
     return () => {
       cancelled = true;
     };
-  }, [engine]);
+  }, [engine, liveAuthed]);
 
   useEffect(() => {
-    if (engine !== "live") return;
+    if (engine !== "live" || !liveAuthed) return;
 
     const apply = (e: LiveEvent) => {
       if (e.type === "run") {
@@ -1648,7 +1651,7 @@ export function useOrchestration() {
     };
 
     return subscribeEvents(apply);
-  }, [engine, addMsg, bumpMap, haltAllAgentsLocal]);
+  }, [engine, liveAuthed, addMsg, bumpMap, haltAllAgentsLocal]);
 
   return {
     cast,

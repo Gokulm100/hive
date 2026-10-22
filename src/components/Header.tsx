@@ -35,6 +35,9 @@ type Props = {
   runMode: RunMode;
   onRunMode: (m: RunMode) => void;
   apiError: string | null;
+  userEmail?: string | null;
+  onLoginClick?: () => void;
+  onLogout?: () => void;
 };
 
 export function Header({
@@ -45,6 +48,9 @@ export function Header({
   runMode,
   onRunMode,
   apiError,
+  userEmail,
+  onLoginClick,
+  onLogout,
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
@@ -162,7 +168,11 @@ export function Header({
             type="button"
             aria-pressed={engine === "live"}
             onClick={() => onEngine("live")}
-            title={apiError ?? "Cursor SDK · one agent per bubble"}
+            title={
+              !userEmail
+                ? "Log in required for Live mode"
+                : apiError ?? "Cursor SDK · one agent per bubble"
+            }
           >
             Live
           </button>
@@ -174,6 +184,20 @@ export function Header({
             Demo
           </button>
         </div>
+        {userEmail ? (
+          <div className="auth-chip" title={userEmail}>
+            <span className="auth-chip-email">{userEmail}</span>
+            {onLogout ? (
+              <button type="button" className="btn-ghost auth-logout" onClick={onLogout}>
+                Log out
+              </button>
+            ) : null}
+          </div>
+        ) : onLoginClick ? (
+          <button type="button" className="btn-ghost" onClick={onLoginClick}>
+            Log in
+          </button>
+        ) : null}
         <button
           type="button"
           className="btn-ghost sound-toggle"

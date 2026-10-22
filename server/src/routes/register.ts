@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { hashPassword } from "../auth/password";
+import { createSession } from "../auth/session";
 import { sendError } from "../errors";
 import { createUser, UserExistsError } from "../users/store";
 import { validateRegisterBody } from "../validation/register";
@@ -22,6 +23,7 @@ registerRouter.post("/", async (req, res, next) => {
 
     const passwordHash = await hashPassword(parsed.value.password);
     const user = await createUser(parsed.value.email, passwordHash);
+    createSession(user.id, res);
     res.status(201).json({ ok: true, user });
   } catch (err) {
     if (err instanceof UserExistsError) {

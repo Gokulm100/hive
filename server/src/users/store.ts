@@ -53,6 +53,13 @@ export async function findUserByEmail(
   return db.users.find((u) => u.email === key);
 }
 
+export async function findUserById(
+  id: string
+): Promise<StoredUser | undefined> {
+  const db = await loadDb();
+  return db.users.find((u) => u.id === id);
+}
+
 export async function createUser(
   email: string,
   passwordHash: string
