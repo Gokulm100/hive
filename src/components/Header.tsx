@@ -201,11 +201,6 @@ export function Header({
             <span className="auth-user-name">
               {authUser.login ?? authUser.email.split("@")[0]}
             </span>
-            {onSignOut ? (
-              <button type="button" className="auth-sign-out" onClick={onSignOut}>
-                Sign out
-              </button>
-            ) : null}
           </div>
         ) : null}
         <div
@@ -224,6 +219,11 @@ export function Header({
                 ? "Live · Cursor agents"
                 : "Demo mode · scripted"}
         </div>
+        {authUser && onSignOut ? (
+          <button type="button" className="auth-sign-out" onClick={onSignOut}>
+            Sign out
+          </button>
+        ) : null}
       </div>
     </header>
   );
