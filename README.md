@@ -21,7 +21,7 @@ npm run dev
 ### Production
 
 - API (e.g. Render): start with `npx tsx server/src/index.ts`, set `CURSOR_API_KEY`
-- Frontend (e.g. Vercel): set `VITE_API_URL=https://hive-efc7.onrender.com` then redeploy
+- Frontend (e.g. Vercel): deploy with `vercel.json` (rewrites `/api` → Render). You can leave `VITE_API_URL` unset on Vercel — the app uses same-origin `/api`.
 
 ### GitHub sign-in
 
@@ -42,7 +42,9 @@ GITHUB_CALLBACK_URL=https://hive-efc7.onrender.com/api/auth/github/callback
 
 `GITHUB_CALLBACK_URL` must be **identical** to the GitHub App callback (https, no trailing slash). Wrong secret or mismatched callback → `token_exchange_failed`.
 
-Run **both** API and web (`npm run dev`). The GitHub button opens the API on `:8787`, not Vite — otherwise you get `Cannot GET /api/auth/github`.
+After OAuth, the API redirects to your app with a `#h=…` session handoff (Bearer). Opening `/api/auth/me` alone in a tab will still show `SESSION_EXPIRED` — that endpoint needs the session from the app.
+
+Run **both** API and web (`npm run dev`). Locally the GitHub button opens the API on `:8787`, not Vite — otherwise you get `Cannot GET /api/auth/github`.
 
 ### GitHub workspace (Live)
 

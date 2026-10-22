@@ -143,19 +143,34 @@ export type Health = {
   cwd: string;
 };
 
-/** Local: empty (Vite proxies /api). Prod: Render API unless VITE_API_URL overrides. */
+function onVercelHost(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    /\.vercel\.app$/i.test(window.location.hostname)
+  );
+}
+
+/**
+ * Local: empty (Vite proxies /api).
+ * On Vercel: same-origin `/api` (vercel.json rewrites to Render).
+ * Else: VITE_API_URL or Render default.
+ */
 const API_BASE = (
-  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
-  (import.meta.env.PROD ? "https://hive-efc7.onrender.com" : "")
+  onVercelHost()
+    ? ""
+    : (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+      (import.meta.env.PROD ? "https://hive-efc7.onrender.com" : "")
 ).replace(/\/$/, "");
 
-/** Absolute API origin for full-page navigations (OAuth). Never use the Vite host. */
-const API_ORIGIN = (
-  API_BASE ||
-  (typeof window !== "undefined"
-    ? `http://${window.location.hostname}:8787`
-    : "http://localhost:8787")
-).replace(/\/$/, "");
+/** Absolute API origin for full-page OAuth navigations. */
+function apiOrigin(): string {
+  if (onVercelHost()) return window.location.origin;
+  if (API_BASE) return API_BASE;
+  if (typeof window !== "undefined") {
+    return `http://${window.location.hostname}:8787`;
+  }
+  return "http://localhost:8787";
+}
 
 function apiUrl(path: string) {
   return `${API_BASE}${path}`;
@@ -195,19 +210,44 @@ export function clearSessionToken(): void {
   }
 }
 
-/** After GitHub OAuth, API redirects here with ?hive_token=… (cross-site cookies don't work). */
+/**
+ * After GitHub OAuth, API redirects to `/#h=…` (hash survives privacy blockers that
+ * strip query params like *token*). Legacy `?hive_token=` / `?h=` still accepted.
+ */
 export function captureAuthTokenFromUrl(): boolean {
   if (typeof window === "undefined") return false;
+  let token: string | null = null;
+
   const params = new URLSearchParams(window.location.search);
-  const token = params.get("hive_token");
+  token = params.get("h") || params.get("hive_token");
+  if (token) {
+    params.delete("h");
+    params.delete("hive_token");
+    const next = params.toString();
+    const path = next
+      ? `${window.location.pathname}?${next}`
+      : window.location.pathname;
+    window.history.replaceState({}, "", path);
+  }
+
+  if (!token && window.location.hash.length > 1) {
+    const raw = window.location.hash.slice(1);
+    const hashParams = new URLSearchParams(raw);
+    token = hashParams.get("h") || hashParams.get("hive_token");
+    if (!token && raw.startsWith("h=")) {
+      token = decodeURIComponent(raw.slice(2));
+    }
+    if (token) {
+      window.history.replaceState(
+        {},
+        "",
+        window.location.pathname + window.location.search
+      );
+    }
+  }
+
   if (!token) return false;
   setSessionToken(token);
-  params.delete("hive_token");
-  const next = params.toString();
-  const url = next
-    ? `${window.location.pathname}?${next}`
-    : window.location.pathname;
-  window.history.replaceState({}, "", url);
   return true;
 }
 
@@ -250,9 +290,8 @@ async function apiFetch(
 }
 
 export function githubAuthUrl(): string {
-  // Full-page redirect must hit Express — Vite/preview has no /api/auth/github route
-  // ("Cannot GET /api/auth/github" if this stays same-origin on :5173).
-  return `${API_ORIGIN}/api/auth/github`;
+  // Full-page redirect must hit Express (or Vercel rewrite → Express), never Vite alone.
+  return `${apiOrigin()}/api/auth/github`;
 }
 
 export async function fetchAuthStatus(): Promise<{ github: boolean }> {

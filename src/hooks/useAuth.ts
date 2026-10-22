@@ -60,6 +60,15 @@ export function useAuth(): AuthState {
     }
   }, []);
 
+  // Never leave the gate on "Loading…" if a request hangs (Render cold start).
+  useEffect(() => {
+    if (phase !== "loading") return;
+    const t = window.setTimeout(() => {
+      setPhase((p) => (p === "loading" ? "guest" : p));
+    }, 20_000);
+    return () => window.clearTimeout(t);
+  }, [phase]);
+
   useEffect(() => {
     captureAuthTokenFromUrl();
     const params = new URLSearchParams(window.location.search);

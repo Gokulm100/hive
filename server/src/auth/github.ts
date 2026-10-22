@@ -72,8 +72,8 @@ export function authStatus(req: Request, res: Response): void {
     appOrigin: appOrigin(),
     /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
     redirectUri: redirectUri(req),
-    /** Deploy marker: SPA auth uses ?hive_token= + Bearer, not cross-site cookies alone */
-    authMode: "signed-bearer",
+    /** Deploy marker — bump when auth handoff changes */
+    authMode: "signed-bearer-v2",
   });
 }
 
@@ -234,10 +234,11 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       });
     }
 
-    // Pass session in the redirect — browsers block cross-site cookies (Vercel → Render).
+    // Hash handoff (not ?token=) — query params named *token* are often stripped by blockers.
+    // Cross-site cookies (Vercel → Render) are unreliable; SPA stores this and sends Bearer.
     const sessionToken = createSession(res, sessionFromStored(user), req);
     const dest = new URL(`${appOrigin()}/`);
-    dest.searchParams.set("hive_token", sessionToken);
+    dest.hash = `h=${encodeURIComponent(sessionToken)}`;
     res.redirect(dest.toString());
   } catch (e) {
     console.error("[auth] OAuth finish error:", e);
