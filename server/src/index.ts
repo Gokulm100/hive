@@ -29,6 +29,9 @@ import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
+import { requireAuth } from "./auth/middleware";
+import { authRouter } from "./routes/auth";
+import { errorHandler, notFoundHandler } from "./errors";
 
 // Stale "running" rows from a previous process crash
 cancelRunningJobs("Server restarted");
@@ -38,8 +41,10 @@ const PORT = Number(
   process.env.PORT || process.env.HIVE_PORT || process.env.NEXUS_PORT || 8787
 );
 
-app.use(cors({ origin: true }));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
+
+app.use("/api/auth", authRouter);
 
 let busy = false;
 
@@ -53,7 +58,7 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.get("/api/repos", async (_req, res) => {
+app.get("/api/repos", requireAuth, async (_req, res) => {
   if (!isCursorConfigured()) {
     res.status(503).json({ error: "CURSOR_API_KEY missing", repos: [] });
     return;
@@ -69,7 +74,7 @@ app.get("/api/repos", async (_req, res) => {
   }
 });
 
-app.get("/api/events", (req, res) => {
+app.get("/api/events", requireAuth, (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -90,12 +95,12 @@ app.get("/api/events", (req, res) => {
   });
 });
 
-app.get("/api/jobs", (_req, res) => {
+app.get("/api/jobs", requireAuth, (_req, res) => {
   res.json({ jobs: listJobs() });
 });
 
 /** Stop a running job (same as global stop) then keep it in the list as cancelled. */
-app.post("/api/jobs/:id/stop", async (req, res) => {
+app.post("/api/jobs/:id/stop", requireAuth, async (req, res) => {
   const id = String(req.params.id || "").trim();
   const job = id ? getJob(id) : null;
   if (!job) {
@@ -117,7 +122,7 @@ app.post("/api/jobs/:id/stop", async (req, res) => {
 });
 
 /** Delete a job from history. If it is still running, stop it first. */
-app.delete("/api/jobs/:id", async (req, res) => {
+app.delete("/api/jobs/:id", requireAuth, async (req, res) => {
   const id = String(req.params.id || "").trim();
   if (!id) {
     res.status(400).json({ error: "id is required" });
@@ -144,11 +149,11 @@ app.delete("/api/jobs/:id", async (req, res) => {
   res.json({ ok: true, deleted: id, wasRunning: job.status === "running" });
 });
 
-app.get("/api/artifacts", (_req, res) => {
+app.get("/api/artifacts", requireAuth, (_req, res) => {
   res.json({ artifacts: listArtifacts() });
 });
 
-app.get("/api/artifacts/:id/download", (req, res) => {
+app.get("/api/artifacts/:id/download", requireAuth, (req, res) => {
   const id = String(req.params.id || "").trim();
   const meta = getArtifact(id);
   const bytes = id ? readArtifactBytes(id) : null;
@@ -166,7 +171,7 @@ app.get("/api/artifacts/:id/download", (req, res) => {
 });
 
 /** Client calls this after a successful browser download. */
-app.delete("/api/artifacts/:id", (req, res) => {
+app.delete("/api/artifacts/:id", requireAuth, (req, res) => {
   const id = String(req.params.id || "").trim();
   if (!id) {
     res.status(400).json({ error: "id is required" });
@@ -180,7 +185,7 @@ app.delete("/api/artifacts/:id", (req, res) => {
   res.json({ ok: true, deleted: id });
 });
 
-app.post("/api/stop", async (_req, res) => {
+app.post("/api/stop", requireAuth, async (_req, res) => {
   rejectAllAwaiting("Stopped by user");
   const cancelled = await requestCancel("Stopped by user.");
   bus.emitEvent({
@@ -191,7 +196,7 @@ app.post("/api/stop", async (_req, res) => {
 });
 
 /** Skip one agent/stage; the rest of the run continues. */
-app.post("/api/skip", async (req, res) => {
+app.post("/api/skip", requireAuth, async (req, res) => {
   const agentId = String(req.body?.agentId ?? "").trim();
   if (!agentId) {
     res.status(400).json({ error: "agentId is required" });
@@ -228,7 +233,7 @@ app.post("/api/skip", async (req, res) => {
   res.json({ ok: true, agentId, cancelledRun });
 });
 
-app.post("/api/orchestrate", async (req, res) => {
+app.post("/api/orchestrate", requireAuth, async (req, res) => {
   if (!isCursorConfigured()) {
     res.status(503).json({
       error:
@@ -274,7 +279,7 @@ app.post("/api/orchestrate", async (req, res) => {
     });
 });
 
-app.post("/api/instruct", async (req, res) => {
+app.post("/api/instruct", requireAuth, async (req, res) => {
   if (!isCursorConfigured()) {
     res.status(503).json({
       error:
@@ -321,6 +326,9 @@ app.post("/api/instruct", async (req, res) => {
       busy = false;
     });
 });
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 const server = app.listen(PORT, () => {
   console.log(`Hive API http://localhost:${PORT}`);

@@ -6,6 +6,7 @@ _extract.js
 .env
 .env.local
 .hive/
+server/data/
 
 .manager-step1-response.json
 *.local.json
