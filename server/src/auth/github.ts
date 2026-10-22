@@ -234,10 +234,10 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       });
     }
 
-    // Pass token in the redirect — browsers block cross-site cookies (Vercel → Render).
-    const token = createSession(res, sessionFromStored(user), req);
+    // Pass session in the redirect — browsers block cross-site cookies (Vercel → Render).
+    const sessionToken = createSession(res, sessionFromStored(user), req);
     const dest = new URL(`${appOrigin()}/`);
-    dest.searchParams.set("hive_token", token);
+    dest.searchParams.set("hive_token", sessionToken);
     res.redirect(dest.toString());
   } catch (e) {
     console.error("[auth] OAuth finish error:", e);
