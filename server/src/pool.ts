@@ -594,14 +594,9 @@ export async function runRequestedSubagents(
 
   const jobs = specs.map(async (spec) => {
     const id = nextSubagentId(parent.id);
-    const brainstorm = /brainstorm/i.test(spec.task);
     const prompt = `You are ${spec.name} (${spec.role}), a temporary specialist helping ${parent.name}.
 
-${
-  brainstorm
-    ? "MODE: BRAINSTORM ONLY — discuss ideas. Do NOT write code, edit files, commit, or open PRs."
-    : "Complete ONLY this task. Do not expand scope."
-}
+Complete ONLY this task. Do not expand scope.
 Plain language. Short, useful output.
 
 Task:

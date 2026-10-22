@@ -423,7 +423,7 @@ export function useOrchestration() {
       setRunning(true);
       setCurrentGoal(g);
       setSuccessSummary(null);
-      const discuss = mode === "brainstorm" || mode === "casual";
+      const discuss = mode === "casual";
       const leanIds = discuss ? new Set(["researcher", "bd"]) : null;
       const demoPlan: PlannedTask[] = castRef.current
         .filter((a) => !a.hub && !a.ephemeral)
@@ -431,9 +431,7 @@ export function useOrchestration() {
         .map((a) => ({
           id: a.id,
           task: discuss
-            ? mode === "casual"
-              ? `Casual chat on “${g}” as ${a.name} (${a.role}).`
-              : `Brainstorm “${g}” as ${a.name} (${a.role}).`
+            ? `Casual chat on “${g}” as ${a.name} (${a.role}).`
             : `For “${g}”, contribute as ${a.name} (${a.role}).`,
           phase: "upcoming" as const,
         }));
@@ -444,9 +442,7 @@ export function useOrchestration() {
         report:
           mode === "casual"
             ? "Opening a casual chat…"
-            : mode === "brainstorm"
-              ? "Opening a lean brainstorm…"
-              : "Routing work to the team…",
+            : "Routing work to the team…",
       });
 
       const steps = buildScript(goal, mode);
@@ -501,7 +497,7 @@ export function useOrchestration() {
               [step.id]: [
                 {
                   role: "system",
-                  text: "Brainstorm guest — pops in, then vanishes like smoke.",
+                  text: "Guest specialist — pops in, then vanishes like smoke.",
                 },
               ],
             }));
@@ -578,9 +574,7 @@ export function useOrchestration() {
         const brief =
           mode === "casual"
             ? "Casual chat wrapped — strongest direction noted. Nothing was built."
-            : mode === "brainstorm"
-              ? "Brainstorm wrapped — strongest direction noted. Nothing was built."
-              : "Team wrapped the coffee landing plan. Ready for your review.";
+            : "Team wrapped the coffee landing plan. Ready for your review.";
         setAgent("orchestrator", {
           status: "done",
           report: brief,
@@ -1495,7 +1489,6 @@ export function useOrchestration() {
         setCurrentGoal(e.goal);
         setSuccessSummary(null);
         if (
-          e.mode === "brainstorm" ||
           e.mode === "build" ||
           e.mode === "casual" ||
           e.mode === "fast"
