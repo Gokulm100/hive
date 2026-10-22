@@ -34,6 +34,14 @@ function isSecureRequest(req: Request): boolean {
   return fwd === "https";
 }
 
+/** Lax for same-site (Vite proxy); None+Secure so Vercel → Render can send the cookie. */
+function sessionCookieFlags(req: Request): string {
+  const secure = isSecureRequest(req);
+  // Cross-origin SPA (e.g. *.vercel.app → *.onrender.com) needs SameSite=None
+  const sameSite = secure ? "None" : "Lax";
+  return `Path=/; HttpOnly; SameSite=${sameSite}${secure ? "; Secure" : ""}`;
+}
+
 export function createSession(res: Response, user: SessionUser, req: Request): string {
   const id = crypto.randomUUID();
   sessions.set(id, {
@@ -43,7 +51,7 @@ export function createSession(res: Response, user: SessionUser, req: Request): s
   });
   res.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE}=${encodeURIComponent(id)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_MS / 1000)}${isSecureRequest(req) ? "; Secure" : ""}`
+    `${SESSION_COOKIE}=${encodeURIComponent(id)}; ${sessionCookieFlags(req)}; Max-Age=${Math.floor(SESSION_MS / 1000)}`
   );
   return id;
 }
@@ -54,7 +62,7 @@ export function clearSession(req: Request, res: Response): void {
   if (id) sessions.delete(id);
   res.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isSecureRequest(req) ? "; Secure" : ""}`
+    `${SESSION_COOKIE}=; ${sessionCookieFlags(req)}; Max-Age=0`
   );
 }
 
