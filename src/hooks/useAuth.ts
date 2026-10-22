@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  captureAuthTokenFromUrl,
+  clearSessionToken,
   fetchAuthMe,
   fetchAuthStatus,
   logout as apiLogout,
@@ -59,6 +61,7 @@ export function useAuth(): AuthState {
   }, []);
 
   useEffect(() => {
+    captureAuthTokenFromUrl();
     const params = new URLSearchParams(window.location.search);
     const errCode = params.get("auth_error");
     if (errCode) {
@@ -75,6 +78,7 @@ export function useAuth(): AuthState {
 
   useEffect(() => {
     return onUnauthorized(() => {
+      clearSessionToken();
       setUser(null);
       setPhase("guest");
       setSessionExpired(true);
@@ -83,6 +87,7 @@ export function useAuth(): AuthState {
 
   const signOut = useCallback(async () => {
     await apiLogout();
+    clearSessionToken();
     setUser(null);
     setPhase("guest");
     setSessionExpired(false);

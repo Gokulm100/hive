@@ -36,18 +36,44 @@ function isSecureRequest(req: Request): boolean {
   return host.endsWith(".onrender.com");
 }
 
-/** Lax for same-site (Vite proxy); None+Secure so Vercel → Render can send the cookie. */
+/** Lax for same-site (Vite proxy); None+Secure so cookie may work when browsers allow it. */
 function sessionCookieFlags(req: Request): string {
   const secure = isSecureRequest(req);
   const sameSite = secure ? "None" : "Lax";
   return `Path=/; HttpOnly; SameSite=${sameSite}${secure ? "; Secure" : ""}`;
 }
 
-export function createSession(res: Response, user: SessionUser, req: Request): string {
-  const token = sealJson({
+export function mintSessionToken(user: SessionUser): string {
+  return sealJson({
     user,
     exp: Date.now() + SESSION_MS,
   } satisfies SessionPayload);
+}
+
+export function userFromSessionToken(token: string): SessionUser | null {
+  const payload = openJson<SessionPayload>(token);
+  if (!payload?.user?.id || typeof payload.exp !== "number") return null;
+  if (Date.now() > payload.exp) return null;
+  return payload.user;
+}
+
+/** Bearer (SPA) → query (EventSource) → cookie. Cross-site cookies are unreliable. */
+export function readSessionToken(req: Request): string | undefined {
+  const header = req.get("authorization") || "";
+  const bearer = /^Bearer\s+(\S+)/i.exec(header);
+  if (bearer?.[1]) return bearer[1];
+
+  const q = req.query?.access_token;
+  if (typeof q === "string" && q.trim()) return q.trim();
+  if (Array.isArray(q) && typeof q[0] === "string" && q[0].trim()) {
+    return q[0].trim();
+  }
+
+  return parseCookies(req.headers.cookie)[SESSION_COOKIE];
+}
+
+export function createSession(res: Response, user: SessionUser, req: Request): string {
+  const token = mintSessionToken(user);
   res.setHeader(
     "Set-Cookie",
     `${SESSION_COOKIE}=${encodeURIComponent(token)}; ${sessionCookieFlags(req)}; Max-Age=${Math.floor(SESSION_MS / 1000)}`
@@ -55,24 +81,18 @@ export function createSession(res: Response, user: SessionUser, req: Request): s
   return token;
 }
 
-export function clearSession(req: Request, res: Response): void {
+export function clearSession(_req: Request, res: Response): void {
+  // Need a request for flags; treat as secure if we can't tell (prod logout).
   res.setHeader(
     "Set-Cookie",
-    `${SESSION_COOKIE}=; ${sessionCookieFlags(req)}; Max-Age=0`
+    `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=None; Secure; Max-Age=0`
   );
 }
 
-function getSessionToken(req: Request): string | undefined {
-  return parseCookies(req.headers.cookie)[SESSION_COOKIE];
-}
-
 export function getSessionUser(req: Request): SessionUser | null {
-  const token = getSessionToken(req);
+  const token = readSessionToken(req);
   if (!token) return null;
-  const payload = openJson<SessionPayload>(token);
-  if (!payload?.user?.id || typeof payload.exp !== "number") return null;
-  if (Date.now() > payload.exp) return null;
-  return payload.user;
+  return userFromSessionToken(token);
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {

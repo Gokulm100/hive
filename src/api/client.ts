@@ -169,6 +169,48 @@ export type AuthUser = {
   createdAt: string;
 };
 
+const SESSION_TOKEN_KEY = "hive_session_token";
+
+export function getSessionToken(): string | null {
+  try {
+    return localStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setSessionToken(token: string): void {
+  try {
+    localStorage.setItem(SESSION_TOKEN_KEY, token);
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+export function clearSessionToken(): void {
+  try {
+    localStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** After GitHub OAuth, API redirects here with ?hive_token=… (cross-site cookies don't work). */
+export function captureAuthTokenFromUrl(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get("hive_token");
+  if (!token) return false;
+  setSessionToken(token);
+  params.delete("hive_token");
+  const next = params.toString();
+  const url = next
+    ? `${window.location.pathname}?${next}`
+    : window.location.pathname;
+  window.history.replaceState({}, "", url);
+  return true;
+}
+
 type UnauthorizedListener = () => void;
 const unauthorizedListeners = new Set<UnauthorizedListener>();
 
@@ -181,15 +223,27 @@ function notifyUnauthorized(): void {
   for (const fn of unauthorizedListeners) fn();
 }
 
+function authHeaders(): HeadersInit {
+  const token = getSessionToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 async function apiFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  const auth = authHeaders() as Record<string, string>;
+  for (const [k, v] of Object.entries(auth)) {
+    if (!headers.has(k)) headers.set(k, v);
+  }
   const res = await fetch(apiUrl(path), {
     ...init,
+    headers,
     credentials: "include",
   });
   if (res.status === 401 && !path.startsWith("/api/auth/me")) {
+    clearSessionToken();
     notifyUnauthorized();
   }
   return res;
@@ -224,7 +278,11 @@ export async function fetchAuthMe(): Promise<{ user: AuthUser }> {
 }
 
 export async function logout(): Promise<void> {
-  await apiFetch("/api/auth/logout", { method: "POST" });
+  try {
+    await apiFetch("/api/auth/logout", { method: "POST" });
+  } finally {
+    clearSessionToken();
+  }
 }
 
 export async function fetchHealth(): Promise<Health> {
@@ -234,7 +292,11 @@ export async function fetchHealth(): Promise<Health> {
 }
 
 export function subscribeEvents(onEvent: (e: LiveEvent) => void): () => void {
-  const es = new EventSource(apiUrl("/api/events"), { withCredentials: true });
+  const token = getSessionToken();
+  const qs = token ? `?access_token=${encodeURIComponent(token)}` : "";
+  const es = new EventSource(apiUrl(`/api/events${qs}`), {
+    withCredentials: true,
+  });
   es.onmessage = (msg) => {
     try {
       onEvent(JSON.parse(msg.data) as LiveEvent);

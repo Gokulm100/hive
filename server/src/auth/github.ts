@@ -72,6 +72,8 @@ export function authStatus(req: Request, res: Response): void {
     appOrigin: appOrigin(),
     /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
     redirectUri: redirectUri(req),
+    /** Deploy marker: SPA auth uses ?hive_token= + Bearer, not cross-site cookies alone */
+    authMode: "signed-bearer",
   });
 }
 
@@ -232,8 +234,11 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       });
     }
 
-    createSession(res, sessionFromStored(user), req);
-    res.redirect(`${appOrigin()}/`);
+    // Pass token in the redirect — browsers block cross-site cookies (Vercel → Render).
+    const token = createSession(res, sessionFromStored(user), req);
+    const dest = new URL(`${appOrigin()}/`);
+    dest.searchParams.set("hive_token", token);
+    res.redirect(dest.toString());
   } catch (e) {
     console.error("[auth] OAuth finish error:", e);
     res.redirect(`${appOrigin()}/?auth_error=server_error`);
