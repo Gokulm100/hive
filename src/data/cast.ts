@@ -14,7 +14,7 @@ export const ORCHESTRATOR: AgentDef = {
 };
 
 export function createInitialAgents(): AgentDef[] {
-  const shapes = [0, 1, 2, 3, 4].sort(() => Math.random() - 0.5);
+  const shapes = [0, 1, 2, 3, 4, 0].sort(() => Math.random() - 0.5);
   const anims = [...ANIMS].sort(() => Math.random() - 0.5);
   const base: AgentDef[] = [
     {
@@ -61,6 +61,15 @@ export function createInitialAgents(): AgentDef[] {
       angle: 198,
       shape: 4,
       anim: "anim-tilt",
+    },
+    {
+      id: "merger",
+      name: "Merger",
+      role: "Reviews the PR and merges to main",
+      char: "merger",
+      angle: 270,
+      shape: 0,
+      anim: "anim-spin",
     },
   ];
   base.forEach((a, i) => {

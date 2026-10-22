@@ -327,12 +327,20 @@ async function consumeRun(
       throw new CancelledError();
     }
 
-    const result = await run.wait();
+    let result: Awaited<ReturnType<Run["wait"]>>;
+    try {
+      result = await run.wait();
+    } catch (err) {
+      // Per-agent skip cancels the Cursor run; don't treat that as job-wide stop
+      if (isSkipped(agentId)) throw new SkippedError(agentId);
+      throw err;
+    }
 
     if (isSkipped(agentId)) {
       throw new SkippedError(agentId);
     }
     if (result.status === "cancelled" || cancelRequested) {
+      if (isSkipped(agentId)) throw new SkippedError(agentId);
       throw new CancelledError();
     }
     if (result.status === "error") {

@@ -141,7 +141,11 @@ function defaultAssignments(
   const leanIds = isDiscussMode(mode)
     ? ["researcher", "bd"].filter((id) => pool.some((p) => p.id === id))
     : pool.map((p) => p.id);
-  const ids = leanIds.length ? leanIds.slice(0, 3) : pool.slice(0, 2).map((p) => p.id);
+  // Build: allow full roster (incl. merger). Discuss: keep lean.
+  const cap = isDiscussMode(mode) ? 3 : 6;
+  const ids = leanIds.length
+    ? leanIds.slice(0, cap)
+    : pool.slice(0, 2).map((p) => p.id);
   return pool
     .filter((t) => ids.includes(t.id))
     .map((t) => ({
@@ -199,7 +203,7 @@ function extractBrainstormPlan(
       }
       if (assignments.length || guests.length) {
         return {
-          assignments: assignments.slice(0, 4),
+          assignments: assignments.slice(0, 6),
           guests,
         };
       }
@@ -328,6 +332,13 @@ Rules for questions:
         role: "system",
         text: "Thanks — continuing with your answers.",
       });
+    } catch (err) {
+      if (err instanceof SkippedError || isSkipped(member.id)) {
+        throw err instanceof SkippedError
+          ? err
+          : new SkippedError(member.id);
+      }
+      throw err;
     } finally {
       bus.emitEvent({
         type: "awaiting",
@@ -493,12 +504,13 @@ Team roster (use these ids exactly):
 ${roster}
 
 Return ONLY JSON (no prose) in this shape:
-{"assignments":[{"id":"researcher","task":"..."},{"id":"bd","task":"..."}]}
+{"assignments":[{"id":"researcher","task":"..."},{"id":"dev","task":"..."},{"id":"merger","task":"..."}]}
 
 Rules:
 - Include ONLY teammates who are truly needed (not everyone by default)
 - One clear task per id
 - Tasks must match each role
+- When the goal ships code / a PR: include "dev", then usually "qa", then "merger" last (review PR + merge to main)
 - Do not implement the work yourself`;
 
   const planText = await runAgentPrompt(orch, planPrompt, {
@@ -809,11 +821,13 @@ export async function runOrchestration(
           kind: "normal",
         });
       } catch (err) {
-        if (err instanceof CancelledError) throw err;
+        // Skip must win over CancelledError — per-agent cancel looks like a cancel
+        // to the Cursor SDK, but the rest of the cycle must keep going.
         if (err instanceof SkippedError || isSkipped(member.id)) {
           emitSkipped(member, job.task);
           continue;
         }
+        if (err instanceof CancelledError) throw err;
         const msg = explainCursorError(err);
         bus.emitEvent({
           type: "chat",
@@ -822,6 +836,12 @@ export async function runOrchestration(
           text: msg,
         });
         emitStatus(member.id, "blocked", msg);
+        // Per-agent failure: note it and continue with the next teammate
+        bus.emitEvent({
+          type: "orch",
+          text: `${member.name} hit a snag — continuing with the next agent.`,
+          kind: "normal",
+        });
         bus.emitEvent({ type: "error", message: `${member.name}: ${msg}` });
       }
     }
@@ -1079,6 +1099,12 @@ export async function instructOne(
     jobSummary = report.replace(/\n+/g, " ").trim().slice(0, 280);
     jobOutcome = "done";
   } catch (err) {
+    if (err instanceof SkippedError || isSkipped(member.id)) {
+      jobOutcome = "cancelled";
+      jobSummary = "Skipped.";
+      emitSkipped(member, instruction);
+      return;
+    }
     if (err instanceof CancelledError) {
       jobOutcome = "cancelled";
       jobSummary = "Stopped by you.";

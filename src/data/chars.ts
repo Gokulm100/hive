@@ -94,6 +94,21 @@ export const CHAR = {
           <path d="M16 48c5 8 22 8 27 0" fill="#E9C46A"/>
         </svg>`;
       },
+      merger() {
+        return `<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="32" cy="34" r="16" fill="#C8B6A0"/>
+          <path d="M16 30c3-12 29-12 32 0-2 5-10 8-16 8s-14-3-16-8z" fill="#1B4332"/>
+          <ellipse class="eye" cx="25" cy="34" rx="2.2" ry="2.7" fill="#1a1a1a"/>
+          <ellipse class="eye delay" cx="39" cy="34" rx="2.2" ry="2.7" fill="#1a1a1a"/>
+          <path d="M27 42c2.5 2.8 7.5 2.8 10 0" fill="none" stroke="#8B6914" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M18 48c5 9 23 9 28 0" fill="#2D6A4F"/>
+          <circle cx="22" cy="20" r="3" fill="#40916C"/>
+          <circle cx="42" cy="20" r="3" fill="#40916C"/>
+          <path d="M22 20v8M42 20v8M22 28h20" fill="none" stroke="#95D5B2" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M32 28v10" stroke="#95D5B2" stroke-width="2.2" stroke-linecap="round"/>
+          <path d="M28 36l4 4 4-4" fill="none" stroke="#D8F3DC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+      },
     };
 
 export type CharRef =
