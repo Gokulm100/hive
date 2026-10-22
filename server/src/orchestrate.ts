@@ -131,31 +131,167 @@ function extractJson(text: string): Assignment[] | null {
   }
 }
 
+/** Heuristic: small fix vs feature; whether PR/merge and design/BD are needed. */
+export type BuildScope = {
+  kind: "small_fix" | "feature";
+  needsPr: boolean;
+  needsDesign: boolean;
+  needsBd: boolean;
+};
+
+export function classifyBuildScope(
+  goal: string,
+  workspace: WorkspaceTarget | null = getActiveWorkspace()
+): BuildScope {
+  const g = goal.toLowerCase();
+
+  const needsPr =
+    Boolean(workspace?.url) ||
+    /\b(pr|pull request|merge(?:s|d)? to main|open a pr|create a pr)\b/i.test(
+      goal
+    );
+
+  const needsDesign =
+    /\b(ui|ux|design|layout|landing|visual|brand(?:ing)?|color|font|stylesheet|css|figma|look and feel|wireframe)\b/i.test(
+      g
+    );
+
+  const needsBd =
+    /\b(pricing|gtm|go.to.market|positioning|persona|icp|who (?:it'?s|is) for|marketing|sales|pitch|hook|offer|customer)\b/i.test(
+      g
+    );
+
+  const smallFix =
+    /\b(fix|bug|hotfix|typo|patch|regression|broken|crash|error|nit|chore|bump|deps?|dependency|rename|typo)\b/i.test(
+      g
+    ) ||
+    (/\b(small|quick|tiny|minor)\b/i.test(g) &&
+      /\b(fix|change|update|tweak)\b/i.test(g));
+
+  // Default to feature when not clearly a small fix
+  const kind: BuildScope["kind"] = smallFix ? "small_fix" : "feature";
+
+  return { kind, needsPr, needsDesign, needsBd };
+}
+
+function buildPipelineIds(scope: BuildScope): string[] {
+  if (scope.kind === "small_fix") {
+    // Orchestrator → Dev → (Merger only if PR)
+    const ids = ["dev"];
+    if (scope.needsPr) ids.push("merger");
+    return ids;
+  }
+  // Feature: Researcher → Dev → QA → Merger (+ Designer/BD only when needed)
+  const ids = ["researcher", "dev", "qa", "merger"];
+  if (scope.needsDesign) ids.splice(1, 0, "designer"); // after researcher
+  if (scope.needsBd) {
+    const at = ids.indexOf("designer") >= 0 ? ids.indexOf("designer") : 1;
+    ids.splice(at, 0, "bd");
+  }
+  return ids;
+}
+
+function taskForRole(
+  id: string,
+  goal: string,
+  mode: RunMode,
+  scope: BuildScope
+): string {
+  if (isDiscussMode(mode)) {
+    return mode === "casual"
+      ? `Casual chat only (no implementation, no clarifying questions) for “${goal}”. Assume sensible defaults and reply conversationally.`
+      : `Brainstorm only (no implementation) for “${goal}”. Share ideas, risks, and options.`;
+  }
+  switch (id) {
+    case "researcher":
+      return `Feature research for “${goal}”: facts, constraints, and risks Dev needs before building. Keep it short.`;
+    case "bd":
+      return `For “${goal}”: who it’s for, the offer, and one clear hook. Skip fluff.`;
+    case "designer":
+      return `For “${goal}”: concrete UI direction (colors, fonts, layout, main CTA) Dev can follow.`;
+    case "dev":
+      return scope.kind === "small_fix"
+        ? `Small fix for “${goal}”: make the minimal correct change${scope.needsPr ? ", open/update a PR" : ""}, summarize what changed.`
+        : `Build the feature for “${goal}”: smallest working slice${scope.needsPr ? ", open a PR" : ""}, summarize what you shipped.`;
+    case "qa":
+      return `QA the work for “${goal}”: try it like a user, list blockers first, note quick fixes.`;
+    case "merger":
+      return `Review the PR for “${goal}”. If solid, merge to main. If not, list required changes — do not merge.`;
+    default:
+      return `For the goal “${goal}”, do your job.`;
+  }
+}
+
 function defaultAssignments(
   goal: string,
   team: TeamMember[],
-  mode: RunMode
+  mode: RunMode,
+  workspace: WorkspaceTarget | null = getActiveWorkspace()
 ): Assignment[] {
   const pool = team.filter((t) => t.id !== "orchestrator");
-  // Discuss modes: lean default — researcher + bd only if present
-  const leanIds = isDiscussMode(mode)
-    ? ["researcher", "bd"].filter((id) => pool.some((p) => p.id === id))
-    : pool.map((p) => p.id);
-  // Build: allow full roster (incl. merger). Discuss: keep lean.
-  const cap = isDiscussMode(mode) ? 3 : 6;
-  const ids = leanIds.length
-    ? leanIds.slice(0, cap)
-    : pool.slice(0, 2).map((p) => p.id);
-  return pool
-    .filter((t) => ids.includes(t.id))
-    .map((t) => ({
-      id: t.id,
-      task: isDiscussMode(mode)
-        ? mode === "casual"
-          ? `Casual chat only (no implementation, no clarifying questions) for “${goal}” as ${t.name} (${t.role}). Assume sensible defaults and reply conversationally.`
-          : `Brainstorm only (no implementation) for “${goal}” as ${t.name} (${t.role}). Share ideas, risks, and options.`
-        : `For the goal “${goal}”, do your job as ${t.name} (${t.role}).`,
-    }));
+  const byId = new Map(pool.map((t) => [t.id, t]));
+
+  if (isDiscussMode(mode)) {
+    const leanIds = ["researcher", "bd"].filter((id) => byId.has(id));
+    const ids = leanIds.length
+      ? leanIds.slice(0, 3)
+      : pool.slice(0, 2).map((t) => t.id);
+    return ids
+      .map((id) => byId.get(id))
+      .filter((t): t is TeamMember => Boolean(t))
+      .map((t) => ({
+        id: t.id,
+        task: taskForRole(t.id, goal, mode, classifyBuildScope(goal, workspace)),
+      }));
+  }
+
+  const scope = classifyBuildScope(goal, workspace);
+  const pipeline = buildPipelineIds(scope).filter((id) => byId.has(id));
+  // Fallback if roster is missing roles
+  const ids = pipeline.length
+    ? pipeline
+    : ["dev"].filter((id) => byId.has(id));
+  return ids.map((id) => ({
+    id,
+    task: taskForRole(id, goal, mode, scope),
+  }));
+}
+
+/** Drop Designer/BD unless scope needs them; keep pipeline order; merger only if PR. */
+function sanitizeBuildAssignments(
+  assignments: Assignment[],
+  team: TeamMember[],
+  goal: string,
+  workspace: WorkspaceTarget | null
+): Assignment[] {
+  const scope = classifyBuildScope(goal, workspace);
+  const allowed = new Set(buildPipelineIds(scope));
+  // Strip Designer/BD unless the goal needs them; Merger only on small_fix when PR
+  if (!scope.needsDesign) allowed.delete("designer");
+  if (!scope.needsBd) allowed.delete("bd");
+  if (scope.kind === "small_fix" && !scope.needsPr) allowed.delete("merger");
+
+  const teamIds = new Set(team.map((t) => t.id));
+  const seen = new Set<string>();
+  const out: Assignment[] = [];
+  for (const a of assignments) {
+    if (!teamIds.has(a.id) || a.id === "orchestrator") continue;
+    if (!allowed.has(a.id)) continue;
+    if (seen.has(a.id)) continue;
+    seen.add(a.id);
+    out.push(a);
+  }
+  // Ensure required pipeline roles exist even if the LLM omitted them
+  for (const id of buildPipelineIds(scope)) {
+    if (!teamIds.has(id) || seen.has(id)) continue;
+    if (!allowed.has(id)) continue;
+    out.push({ id, task: taskForRole(id, goal, "build", scope) });
+    seen.add(id);
+  }
+  // Preserve preferred order
+  const order = buildPipelineIds(scope);
+  out.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  return out.length ? out : defaultAssignments(goal, team, "build", workspace);
 }
 
 function extractBrainstormPlan(
@@ -444,6 +580,8 @@ async function planAssignments(
   team: TeamMember[],
   mode: RunMode
 ): Promise<BrainstormPlan> {
+  const workspace = getActiveWorkspace();
+  const scope = classifyBuildScope(goal, workspace);
   const roster = team
     .filter((t) => t.id !== "orchestrator")
     .map((t) => `- ${t.id}: ${t.name} — ${t.role}`)
@@ -463,7 +601,9 @@ async function planAssignments(
         ? "Orchestrator is opening a casual chat circle…"
         : mode === "brainstorm"
           ? "Orchestrator is picking a lean brainstorm circle…"
-          : "Orchestrator is planning the team lineup…",
+          : scope.kind === "small_fix"
+            ? `Small fix — lean lineup (Dev${scope.needsPr ? " → Merger" : ""})…`
+            : "Feature — Researcher → Dev → QA → Merger…",
     kind: "typing",
   });
   bus.emitEvent({
@@ -472,6 +612,10 @@ async function planAssignments(
     kind: "instruct",
     text: goal,
   });
+
+  const suggestedIds = buildPipelineIds(scope)
+    .filter((id) => team.some((t) => t.id === id))
+    .join(", ");
 
   const planPrompt = isDiscussMode(mode)
     ? `${roleBrief(orch.id, orch.name, orch.role)}
@@ -500,18 +644,26 @@ Rules:
 
 Goal: ${goal}
 
+Workspace: ${
+      workspace?.url
+        ? `${workspace.url} (PR/merge expected)`
+        : "local / no GitHub repo (no merger unless goal explicitly asks for a PR)"
+    }
+Classified as: ${scope.kind === "small_fix" ? "SMALL FIX" : "FEATURE"}
+Suggested ids (prefer this order): ${suggestedIds || "dev"}
+
 Team roster (use these ids exactly):
 ${roster}
 
 Return ONLY JSON (no prose) in this shape:
-{"assignments":[{"id":"researcher","task":"..."},{"id":"dev","task":"..."},{"id":"merger","task":"..."}]}
+{"assignments":[{"id":"dev","task":"..."}]}
 
-Rules:
-- Include ONLY teammates who are truly needed (not everyone by default)
-- One clear task per id
-- Tasks must match each role
-- When the goal ships code / a PR: include "dev", then usually "qa", then "merger" last (review PR + merge to main)
-- Do not implement the work yourself`;
+Hard rules for lineup:
+1. SMALL FIX → only "dev", then "merger" last ONLY if a PR/repo/merge is in play. Do NOT include researcher, qa, designer, or bd.
+2. FEATURE → "researcher" → "dev" → "qa" → "merger" (in that order).
+3. Include "designer" ONLY if the goal is clearly about UI/visual/brand/layout.
+4. Include "bd" ONLY if the goal is clearly about who-it’s-for / offer / GTM / marketing.
+5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.`;
 
   const planText = await runAgentPrompt(orch, planPrompt, {
     asMain: true,
@@ -523,10 +675,11 @@ Rules:
     plan = extractDiscussPlan(planText, team, goal, mode);
   } else {
     const parsed = extractJson(planText);
+    const raw = parsed?.length
+      ? parsed
+      : defaultAssignments(goal, team, mode, workspace);
     plan = {
-      assignments: parsed?.length
-        ? parsed
-        : defaultAssignments(goal, team, mode),
+      assignments: sanitizeBuildAssignments(raw, team, goal, workspace),
       guests: [],
     };
   }
