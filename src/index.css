@@ -1306,6 +1306,51 @@
       100% { transform: translateY(16px) scaleY(1.1); opacity: 0; }
     }
 
+    /* Idle agents — drifting zzzz above the bubble (staggered per agent) */
+    .agent-bubble .sleep-fx {
+      position: absolute;
+      left: 50%;
+      top: -4px;
+      width: 52px;
+      height: 36px;
+      margin-left: -26px;
+      pointer-events: none;
+      z-index: 4;
+      opacity: 0;
+    }
+    .agent-bubble.idle .sleep-fx {
+      animation: sleepZzzCycle 7.5s ease-in-out infinite;
+      animation-delay: var(--sleep-phase, 0s);
+    }
+    .agent-bubble:not(.idle) .sleep-fx {
+      animation: none;
+      opacity: 0;
+    }
+    .agent-bubble.idle .zzz {
+      position: absolute;
+      bottom: 0;
+      font-size: 0.72rem;
+      font-weight: 800;
+      font-style: italic;
+      color: rgba(200, 210, 225, 0.92);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+      opacity: 0;
+      animation: sleepZzzRise 2.4s ease-out infinite;
+    }
+    .agent-bubble.idle .zzz.z1 { left: 8%; animation-delay: calc(var(--sleep-phase, 0s) + 0s); }
+    .agent-bubble.idle .zzz.z2 { left: 28%; font-size: 0.82rem; animation-delay: calc(var(--sleep-phase, 0s) + 0.45s); }
+    .agent-bubble.idle .zzz.z3 { left: 48%; font-size: 0.9rem; animation-delay: calc(var(--sleep-phase, 0s) + 0.9s); }
+    .agent-bubble.idle .zzz.z4 { left: 62%; font-size: 0.78rem; animation-delay: calc(var(--sleep-phase, 0s) + 1.35s); }
+    @keyframes sleepZzzCycle {
+      0%, 42%, 100% { opacity: 0; }
+      48%, 78% { opacity: 1; }
+    }
+    @keyframes sleepZzzRise {
+      0% { transform: translate(0, 6px) rotate(-8deg); opacity: 0; }
+      18% { opacity: 0.95; }
+      100% { transform: translate(6px, -26px) rotate(12deg); opacity: 0; }
+    }
+
     /* Orchestrator success celebration */
     .agent-bubble.hub.celebrate .droplet {
       --tint: rgba(140, 230, 190, 0.55);
