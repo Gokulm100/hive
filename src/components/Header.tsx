@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AuthUser, RunMode } from "../api/client";
 import type { EngineMode } from "../hooks/useOrchestration";
 import { isSoundMuted, toggleSoundMuted } from "../lib/sounds";
@@ -52,6 +52,12 @@ export function Header({
 }: Props) {
   const [soundOff, setSoundOff] = useState(() => isSoundMuted());
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement>(null);
+
+  const displayName = authUser
+    ? (authUser.login ?? authUser.email.split("@")[0])
+    : "";
 
   useEffect(() => {
     applyTheme(theme);
@@ -61,6 +67,27 @@ export function Header({
       /* ignore */
     }
   }, [theme]);
+
+  useEffect(() => {
+    if (!accountMenuOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (
+        accountMenuRef.current &&
+        !accountMenuRef.current.contains(e.target as Node)
+      ) {
+        setAccountMenuOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAccountMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [accountMenuOpen]);
 
   return (
     <header className="top">
@@ -118,7 +145,8 @@ export function Header({
                 : "One goal in, the hive reports back"}
         </p>
       </div>
-      <div className="top-actions">
+      <div className="top-bar-end">
+        <div className="top-actions">
         <div className="view-toggle" role="group" aria-label="Team view">
           <button
             type="button"
@@ -187,27 +215,6 @@ export function Header({
         >
           {soundOff ? "Sound off" : "Sound on"}
         </button>
-        {authUser ? (
-          <div className="auth-user-pill">
-            {authUser.avatarUrl ? (
-              <img
-                className="auth-user-avatar"
-                src={authUser.avatarUrl}
-                alt=""
-                width={28}
-                height={28}
-              />
-            ) : null}
-            <span className="auth-user-name">
-              {authUser.login ?? authUser.email.split("@")[0]}
-            </span>
-            {onSignOut ? (
-              <button type="button" className="auth-sign-out" onClick={onSignOut}>
-                Sign out
-              </button>
-            ) : null}
-          </div>
-        ) : null}
         <div
           className="badge"
           title={apiError ?? undefined}
@@ -224,6 +231,88 @@ export function Header({
                 ? "Live · Cursor agents"
                 : "Demo mode · scripted"}
         </div>
+        </div>
+        {authUser ? (
+          <div className="auth-user-cluster">
+            <div className="auth-user-cluster-wide" aria-label="Your account">
+              <div className="auth-user-pill">
+                {authUser.avatarUrl ? (
+                  <img
+                    className="auth-user-avatar"
+                    src={authUser.avatarUrl}
+                    alt=""
+                    width={28}
+                    height={28}
+                  />
+                ) : null}
+                <span className="auth-user-name">{displayName}</span>
+              </div>
+              {onSignOut ? (
+                <button
+                  type="button"
+                  className="btn-ghost sound-toggle auth-sign-out-btn"
+                  onClick={onSignOut}
+                >
+                  Sign out
+                </button>
+              ) : null}
+            </div>
+            <div className="auth-account-menu" ref={accountMenuRef}>
+              <button
+                type="button"
+                className="btn-ghost sound-toggle auth-account-menu-trigger"
+                aria-expanded={accountMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Account menu"
+                onClick={() => setAccountMenuOpen((o) => !o)}
+              >
+                {authUser.avatarUrl ? (
+                  <img
+                    className="auth-user-avatar auth-account-menu-avatar"
+                    src={authUser.avatarUrl}
+                    alt=""
+                    width={22}
+                    height={22}
+                  />
+                ) : null}
+                <span className="auth-account-menu-label" aria-hidden="true">
+                  ⋯
+                </span>
+              </button>
+              {accountMenuOpen ? (
+                <div className="auth-account-menu-panel" role="menu">
+                  <div className="auth-account-menu-user">
+                    {authUser.avatarUrl ? (
+                      <img
+                        className="auth-user-avatar"
+                        src={authUser.avatarUrl}
+                        alt=""
+                        width={32}
+                        height={32}
+                      />
+                    ) : null}
+                    <span className="auth-user-name auth-account-menu-name">
+                      {displayName}
+                    </span>
+                  </div>
+                  {onSignOut ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="btn-ghost auth-sign-out-btn auth-account-menu-sign-out"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        onSignOut();
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
       </div>
     </header>
   );

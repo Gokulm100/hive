@@ -62,9 +62,48 @@ Single screen. Toggle is copy-only:
 
 No password fields.
 
-### Signed-in
+### Signed-in header (account cluster, top right)
 
-Normal Hive app. Header gains avatar + **Sign out** (text button, `--ink-soft`).
+Normal Hive app. The right side of the header is one row (wraps on small widths):
+
+```
+[ view · mode · engine toggles ] [ Sound ] [ status badge ]     [ avatar + name ] [ Sign out ]
+```
+
+- **Placement:** `top-bar-end` aligns controls to the right. The **account cluster** (avatar pill + Sign out) is the last item — furthest right, 10px gap from the status badge.
+- **Avatar pill:** 28px avatar, truncated name (`--ink-soft`, 0.8rem), pill border `--stroke`, fill `--bar-bg`, max ~180px name width.
+- **Sign out:** Ghost button — same as Sound (`btn-ghost` + `sound-toggle` sizing: 0.78rem, 8×12px padding, 10px radius, `--stroke` border, `--ink-soft` text).
+- **Narrow screens (≤640px):** Hide the wide cluster. Show one ghost **Account menu** trigger (avatar + `⋯`, min 44px tap target, `aria-label="Account menu"`). Panel drops below, right-aligned: full name + full-width Sign out ghost button. Close on outside click or Escape.
+
+## Colors (signed-in account)
+
+| Role | Token |
+|------|-------|
+| Sign out label | `--ink-soft` (ghost default) |
+| Sign out border | `--stroke` |
+| Name in pill | `--ink-soft` |
+| Name in menu panel | `--ink` |
+| Menu surface | `--surface` + `--shadow` |
+
+## Fonts (signed-in account)
+
+- Name and Sign out: `--font` (DM Sans), 0.78–0.85rem.
+- Menu panel name: 0.85rem, weight inherited (500 from pill context).
+
+## Layout (builder checklist)
+
+1. Move badge before the account cluster in DOM; cluster stays last in `top-bar-end`.
+2. Do not put Sign out inside the avatar pill — adjacent ghost button in the same flex group (`gap: 8px`).
+3. At 640px breakpoint, swap wide cluster for menu; do not show both.
+
+## Main button (signed-in)
+
+- **Label:** `Sign out`
+- **Action:** POST logout, clear session, return to auth gate.
+
+## Watch-out (signed-in)
+
+**Truncated name on desktop:** The pill caps width; long GitHub handles ellipsize. The phone menu shows the full handle — do not rely on the pill alone for identity on small screens.
 
 ## Main screen flow
 
