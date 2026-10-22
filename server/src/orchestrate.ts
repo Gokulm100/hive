@@ -203,9 +203,7 @@ function taskForRole(
   scope: BuildScope
 ): string {
   if (isDiscussMode(mode)) {
-    return mode === "casual"
-      ? `Casual chat only (no implementation, no clarifying questions) for “${goal}”. Assume sensible defaults and reply conversationally.`
-      : `Brainstorm only (no implementation) for “${goal}”. Share ideas, risks, and options.`;
+    return `Casual chat only (no implementation, no clarifying questions) for “${goal}”. Assume sensible defaults and reply conversationally.`;
   }
   switch (id) {
     case "researcher":
@@ -370,7 +368,7 @@ function extractBrainstormPlan(
     }
   }
   return {
-    assignments: defaultAssignments(goal, team, "brainstorm"),
+    assignments: defaultAssignments(goal, team, "casual"),
     guests: [],
   };
 }
@@ -916,11 +914,9 @@ async function planAssignments(
     text:
       mode === "casual"
         ? "Orchestrator is opening a casual chat circle…"
-        : mode === "brainstorm"
-          ? "Orchestrator is picking a lean brainstorm circle…"
-          : scope.kind === "small_fix"
-            ? `Small fix — lean lineup (Dev${scope.needsPr ? " → Merger" : ""})…`
-            : "Feature — Researcher → Dev → QA → Merger…",
+        : scope.kind === "small_fix"
+          ? `Small fix — lean lineup (Dev${scope.needsPr ? " → Merger" : ""})…`
+          : "Feature — Researcher → Dev → QA → Merger…",
     kind: "typing",
   });
   bus.emitEvent({
@@ -937,8 +933,8 @@ async function planAssignments(
   const planPrompt = isDiscussMode(mode)
     ? `${roleBrief(orch.id, orch.name, orch.role)}
 
-Mode: ${mode === "casual" ? "CASUAL CONVERSATION" : "BRAINSTORM"} (discussion only — no coding, no file edits, no commits).
-${mode === "casual" ? "Agents must NOT ask clarifying questions — assume sensible defaults and reply like a chat." : ""}
+Mode: CASUAL CONVERSATION (discussion only — no coding, no file edits, no commits).
+Agents must NOT ask clarifying questions — assume sensible defaults and reply like a chat.
 
 Topic: ${goal}
 
@@ -1014,7 +1010,7 @@ Hard rules for lineup:
   bus.emitEvent({
     type: "orch",
     text: isDiscussMode(mode)
-      ? `${mode === "casual" ? "Casual circle" : "Brainstorm circle"}:\n${[readable, guestLines].filter(Boolean).join("\n") || "• Orchestrator alone"}`
+      ? `Casual circle:\n${[readable, guestLines].filter(Boolean).join("\n") || "• Orchestrator alone"}`
       : `Here’s who will do what:\n${readable}`,
     kind: "normal",
   });
@@ -1028,40 +1024,28 @@ Hard rules for lineup:
     "working",
     mode === "casual"
       ? "Opening the casual chat…"
-      : mode === "brainstorm"
-        ? "Opening the brainstorm…"
-        : "Handing work to each teammate…"
+      : "Handing work to each teammate…"
   );
   return plan;
 }
 
-async function brainstormDiscuss(
+async function casualDiscuss(
   member: TeamMember,
   focus: string,
   goal: string,
-  opts: { casual?: boolean; jobId?: string } = {}
+  opts: { jobId?: string } = {}
 ): Promise<string> {
   throwIfCancelled();
-  const casual = !!opts.casual;
   const wsNote = workspaceHint(getActiveWorkspace());
-  emitStatus(
-    member.id,
-    "working",
-    casual
-      ? `${member.name} is chatting…`
-      : `${member.name} is brainstorming…`
-  );
+  emitStatus(member.id, "working", `${member.name} is chatting…`);
   bus.emitEvent({
     type: "chat",
     agentId: member.id,
     role: "system",
-    text: casual
-      ? "Casual mode — chat or drop an artifact. No clarifying questions."
-      : "Brainstorm mode — discuss in chat, or attach an artifact for download.",
+    text: "Casual mode — chat or drop an artifact. No clarifying questions.",
   });
 
-  const prompt = casual
-    ? `${roleBrief(member.id, member.name, member.role)}
+  const prompt = `${roleBrief(member.id, member.name, member.role)}
 
 ${wsNote}
 
@@ -1080,32 +1064,11 @@ Topic: ${goal}
 Your angle:
 ${focus}
 
-Respond now.`
-    : `${roleBrief(member.id, member.name, member.role)}
-
-${wsNote}
-
-MODE: BRAINSTORM ONLY
-- Give a useful final take for your role
-- Do NOT edit the project codebase, commit, or open PRs
-- If the topic asks for a finished file (HTML, CSS, etc.), put ONLY that final product in an artifact fence
-- Plans, briefs, research notes, and checklists stay in chat — never as artifacts
-- If the topic is only a question to you, your short answer may be the product (no fence needed)
-
-${artifactsPromptHint()}
-
-Topic: ${goal}
-
-Your angle:
-${focus}
-
 Respond now.`;
 
   const raw = await runAgentPrompt(member, prompt, {
     asMain: true,
-    label: casual
-      ? `${member.name} is chatting…`
-      : `${member.name} is brainstorming…`,
+    label: `${member.name} is chatting…`,
     // Harvest fences before chat so download blocks aren't shown raw
     streamToChat: false,
   });
@@ -1181,12 +1144,6 @@ export async function runOrchestration(
       text: "Casual mode — conversation only. Agents assume defaults and won’t ask clarifying questions.",
       kind: "normal",
     });
-  } else if (runMode === "brainstorm") {
-    bus.emitEvent({
-      type: "orch",
-      text: "Brainstorm mode — discussion only. Lean circle; guests may pop in and vanish.",
-      kind: "normal",
-    });
   } else if (runMode === "fast") {
     bus.emitEvent({
       type: "orch",
@@ -1253,9 +1210,7 @@ export async function runOrchestration(
         text:
           runMode === "casual"
             ? `${member.name} jumps into the chat.`
-            : runMode === "brainstorm"
-              ? `${member.name} joins the brainstorm.`
-              : `${member.name} is up next.`,
+            : `${member.name} is up next.`,
         kind: "normal",
       });
 
@@ -1287,8 +1242,7 @@ export async function runOrchestration(
         }
 
         const report = isDiscussMode(runMode)
-          ? await brainstormDiscuss(member, job.task, trimmedGoal, {
-              casual: runMode === "casual",
+          ? await casualDiscuss(member, job.task, trimmedGoal, {
               jobId: job.id,
             })
           : await askThenImplement(member, job.task, trimmedGoal, {
@@ -1302,11 +1256,7 @@ export async function runOrchestration(
         emitStatus(
           member.id,
           "done",
-          runMode === "casual"
-            ? "Chipped in."
-            : runMode === "brainstorm"
-              ? "Shared their ideas."
-              : "Finished their part."
+          runMode === "casual" ? "Chipped in." : "Finished their part."
         );
         bus.emitEvent({
           type: "task",
@@ -1319,9 +1269,7 @@ export async function runOrchestration(
           text:
             runMode === "casual"
               ? `${member.name} replied.`
-              : runMode === "brainstorm"
-                ? `${member.name} shared their take.`
-                : `${member.name} finished.`,
+              : `${member.name} finished.`,
           kind: "normal",
         });
       } catch (err) {
@@ -1368,10 +1316,7 @@ export async function runOrchestration(
         plan.guests.map((g) => ({
           name: g.name,
           role: g.role,
-          task:
-            (runMode === "casual"
-              ? `CASUAL CONVERSATION ONLY (no codebase edits, no clarifying questions — assume defaults). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}\n\n${artifactsPromptHint()}`
-              : `BRAINSTORM ONLY (no codebase edits). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}\n\n${artifactsPromptHint()}`),
+          task: `CASUAL CONVERSATION ONLY (no codebase edits, no clarifying questions — assume defaults). Topic: ${trimmedGoal}\n\nYour angle: ${g.focus}\n\n${artifactsPromptHint()}`,
         }))
       );
       for (const g of guestReports) {
@@ -1436,20 +1381,14 @@ export async function runOrchestration(
     emitStatus(
       orch.id,
       "working",
-      runMode === "casual"
-        ? "Wrapping the chat…"
-        : runMode === "brainstorm"
-          ? "Synthesizing the brainstorm…"
-          : "Writing a tiny wrap-up…"
+      runMode === "casual" ? "Wrapping the chat…" : "Writing a tiny wrap-up…"
     );
     bus.emitEvent({
       type: "orch",
       text:
         runMode === "casual"
           ? "Orchestrator is wrapping the casual chat…"
-          : runMode === "brainstorm"
-            ? "Orchestrator is synthesizing the brainstorm…"
-            : "Orchestrator is writing a brief final summary…",
+          : "Orchestrator is writing a brief final summary…",
       kind: "typing",
     });
 
@@ -1460,7 +1399,7 @@ export async function runOrchestration(
     const summaryRaw = await runAgentPrompt(
       orch,
       isDiscussMode(runMode)
-        ? `You are the Orchestrator wrapping a ${runMode === "casual" ? "CASUAL CONVERSATION" : "BRAINSTORM"} (discussion only — nothing was built).
+        ? `You are the Orchestrator wrapping a CASUAL CONVERSATION (discussion only — nothing was built).
 
 Topic: ${trimmedGoal}
 
@@ -1471,7 +1410,7 @@ Reply with a VERY brief synthesis:
 - Exactly 1–2 short sentences
 - Name the strongest direction or open question
 - Plain language, no bullets, no “next steps” list
-${runMode === "casual" ? "- Keep the tone conversational" : ""}`
+- Keep the tone conversational`
         : `You are the Orchestrator. All teammates finished.
 
 Goal: ${goal}
@@ -1593,8 +1532,7 @@ export async function instructOne(
     });
 
     const report = isDiscussMode(runMode)
-      ? await brainstormDiscuss(member, instruction, instruction, {
-          casual: runMode === "casual",
+      ? await casualDiscuss(member, instruction, instruction, {
           jobId: job.id,
         })
       : await askThenImplement(member, instruction, instruction, {

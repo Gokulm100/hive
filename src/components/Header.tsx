@@ -147,9 +147,7 @@ export function Header({
         <p id="brandSub">
           {runMode === "casual"
             ? "Casual — chat freely; agents assume and don’t ask clarifying questions"
-            : runMode === "brainstorm"
-              ? "Brainstorm — lean circle, discussion only, guests fade like smoke"
-              : runMode === "fast"
+            : runMode === "fast"
                 ? "Fast — Dev only: code, commit, merge the PR"
                 : view === "bubbles"
                   ? "Your AI crew on a map — instruct any agent in the side chat"
@@ -267,14 +265,6 @@ export function Header({
           </button>
           <button
             type="button"
-            aria-pressed={runMode === "brainstorm"}
-            onClick={() => onRunMode("brainstorm")}
-            title="Discussion only — lean circle, temporary guests"
-          >
-            Brainstorm
-          </button>
-          <button
-            type="button"
             aria-pressed={runMode === "casual"}
             onClick={() => onRunMode("casual")}
             title="Casual chat — assume defaults, no clarifying questions"
@@ -319,11 +309,7 @@ export function Header({
             ? engine === "live"
               ? "Casual · live"
               : "Casual · demo"
-            : runMode === "brainstorm"
-              ? engine === "live"
-                ? "Brainstorm · live"
-                : "Brainstorm · demo"
-              : runMode === "fast"
+            : runMode === "fast"
                 ? engine === "live"
                   ? "Fast · Dev only"
                   : "Fast · demo"
