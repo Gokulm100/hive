@@ -17,6 +17,7 @@ function connectorClass(status: string, ephemeral = false) {
 }
 
 type Props = {
+  addAgentToken?: number;
   teamAgents: AgentDef[];
   agentState: Record<string, AgentRuntime>;
   selected: string | null;
@@ -85,6 +86,7 @@ function heatChipLabel(status: string, phase: HeatPhase, ephemeral: boolean) {
 }
 
 export function BubbleMap({
+  addAgentToken,
   teamAgents,
   agentState,
   selected,
@@ -130,6 +132,10 @@ export function BubbleMap({
   const [addOpen, setAddOpen] = useState(false);
   const [, setHeatTick] = useState(0);
   const layoutKeyRef = useRef("");
+
+  useEffect(() => {
+    if (addAgentToken && addAgentToken > 0) setAddOpen(true);
+  }, [addAgentToken]);
 
   function heatPhaseOf(id: string): HeatPhase {
     return heatPhaseRef.current.get(id)?.phase ?? "none";
@@ -310,7 +316,10 @@ export function BubbleMap({
 
       const cx = w / 2;
       const cy = h / 2;
-      const radius = Math.min(w, h) * 0.34;
+      const compact = w < 520 ? "xs" : w < 860 ? "sm" : "lg";
+      const radius =
+        Math.min(w, h) *
+        (compact === "xs" ? 0.36 : compact === "sm" ? 0.37 : 0.34);
 
       function posFor(agent: AgentDef, fallback: { x: number; y: number }) {
         if (agent.nx != null && agent.ny != null) {
@@ -340,7 +349,8 @@ export function BubbleMap({
         const parentPos =
           (a.parentId && placed.get(a.parentId)) || hub;
         // Orbit just outside the parent bubble so the connector is visible
-        const ring = Math.max(72, Math.min(w, h) * 0.14);
+        const ringBase = compact === "xs" ? 58 : compact === "sm" ? 64 : 72;
+        const ring = Math.max(ringBase, Math.min(w, h) * 0.13);
         const siblingCount = Math.max(
           1,
           helpers.filter((h) => h.parentId === a.parentId).length
@@ -358,7 +368,7 @@ export function BubbleMap({
           x: parentPos.x + Math.cos(spread) * ring,
           y: parentPos.y + Math.sin(spread) * ring,
         };
-        const pad = 52;
+        const pad = compact === "xs" ? 40 : compact === "sm" ? 46 : 52;
         const p = {
           x: Math.min(w - pad, Math.max(pad, raw.x)),
           y: Math.min(h - pad, Math.max(pad, raw.y)),

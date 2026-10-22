@@ -7,9 +7,10 @@ import type { OrchestrationApi } from "../hooks/useOrchestration";
 
 type Props = {
   api: OrchestrationApi;
+  addAgentToken?: number;
 };
 
-export function BubblesView({ api }: Props) {
+export function BubblesView({ api, addAgentToken }: Props) {
   const agent = api.selected ? api.findAgent(api.selected) : undefined;
   const chatMsgs = api.selected ? api.chats[api.selected] ?? [] : [];
 
@@ -44,6 +45,7 @@ export function BubblesView({ api }: Props) {
       ) : null}
       <div className="map-stack">
         <BubbleMap
+          addAgentToken={addAgentToken}
           teamAgents={api.mapAgents}
           agentState={api.agentState}
           selected={api.selected}

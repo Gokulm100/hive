@@ -432,8 +432,8 @@
       }
       body.view-bubbles .map-shell {
         flex: 0 0 auto;
-        height: min(48dvh, 420px);
-        min-height: 240px;
+        height: min(62dvh, 560px);
+        min-height: 300px;
         width: 100%;
       }
       body.view-reports .reports-stack .chat {
@@ -1853,6 +1853,10 @@
       height: 36px;
     }
 
+    .menu-add-agent {
+      display: none;
+    }
+
     /* Override .repo-picker column layout — must stay a horizontal toolbar */
     .repo-picker.compact {
       flex: 1 1 auto;
@@ -2797,6 +2801,78 @@
         min-width: 0;
         padding: 10px 8px;
       }
+      .menu-add-agent {
+        display: flex;
+        width: 100%;
+        justify-content: center;
+      }
+      .add-agent-bar .add-agent-trigger,
+      .add-agent-bar-reports .add-agent-trigger {
+        display: none;
+      }
+      .add-agent-bar:has(.repo-picker.compact),
+      .add-agent-bar-reports:has(.repo-picker.compact) {
+        padding-top: 6px;
+        padding-bottom: 6px;
+      }
+      .add-agent-bar:not(:has(.repo-picker)),
+      .add-agent-bar-reports:not(:has(.repo-picker)) {
+        display: none;
+      }
+
+      .map-shell .agent-bubble {
+        width: 76px;
+        min-height: 96px;
+        padding: 6px 4px;
+        gap: 2px;
+      }
+      .map-shell .agent-bubble.hub {
+        width: 92px;
+        min-height: 110px;
+      }
+      .map-shell .agent-bubble .droplet {
+        width: 48px;
+        height: 52px;
+      }
+      .map-shell .agent-bubble .droplet.shape-hub {
+        width: 58px;
+        height: 62px;
+      }
+      .map-shell .agent-bubble .droplet.shape-0,
+      .map-shell .agent-bubble .droplet.shape-1,
+      .map-shell .agent-bubble .droplet.shape-2,
+      .map-shell .agent-bubble .droplet.shape-3,
+      .map-shell .agent-bubble .droplet.shape-4 {
+        width: 48px;
+        height: 50px;
+      }
+      .map-shell .agent-bubble .rainbow-glow {
+        width: 56px;
+        height: 60px;
+        margin-left: -28px;
+      }
+      .map-shell .agent-bubble.hub .rainbow-glow {
+        width: 64px;
+        height: 68px;
+        margin-left: -32px;
+      }
+      .map-shell .agent-bubble .char {
+        width: 30px;
+        height: 30px;
+      }
+      .map-shell .agent-bubble.hub .char {
+        width: 38px;
+        height: 38px;
+      }
+      .map-shell .agent-bubble .label {
+        font-size: 0.68rem;
+        max-width: 72px;
+      }
+      .map-shell .agent-bubble .mini-chip {
+        font-size: 0.58rem;
+        padding: 2px 6px;
+      }
+
       .sound-toggle,
       .badge {
         width: 100%;
@@ -2893,17 +2969,12 @@
         max-width: none;
         width: 100%;
       }
-      .add-agent-trigger {
-        width: 100%;
-        align-self: stretch;
-        height: 40px;
-      }
     }
 
     @media (max-width: 860px) and (max-height: 700px) {
       body.view-bubbles .map-shell {
-        height: min(38dvh, 280px);
-        min-height: 200px;
+        height: min(52dvh, 440px);
+        min-height: 260px;
       }
       body.view-reports .reports-stack .chat {
         height: min(48dvh, 360px);
@@ -2912,6 +2983,44 @@
     }
 
     @media (max-width: 520px) {
+      body.view-bubbles .map-shell {
+        height: min(58dvh, 520px);
+        min-height: 280px;
+      }
+      .map-shell .agent-bubble {
+        width: 68px;
+        min-height: 86px;
+      }
+      .map-shell .agent-bubble.hub {
+        width: 82px;
+        min-height: 98px;
+      }
+      .map-shell .agent-bubble .droplet,
+      .map-shell .agent-bubble .droplet.shape-0,
+      .map-shell .agent-bubble .droplet.shape-1,
+      .map-shell .agent-bubble .droplet.shape-2,
+      .map-shell .agent-bubble .droplet.shape-3,
+      .map-shell .agent-bubble .droplet.shape-4 {
+        width: 42px;
+        height: 46px;
+      }
+      .map-shell .agent-bubble .droplet.shape-hub {
+        width: 52px;
+        height: 56px;
+      }
+      .map-shell .agent-bubble .char {
+        width: 26px;
+        height: 26px;
+      }
+      .map-shell .agent-bubble.hub .char {
+        width: 34px;
+        height: 34px;
+      }
+      .map-shell .agent-bubble .label {
+        font-size: 0.62rem;
+        max-width: 64px;
+      }
+
       .brand p {
         font-size: 0.82rem;
       }
@@ -2946,7 +3055,7 @@
       .view-toggle button,
       .nav-menu-btn,
       .sound-toggle,
-      .add-agent-trigger,
+      .menu-add-agent,
       .composer .btn-primary,
       .agent-chat-composer .btn-primary {
         min-height: 40px;

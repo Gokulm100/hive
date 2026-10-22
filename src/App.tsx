@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { JobsList } from "./components/JobsList";
 import { ReportsView } from "./components/ReportsView";
 import { BubblesView } from "./components/BubblesView";
+import { useCallback, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useOrchestration } from "./hooks/useOrchestration";
 import { useUiSounds } from "./hooks/useUiSounds";
@@ -19,6 +20,10 @@ type HiveAppProps = {
 function HiveApp({ authUser, onSignOut }: HiveAppProps) {
   const api = useOrchestration();
   useUiSounds(api.agentState);
+  const [addAgentToken, setAddAgentToken] = useState(0);
+  const requestAddAgent = useCallback(() => {
+    setAddAgentToken((t) => t + 1);
+  }, []);
 
   return (
     <div className="app">
@@ -41,12 +46,14 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
         apiError={api.apiError}
         authUser={authUser}
         onSignOut={onSignOut}
+        onRequestAddAgent={requestAddAgent}
       />
 
       <div className="layout">
         {api.view === "reports" ? (
           <aside className="reports-panel" aria-label="Reports">
             <ReportsView
+              addAgentToken={addAgentToken}
               teamAgents={api.teamAgents}
               agentState={api.agentState}
               messages={api.messages}
@@ -98,7 +105,7 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
             />
           </aside>
         ) : (
-          <BubblesView api={api} />
+          <BubblesView api={api} addAgentToken={addAgentToken} />
         )}
       </div>
     </div>

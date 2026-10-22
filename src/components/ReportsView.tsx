@@ -7,6 +7,7 @@ import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
 
 type Props = {
+  addAgentToken?: number;
   teamAgents: AgentDef[];
   agentState: Record<string, AgentRuntime>;
   messages: OrchMessage[];
@@ -30,6 +31,7 @@ type Props = {
 };
 
 export function ReportsView({
+  addAgentToken,
   teamAgents,
   agentState,
   messages,
@@ -59,6 +61,10 @@ export function ReportsView({
     const el = messagesRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  useEffect(() => {
+    if (addAgentToken && addAgentToken > 0) setAddOpen(true);
+  }, [addAgentToken]);
 
   function submit(e: FormEvent) {
     e.preventDefault();
