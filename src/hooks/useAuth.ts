@@ -4,6 +4,7 @@ import {
   clearSessionToken,
   fetchAuthMe,
   fetchAuthStatus,
+  loginAsGuest,
   logout as apiLogout,
   onUnauthorized,
   type AuthUser,
@@ -18,6 +19,7 @@ export type AuthState = {
   sessionExpired: boolean;
   authError: string | null;
   refresh: () => Promise<void>;
+  continueAsGuest: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -94,6 +96,20 @@ export function useAuth(): AuthState {
     });
   }, []);
 
+  const continueAsGuest = useCallback(async () => {
+    setAuthError(null);
+    try {
+      const { user: guest } = await loginAsGuest();
+      setUser(guest);
+      setPhase("signed-in");
+      setSessionExpired(false);
+    } catch {
+      setAuthError("Guest sign-in failed. Try again.");
+      setUser(null);
+      setPhase("guest");
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     await apiLogout();
     clearSessionToken();
@@ -109,6 +125,7 @@ export function useAuth(): AuthState {
     sessionExpired,
     authError,
     refresh,
+    continueAsGuest,
     signOut,
   };
 }

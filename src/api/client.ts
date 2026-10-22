@@ -324,6 +324,25 @@ export async function logout(): Promise<void> {
   }
 }
 
+/** Bypass GitHub — server mints a guest session token. */
+export async function loginAsGuest(): Promise<{ user: AuthUser }> {
+  const res = await fetch(apiUrl("/api/auth/guest"), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const data = (await res.json().catch(() => ({}))) as {
+    user?: AuthUser;
+    token?: string;
+    error?: string;
+  };
+  if (!res.ok || !data.user || !data.token) {
+    throw new Error(data.error || "Guest sign-in failed");
+  }
+  setSessionToken(data.token);
+  return { user: data.user };
+}
+
 export async function fetchHealth(): Promise<Health> {
   const res = await fetch(apiUrl("/api/health"));
   if (!res.ok) throw new Error("API unreachable");

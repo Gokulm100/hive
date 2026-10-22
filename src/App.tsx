@@ -122,6 +122,7 @@ export default function App() {
         sessionExpired={auth.sessionExpired}
         githubEnabled={auth.githubEnabled}
         authError={auth.authError}
+        onContinueAsGuest={auth.continueAsGuest}
       />
     );
   }

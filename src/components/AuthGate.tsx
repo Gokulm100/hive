@@ -26,15 +26,18 @@ type Props = {
   sessionExpired: boolean;
   githubEnabled: boolean;
   authError: string | null;
+  onContinueAsGuest: () => void | Promise<void>;
 };
 
 export function AuthGate({
   sessionExpired,
   githubEnabled,
   authError,
+  onContinueAsGuest,
 }: Props) {
   const [mode, setMode] = useState<Mode>("sign-in");
   const [theme, setTheme] = useState<ThemeMode>(() => readTheme());
+  const [guestBusy, setGuestBusy] = useState(false);
 
   useEffect(() => {
     applyTheme(theme);
@@ -93,6 +96,20 @@ export function AuthGate({
           Continue with GitHub
         </a>
 
+        <button
+          type="button"
+          className="auth-guest-btn"
+          disabled={guestBusy}
+          onClick={() => {
+            setGuestBusy(true);
+            void Promise.resolve(onContinueAsGuest()).finally(() => {
+              setGuestBusy(false);
+            });
+          }}
+        >
+          {guestBusy ? "Entering…" : "Continue as guest"}
+        </button>
+
         <p className="auth-footnote">
           {mode === "sign-in" ? (
             <>
@@ -119,7 +136,7 @@ export function AuthGate({
           )}
         </p>
         <p className="auth-footnote auth-footnote-muted">
-          Sign in and sign up both use the same GitHub button.
+          Guest skips GitHub for now. GitHub sign-in still available when it works.
         </p>
       </div>
 

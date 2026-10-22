@@ -66,6 +66,18 @@ authRouter.get("/github/callback", (req, res) => {
   void finishGitHubOAuth(req, res);
 });
 
+/** Temporary bypass while GitHub OAuth is flaky — mints a signed guest session. */
+authRouter.post("/guest", (req, res) => {
+  const user = {
+    id: `guest-${crypto.randomUUID()}`,
+    email: "guest@hive.local",
+    login: "guest",
+    createdAt: new Date().toISOString(),
+  };
+  const token = createSession(res, user, req);
+  res.json({ user, token });
+});
+
 authRouter.post("/logout", (req, res) => {
   clearSession(req, res);
   res.json({ ok: true });
