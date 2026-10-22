@@ -187,7 +187,8 @@
       flex-shrink: 0;
       min-width: 0;
       order: 3;
-      align-self: center;
+      align-self: flex-start;
+      padding-top: 4px;
     }
     .nav-menu-btn {
       display: none;
@@ -2712,11 +2713,11 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 4px 8px 4px 4px;
+      padding: 4px 10px 4px 4px;
       border-radius: 999px;
       border: 1px solid var(--stroke);
       background: var(--bar-bg);
-      max-width: min(220px, 42vw);
+      max-width: min(180px, 36vw);
       min-width: 0;
     }
     .auth-user-avatar {
@@ -2732,9 +2733,10 @@
       white-space: nowrap;
     }
     .auth-sign-out {
+      flex-shrink: 0;
       background: none;
       border: none;
-      padding: 0 4px;
+      padding: 8px 4px;
       font-family: var(--font);
       font-size: 0.78rem;
       color: var(--accent);
@@ -2777,7 +2779,8 @@
       .top-end {
         order: 2;
         margin-left: auto;
-        align-self: center;
+        align-self: flex-start;
+        padding-top: 2px;
       }
       .top-actions {
         display: none;
