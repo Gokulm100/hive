@@ -5,10 +5,10 @@ import {
   type StoredUser,
 } from "../users/store";
 import { createSession, sessionFromStored } from "./session";
+import { openJson, sealJson } from "./signed";
 
 type OAuthState = { createdAt: number; redirectUri: string };
 
-const oauthStates = new Map<string, OAuthState>();
 const STATE_TTL_MS = 10 * 60 * 1000;
 
 function envTrim(name: string): string {
@@ -52,11 +52,18 @@ function redirectUri(req: Request): string {
   return `${apiOrigin(req)}/api/auth/github/callback`;
 }
 
-function pruneStates(): void {
-  const now = Date.now();
-  for (const [k, v] of oauthStates) {
-    if (now - v.createdAt > STATE_TTL_MS) oauthStates.delete(k);
-  }
+function createOAuthState(redirectUri: string): string {
+  return sealJson({
+    createdAt: Date.now(),
+    redirectUri,
+  } satisfies OAuthState);
+}
+
+function readOAuthState(state: string): OAuthState | null {
+  const saved = openJson<OAuthState>(state);
+  if (!saved?.redirectUri || typeof saved.createdAt !== "number") return null;
+  if (Date.now() - saved.createdAt > STATE_TTL_MS) return null;
+  return saved;
 }
 
 export function authStatus(req: Request, res: Response): void {
@@ -82,11 +89,9 @@ export function startGitHubOAuth(req: Request, res: Response): void {
     return;
   }
 
-  pruneStates();
-  const state = crypto.randomUUID();
   const callback = redirectUri(req);
-  // Pin the exact redirect_uri used at authorize time for the token exchange
-  oauthStates.set(state, { createdAt: Date.now(), redirectUri: callback });
+  // Signed state (no in-memory Map) so Render restarts / cold starts can't break OAuth
+  const state = createOAuthState(callback);
 
   const clientId = envTrim("GITHUB_CLIENT_ID");
   const params = new URLSearchParams({
@@ -198,12 +203,11 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
 
   const state = String(req.query.state ?? "");
   const code = String(req.query.code ?? "");
-  const saved = state ? oauthStates.get(state) : undefined;
+  const saved = state ? readOAuthState(state) : null;
   if (!state || !saved || !code) {
     res.redirect(`${appOrigin()}/?auth_error=invalid_oauth_state`);
     return;
   }
-  oauthStates.delete(state);
 
   try {
     const { token } = await exchangeCode(code, saved.redirectUri);
