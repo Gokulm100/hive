@@ -44,6 +44,18 @@ const STRESS_FX = `<span class="stress-fx" aria-hidden="true">
   <i class="sweat d1"></i><i class="sweat d2"></i><i class="sweat d3"></i>
 </span>`;
 
+const SLEEP_FX = `<span class="sleep-fx" aria-hidden="true">
+  <span class="zzz z1">z</span><span class="zzz z2">z</span><span class="zzz z3">z</span><span class="zzz z4">z</span>
+</span>`;
+
+/** Stable per-agent offset so idle zzz cycles feel random across the bubble map. */
+function sleepPhaseSec(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+  const u = (h >>> 0) % 10_000;
+  return (u / 1000) * 0.85 + 0.15;
+}
+
 type HeatPhase = "none" | "fuming" | "cooling";
 
 /** Working > 3 min → red-hot fume 10s → slow cooldown back to normal. */
@@ -401,10 +413,11 @@ export function BubbleMap({
       const hubHtml = `
         <button type="button" class="${bubbleClassNames("orchestrator", true, orchStatus, selectedRef.current, flashRef.current, heatPhaseOf("orchestrator"), celebrateRef.current)}"
           data-id="orchestrator"
-          style="left:${hub.x}px;top:${hub.y}px"
+          style="left:${hub.x}px;top:${hub.y}px;--sleep-phase:${sleepPhaseSec("orchestrator")}s"
           aria-label="Orchestrator, ${orchStatus}">
           <span class="rainbow-glow" aria-hidden="true"></span>
           <span class="success-burst" aria-hidden="true">✓</span>
+          ${SLEEP_FX}
           ${STRESS_FX}
           <div class="droplet shape-hub" aria-hidden="true">
             ${charHtml(ORCHESTRATOR, "anim-spin")}
@@ -418,8 +431,9 @@ export function BubbleMap({
         .map(
           (n) => `
             <button type="button" class="${bubbleClassNames(n.id, false, n.status, selectedRef.current, flashRef.current, heatPhaseOf(n.id), false, !!n.ephemeral)}" data-id="${n.id}"
-              style="left:${n.x}px;top:${n.y}px" aria-label="${n.name}, ${n.status}${n.ephemeral ? ", temporary helper" : ""}">
+              style="left:${n.x}px;top:${n.y}px;--sleep-phase:${sleepPhaseSec(n.id)}s" aria-label="${n.name}, ${n.status}${n.ephemeral ? ", temporary helper" : ""}">
               <span class="rainbow-glow" aria-hidden="true"></span>
+              ${SLEEP_FX}
               ${STRESS_FX}
               <div class="droplet shape-${n.shape}" aria-hidden="true">
                 ${charHtml(n, n.anim)}
