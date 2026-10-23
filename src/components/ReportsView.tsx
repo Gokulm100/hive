@@ -14,6 +14,7 @@ type Props = {
   running: boolean;
   onSubmit: (text: string) => void;
   onReset: () => void;
+  showReplayDemo?: boolean;
   onReplay: () => void;
   onStop: () => void;
   onToggleCard: (id: string) => void;
@@ -38,6 +39,7 @@ export function ReportsView({
   running,
   onSubmit,
   onReset,
+  showReplayDemo = false,
   onReplay,
   onStop,
   onToggleCard,
@@ -88,9 +90,11 @@ export function ReportsView({
                 Stop
               </button>
             ) : null}
-            <button type="button" className="btn-ghost" onClick={onReplay}>
-              Replay demo
-            </button>
+            {showReplayDemo ? (
+              <button type="button" className="btn-ghost" onClick={onReplay}>
+                Replay demo
+              </button>
+            ) : null}
           </div>
         </div>
         <div className="messages" ref={messagesRef}>

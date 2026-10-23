@@ -28,13 +28,15 @@ export function BubblesView({ api, addAgentToken }: Props) {
               Stop
             </button>
           ) : null}
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={api.startReplay}
-          >
-            Replay demo
-          </button>
+          {api.showReplayDemo ? (
+            <button
+              type="button"
+              className="btn-ghost"
+              onClick={api.startReplay}
+            >
+              Replay demo
+            </button>
+          ) : null}
         </div>
       </div>
       {api.successSummary ? (

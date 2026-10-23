@@ -60,6 +60,7 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
               running={api.running}
               onSubmit={api.submitGoal}
               onReset={() => api.resetAll(true)}
+              showReplayDemo={api.showReplayDemo}
               onReplay={api.startReplay}
               onStop={api.stopRun}
               onToggleCard={api.toggleCard}
