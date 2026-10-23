@@ -1,6 +1,12 @@
 import { provideAnswers, waitForAnswers } from "./awaiting";
 import { bus } from "./bus";
 import { parseStructuredQuestions } from "./questions";
+import {
+  canWriteCode,
+  codeRulesForAgent,
+  implementClosingLine,
+  readOnlyCodeRules,
+} from "./codeAccess";
 import { BUILTIN_ROLES, roleBrief } from "./roles";
 import {
   CancelledError,
@@ -211,11 +217,11 @@ function taskForRole(
     case "bd":
       return `For “${goal}”: who it’s for, the offer, and one clear hook. Skip fluff.`;
     case "designer":
-      return `For “${goal}”: concrete UI direction (colors, fonts, layout, main CTA) Dev can follow.`;
+      return `For “${goal}”: concrete UI direction and any UI code changes needed (styles, components, layout). Dev handles non-UI code.`;
     case "dev":
       return scope.kind === "small_fix"
-        ? `Small fix for “${goal}”: make the minimal correct change${scope.needsPr ? ", open/update a PR" : ""}, summarize what changed.`
-        : `Build the feature for “${goal}”: smallest working slice${scope.needsPr ? ", open a PR" : ""}, summarize what you shipped.`;
+        ? `Small fix for “${goal}”: make the minimal correct change, add or update unit tests for it${scope.needsPr ? ", open/update a PR" : ""}, summarize what changed.`
+        : `Build the feature for “${goal}”: smallest working slice, add or update unit tests${scope.needsPr ? ", open a PR" : ""}, summarize what you shipped.`;
     case "qa":
       return `Pre-merge QA for “${goal}”: read-only PR/diff review + run unit tests. NEVER edit code. If issues: QA_VERDICT: REQUEST_CHANGES with a concrete Dev fix list. If clean: QA_VERDICT: APPROVE. No live/E2E unless a preview URL is given.`;
     case "merger":
@@ -227,7 +233,7 @@ function taskForRole(
 
 function fastDevTask(goal: string): string {
   return `FAST MODE — you are the only builder. Do this end-to-end for “${goal}”:
-1. Make the code changes (smallest correct fix).
+1. Make the code changes (smallest correct fix) and add or update unit tests.
 2. Commit with a clear message.
 3. Open or update a pull request.
 4. Merge the PR into main (use gh/git; no force-push; don’t skip hooks unless told).
@@ -613,6 +619,8 @@ Overall goal: ${goal}
 Your assignment:
 ${task}
 
+${codeRulesForAgent(member.id, member.name)}
+
 FAST RULES:
 - No clarifying questions — assume defaults.
 - No helpers.
@@ -747,8 +755,21 @@ Rules for questions:
   throwIfCancelled();
 
   // QA is read-only: no helpers, no code edits — review + unit tests only
-  if (member.id === "qa") {
-    emitStatus(member.id, "working", `${member.name} is reviewing (read-only)…`);
+  if (member.id === "qa" || !canWriteCode(member.id)) {
+    const readOnly = member.id === "qa";
+    emitStatus(
+      member.id,
+      "working",
+      readOnly
+        ? `${member.name} is reviewing (read-only)…`
+        : `${member.name} is working (no code changes)…`
+    );
+    const qaExtra = readOnly
+      ? `
+- Do NOT “fix it yourself.” Send fixes to Dev via QA_VERDICT: REQUEST_CHANGES.
+- Run existing unit tests.
+- End with exactly one machine line: QA_VERDICT: APPROVE  or  QA_VERDICT: REQUEST_CHANGES`
+      : "";
     const reviewPrompt = `${roleBrief(member.id, member.name, member.role)}
 
 ${wsNote}
@@ -761,16 +782,17 @@ ${task}
 User answers / guidance:
 ${answers}
 
-READ-ONLY RULES (hard):
-- Do NOT create, edit, delete, or commit any files.
-- Do NOT “fix it yourself.” Send fixes to Dev via QA_VERDICT: REQUEST_CHANGES.
-- Run existing unit tests.
+${readOnlyCodeRules(member.name)}
+${qaExtra}
 - Chat in plain English: no exception names, HTTP codes, file paths, or test-file dumps. Say what a teammate needs to know.
-- End with exactly one machine line: QA_VERDICT: APPROVE  or  QA_VERDICT: REQUEST_CHANGES`;
+
+${implementClosingLine(member.id)}`;
 
     return runAgentPrompt(member, reviewPrompt, {
       asMain: true,
-      label: `${member.name} is reviewing the diff / running tests…`,
+      label: readOnly
+        ? `${member.name} is reviewing the diff / running tests…`
+        : `${member.name} is completing the assignment…`,
       streamToChat: true,
     });
   }
@@ -802,6 +824,7 @@ Rules:
 - Only spawn helpers when they clearly speed things up
 - Each task must be small and concrete
 - Prefer doing the work yourself when you can
+- Helpers must NOT edit application source code unless you are Dev or UI Designer
 - If you need none, reply exactly: NO_SUBAGENTS`;
 
   const helperText = await runAgentPrompt(member, helperAsk, {
@@ -846,7 +869,9 @@ ${answers}
 Notes from temporary helpers (if any):
 ${helperDigest}
 
-Now implement / complete the assignment yourself in the workspace above. Use helper notes where useful. Explain what you're doing in plain language as you go. End with a short summary of what you decided or delivered (include PR/commit links if you created them).`;
+${codeRulesForAgent(member.id, member.name)}
+
+${implementClosingLine(member.id)}`;
 
   return runAgentPrompt(member, implementPrompt, {
     asMain: true,
@@ -976,7 +1001,8 @@ Hard rules for lineup:
 2. FEATURE → "researcher" → "dev" → "qa" → "merger" (in that order). QA = diff review + unit tests (not live E2E).
 3. Include "designer" ONLY if the goal is clearly about UI/visual/brand/layout.
 4. Include "bd" ONLY if the goal is clearly about who-it’s-for / offer / GTM / marketing.
-5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.`;
+5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.
+6. Only Dev and UI Designer may write or alter application code. QA runs unit tests read-only and sends failures to Dev. Dev owns unit test updates.`;
 
   const planText = await runAgentPrompt(orch, planPrompt, {
     asMain: true,
