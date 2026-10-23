@@ -25,26 +25,29 @@ npm run dev
 
 ### GitHub sign-in
 
-Create a GitHub OAuth App (Settings → Developer settings → OAuth Apps):
+Hive uses a **GitHub App** (client ID starts with `Iv23`) or a classic OAuth App.
 
-- Homepage URL: your web app (local `http://localhost:5173`, prod your Vercel URL)
-- Authorization callback URL (must be the **app** host, not Render):
-  - Local: `http://localhost:5173/api/auth/github/callback` (Vite proxies `/api`)
-  - Prod: `https://hive-sepia-chi.vercel.app/api/auth/github/callback` (Vercel rewrites `/api` → Render)
+On the GitHub App: **Callback URL** can be any of:
+
+- `https://hive-efc7.onrender.com/api/auth/github/callback` (API — preferred)
+- `https://hive-sepia-chi.vercel.app/api/auth/github/callback` (SPA rewrite → API)
+- `https://hive-sepia-chi.vercel.app/` (homepage; Hive forwards `?code` to the API)
+
+Production **does not send `redirect_uri`**. GitHub then uses the first Callback URL on the app. Sending the Vercel SPA URL was what caused `The redirect_uri is not associated with this application`.
 
 In API `.env` / Render env:
 
 ```bash
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...   # no quotes; must match this OAuth App
+GITHUB_CLIENT_ID=...          # GitHub App client ID (Iv23…), not the numeric App ID
+GITHUB_CLIENT_SECRET=...      # full generated client secret (long), no quotes
 HIVE_APP_URL=http://localhost:5173          # prod: your Vercel URL (not localhost)
-# Optional override — usually omit; defaults to ${HIVE_APP_URL}/api/auth/github/callback
-# GITHUB_CALLBACK_URL=https://hive-sepia-chi.vercel.app/api/auth/github/callback
+# Local only:
+# GITHUB_CALLBACK_URL=http://localhost:8787/api/auth/github/callback
 ```
 
-GitHub App callback and `redirect_uri` must match (https, no trailing slash). Wrong secret or mismatched callback → `token_exchange_failed` / `redirect_uri_mismatch`.
+Paste the **client secret**, not the App ID. A 5-character value is the App ID and will fail after GitHub redirects back.
 
-After OAuth, the callback runs on the app origin (via rewrite), sets cookie + `sessionStorage`, then sends you home. Opening `/api/auth/me` alone in a tab without a session still shows `SESSION_EXPIRED`.
+After OAuth, Hive sets cookie + `sessionStorage` on the app origin. Opening `/api/auth/me` alone in a tab without a session still shows `SESSION_EXPIRED`.
 
 Run **both** API and web (`npm run dev`). Locally the GitHub button opens the API on `:8787`, not Vite — otherwise you get `Cannot GET /api/auth/github`.
 

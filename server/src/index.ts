@@ -30,6 +30,7 @@ import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
 import { requireAuth } from "./auth/session";
+import { maybeForwardOAuthCallback } from "./auth/github";
 import { authRouter } from "./routes/auth";
 
 // Stale "running" rows from a previous process crash
@@ -42,6 +43,11 @@ const PORT = Number(
 
 // Needed on Render so req.secure / proto match the public https URL
 app.set("trust proxy", 1);
+
+app.use((req, res, next) => {
+  if (maybeForwardOAuthCallback(req, res)) return;
+  next();
+});
 
 app.use(
   cors({

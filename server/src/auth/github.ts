@@ -11,7 +11,7 @@ import {
 } from "./session";
 import { openJson, sealJson } from "./signed";
 
-type OAuthState = { createdAt: number; redirectUri: string };
+type OAuthState = { createdAt: number; redirectUri: string | null };
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 
@@ -33,44 +33,78 @@ function appOrigin(): string {
   return fromEnv.replace(/\/$/, "");
 }
 
-/**
- * Callback must be on the *app* host (Vercel / Vite) so the browser stays
- * same-origin when we set cookie + sessionStorage. GitHub → app/api/... →
- * rewrite → Render. Avoids Render→Vercel cross-origin handoff failures.
- *
- * GITHUB_CALLBACK_URL is honored only when it is not a Render URL while the
- * app lives on Vercel (that combo is the broken handshake).
- */
-function redirectUri(_req: Request): string {
-  const appCb = `${appOrigin()}/api/auth/github/callback`;
-  const fromEnv = envTrim("GITHUB_CALLBACK_URL").replace(/\/$/, "");
-  if (!fromEnv) return appCb;
-  try {
-    const envHost = new URL(fromEnv).hostname.toLowerCase();
-    const appHost = new URL(appOrigin()).hostname.toLowerCase();
-    if (envHost.endsWith(".onrender.com") && appHost.endsWith(".vercel.app")) {
-      console.warn(
-        "[auth] Ignoring GITHUB_CALLBACK_URL on Render; using app callback:",
-        appCb
-      );
-      return appCb;
-    }
-  } catch {
-    /* keep fromEnv */
-  }
-  return fromEnv;
+function isLocalHost(value: string): boolean {
+  const v = value.toLowerCase();
+  return v.includes("localhost") || v.includes("127.0.0.1");
 }
 
-function createOAuthState(redirectUriValue: string): string {
+function hostnameOf(url: string): string | null {
+  try {
+    return new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function isGitHubAppClientId(clientId: string): boolean {
+  return /^Iv(1|23)/i.test(clientId);
+}
+
+/**
+ * GitHub Apps reject a redirect_uri that is not listed on the app
+ * ("The redirect_uri is not associated with this application").
+ *
+ * Hive was sending the Vercel SPA URL. That is not the registered callback,
+ * so GitHub stopped the login before our server ran. Production therefore
+ * omits redirect_uri and lets GitHub use the first Callback URL on the app.
+ * Local sends the API callback so GitHub does not bounce to production.
+ *
+ * GITHUB_CALLBACK_URL overrides this when it is not a Vercel host — the
+ * Vercel path is what GitHub is currently rejecting.
+ */
+export function oauthCallbackUrl(): string | null {
+  const explicit = envTrim("GITHUB_CALLBACK_URL").replace(/\/$/, "");
+  if (explicit) {
+    const host = hostnameOf(explicit);
+    if (!host?.endsWith(".vercel.app")) return explicit;
+  }
+
+  if (isLocalHost(appOrigin())) {
+    const port = envTrim("PORT") || "8787";
+    return `http://localhost:${port}/api/auth/github/callback`;
+  }
+
+  return null;
+}
+
+export function githubAuthorizeUrl(state: string): string {
+  const clientId = envTrim("GITHUB_CLIENT_ID");
+  const params = new URLSearchParams({
+    client_id: clientId,
+    state,
+  });
+  const callback = oauthCallbackUrl();
+  if (callback) params.set("redirect_uri", callback);
+  // GitHub Apps only accept `offline_access`; OAuth Apps use user scopes.
+  if (!isGitHubAppClientId(clientId)) {
+    params.set("scope", "read:user user:email");
+  }
+  return `https://github.com/login/oauth/authorize?${params}`;
+}
+
+function createOAuthState(redirectUri: string | null): string {
   return sealJson({
     createdAt: Date.now(),
-    redirectUri: redirectUriValue,
+    redirectUri,
   } satisfies OAuthState);
 }
 
 function readOAuthState(state: string): OAuthState | null {
   const saved = openJson<OAuthState>(state);
-  if (!saved?.redirectUri || typeof saved.createdAt !== "number") return null;
+  if (!saved || typeof saved.createdAt !== "number") return null;
+  if (saved.redirectUri != null && typeof saved.redirectUri !== "string") {
+    return null;
+  }
   if (Date.now() - saved.createdAt > STATE_TTL_MS) return null;
   return saved;
 }
@@ -101,23 +135,22 @@ function sessionBridgeHtml(app: string, sessionToken: string): string {
 </html>`;
 }
 
-export function authStatus(req: Request, res: Response): void {
-  const callback = redirectUri(req);
+export function authStatus(_req: Request, res: Response): void {
+  const callback = oauthCallbackUrl();
   const clientId = envTrim("GITHUB_CLIENT_ID");
   const secret = envTrim("GITHUB_CLIENT_SECRET");
   res.json({
     github: githubConfigured(),
     appOrigin: appOrigin(),
-    /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
     redirectUri: callback,
+    omitsRedirectUri: !callback,
     /** Deploy marker — bump when auth handoff changes */
-    authMode: "same-origin-callback-v6",
+    authMode: "registered-callback-v7",
     clientIdPrefix: clientId ? clientId.slice(0, 8) : null,
     secretLen: secret ? secret.length : 0,
-    hint:
-      "GitHub OAuth App callback URL must be exactly: " +
-      callback +
-      " — Client ID/secret on Render must match that same OAuth App.",
+    hint: callback
+      ? "GitHub App Callback URL must be exactly: " + callback
+      : "redirect_uri is omitted so GitHub uses the first Callback URL on the GitHub App. Hive then finishes sign-in from that landing URL.",
   });
 }
 
@@ -135,19 +168,10 @@ export function startGitHubOAuth(req: Request, res: Response): void {
     return;
   }
 
-  const callback = redirectUri(req);
+  const callback = oauthCallbackUrl();
   const state = createOAuthState(callback);
-
-  const clientId = envTrim("GITHUB_CLIENT_ID");
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: callback,
-    scope: "read:user user:email",
-    state,
-  });
-
   res.setHeader("Cache-Control", "no-store");
-  res.redirect(`https://github.com/login/oauth/authorize?${params}`);
+  res.redirect(githubAuthorizeUrl(state));
 }
 
 type GitHubTokenResponse = {
@@ -174,7 +198,7 @@ async function exchangeCodeOnce(
     client_secret: clientSecret,
     code,
   });
-  // Only send redirect_uri when we have one — must match authorize + GitHub App.
+  // Must match authorize: omit when authorize omitted.
   if (callbackUri) body.set("redirect_uri", callbackUri);
 
   const res = await fetch("https://github.com/login/oauth/access_token", {
@@ -212,20 +236,13 @@ async function exchangeCodeOnce(
   return { token: data.access_token };
 }
 
-/**
- * Exchange auth code. Retry without redirect_uri if the first attempt fails —
- * GitHub then uses the OAuth App’s registered callback (avoids subtle mismatches).
- */
 async function exchangeCode(
   code: string,
-  callbackUri: string
+  callbackUri: string | null
 ): Promise<{ token: string | null; error?: string; errorCode?: string }> {
   const first = await exchangeCodeOnce(code, callbackUri);
   if (first.token) return first;
-  // Retry without redirect_uri (GitHub uses the OAuth App’s registered callback).
-  // Note: codes are single-use — this only helps when the first response was
-  // redirect_uri_mismatch before consuming the code; otherwise start login again.
-  if (first.errorCode === "redirect_uri_mismatch") {
+  if (callbackUri && first.errorCode === "redirect_uri_mismatch") {
     const second = await exchangeCodeOnce(code, null);
     if (second.token) return second;
     return second.error ? second : first;
@@ -272,15 +289,22 @@ async function fetchGitHubProfile(token: string): Promise<GitHubProfile | null> 
   return profile;
 }
 
-/**
- * If callback hit the API host directly (old Render URL), bounce the sealed
- * session to the app origin claim endpoint via top-level GET (not cross-site POST).
- */
+/** Bounce a sealed session to the app origin via POST (query tokens get stripped). */
 function finishOnApiHost(res: Response, sessionToken: string): void {
-  const claim = new URL(`${appOrigin()}/api/auth/claim`);
-  claim.searchParams.set("h", sessionToken);
+  const claim = `${appOrigin()}/api/auth/claim`;
   res.setHeader("Cache-Control", "no-store");
-  res.redirect(302, claim.toString());
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><meta name="robots" content="noindex"/><title>Signing in…</title></head>
+<body>
+<p>Finishing sign-in…</p>
+<form id="f" method="POST" action=${JSON.stringify(claim)}>
+<input type="hidden" name="h" value=${JSON.stringify(sessionToken)} />
+</form>
+<script>document.getElementById("f").submit()</script>
+</body>
+</html>`);
 }
 
 function requestLooksLikeAppHost(req: Request): boolean {
@@ -289,13 +313,37 @@ function requestLooksLikeAppHost(req: Request): boolean {
     .trim()
     .toLowerCase();
   const host = (fwd || req.get("host") || "").toLowerCase();
-  const appHost = appOrigin().replace(/^https?:\/\//, "").toLowerCase();
+  const appHost = hostnameOf(appOrigin());
   if (appHost && host === appHost) return true;
   return (
     host.endsWith(".vercel.app") ||
     host.startsWith("localhost") ||
     host.startsWith("127.0.0.1")
   );
+}
+
+/**
+ * If GitHub sent the user to the API homepage (registered callback is the
+ * origin, not /api/auth/github/callback), forward onto the real handler.
+ */
+export function maybeForwardOAuthCallback(req: Request, res: Response): boolean {
+  if (req.method !== "GET") return false;
+  if (req.path === "/api/auth/github/callback") return false;
+  const code = req.query.code;
+  const state = req.query.state;
+  if (typeof code !== "string" || typeof state !== "string") return false;
+  if (!code || !state) return false;
+
+  const q = new URLSearchParams();
+  q.set("code", code);
+  q.set("state", state);
+  const err = req.query.error;
+  if (typeof err === "string" && err) q.set("error", err);
+  const desc = req.query.error_description;
+  if (typeof desc === "string" && desc) q.set("error_description", desc);
+  res.setHeader("Cache-Control", "no-store");
+  res.redirect(`/api/auth/github/callback?${q}`);
+  return true;
 }
 
 export async function finishGitHubOAuth(req: Request, res: Response): Promise<void> {
@@ -357,7 +405,7 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
 
     const app = appOrigin();
 
-    // Same-origin (Vercel rewrite): set cookie on app host + sessionStorage bridge.
+    // Same-origin (Vercel rewrite / Vite proxy): cookie + sessionStorage.
     if (requestLooksLikeAppHost(req)) {
       const sessionToken = createSession(res, sessionFromStored(user), req);
       res.setHeader("Cache-Control", "no-store");
@@ -366,7 +414,6 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       return;
     }
 
-    // Legacy: callback hit Render directly — redirect to app claim with token.
     const sessionToken = mintSessionToken(sessionFromStored(user));
     finishOnApiHost(res, sessionToken);
   } catch (e) {
