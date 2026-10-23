@@ -32,6 +32,7 @@ function authErrorMessage(code: string | null): string | null {
     invalid_oauth_state: "Sign-in link expired. Try again.",
     token_exchange_failed: "Could not finish GitHub sign-in. Try again.",
     profile_failed: "Could not read your GitHub profile. Try again.",
+    session_claim_failed: "Sign-in finished but the session did not stick. Try again.",
     server_error: "Something went wrong during sign-in. Try again.",
   };
   return map[code] ?? "Sign-in failed. Try again.";

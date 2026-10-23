@@ -8,10 +8,19 @@ import {
   clearSession,
   createSession,
   getSessionUser,
+  mintSessionToken,
   readSessionToken,
   userFromSessionToken,
 } from "../auth/session";
 export const authRouter = Router();
+
+function appOriginFromEnv(): string {
+  return (
+    (process.env.HIVE_APP_URL || process.env.VITE_APP_URL || "")
+      .trim()
+      .replace(/\/$/, "") || "http://localhost:5173"
+  );
+}
 
 authRouter.get("/status", authStatus);
 
@@ -37,7 +46,25 @@ authRouter.get("/me", (req, res) => {
   res.json({ user });
 });
 
-/** Mint a real session + redirect with #h=… — only when x-hive-debug matches client id. */
+/**
+ * Same-origin session finish (hit via Vercel / Vite `/api` proxy).
+ * Sets hive_session on the *app* host, then redirects home with #h= for Bearer.
+ */
+authRouter.get("/claim", (req, res) => {
+  const raw = String(req.query.h ?? "").trim();
+  const user = raw ? userFromSessionToken(raw) : null;
+  const app = appOriginFromEnv();
+  if (!user) {
+    res.redirect(`${app}/?auth_error=session_claim_failed`);
+    return;
+  }
+  const sessionToken = createSession(res, user, req);
+  const dest = new URL(`${app}/`);
+  dest.hash = `h=${encodeURIComponent(sessionToken)}`;
+  res.redirect(dest.toString());
+});
+
+/** Mint a real session + claim redirect — only when x-hive-debug matches client id. */
 authRouter.get("/mint-handoff", (req, res) => {
   const expected = (process.env.GITHUB_CLIENT_ID || "").trim();
   if (!expected || req.get("x-hive-debug") !== expected) {
@@ -51,13 +78,10 @@ authRouter.get("/mint-handoff", (req, res) => {
     avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4",
     createdAt: new Date().toISOString(),
   };
-  const sessionToken = createSession(res, user, req);
-  const app =
-    (process.env.HIVE_APP_URL || process.env.VITE_APP_URL || "").replace(
-      /\/$/,
-      ""
-    ) || "http://localhost:5173";
-  res.redirect(`${app}/#h=${encodeURIComponent(sessionToken)}`);
+  const sessionToken = mintSessionToken(user);
+  const claim = new URL(`${appOriginFromEnv()}/api/auth/claim`);
+  claim.searchParams.set("h", sessionToken);
+  res.redirect(claim.toString());
 });
 
 authRouter.get("/github", startGitHubOAuth);

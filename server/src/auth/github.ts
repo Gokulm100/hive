@@ -4,7 +4,7 @@ import {
   upsertGitHubUser,
   type StoredUser,
 } from "../users/store";
-import { createSession, sessionFromStored } from "./session";
+import { mintSessionToken, sessionFromStored } from "./session";
 import { openJson, sealJson } from "./signed";
 
 type OAuthState = { createdAt: number; redirectUri: string };
@@ -73,7 +73,7 @@ export function authStatus(req: Request, res: Response): void {
     /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
     redirectUri: redirectUri(req),
     /** Deploy marker — bump when auth handoff changes */
-    authMode: "signed-bearer-v2",
+    authMode: "claim-cookie-v3",
   });
 }
 
@@ -234,12 +234,13 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       });
     }
 
-    // Hash handoff (not ?token=) — query params named *token* are often stripped by blockers.
-    // Cross-site cookies (Vercel → Render) are unreliable; SPA stores this and sends Bearer.
-    const sessionToken = createSession(res, sessionFromStored(user), req);
-    const dest = new URL(`${appOrigin()}/`);
-    dest.hash = `h=${encodeURIComponent(sessionToken)}`;
-    res.redirect(dest.toString());
+    // Don't Set-Cookie on the Render callback host — the SPA lives on Vercel, so that
+    // cookie never reaches /api/auth/me. Claim on the app origin (Vercel rewrite → here)
+    // so Set-Cookie is scoped to hive-*.vercel.app, plus #h= for Bearer localStorage.
+    const sessionToken = mintSessionToken(sessionFromStored(user));
+    const claim = new URL(`${appOrigin()}/api/auth/claim`);
+    claim.searchParams.set("h", sessionToken);
+    res.redirect(claim.toString());
   } catch (e) {
     console.error("[auth] OAuth finish error:", e);
     res.redirect(`${appOrigin()}/?auth_error=server_error`);

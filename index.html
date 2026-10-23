@@ -20,6 +20,34 @@
           document.body.classList.remove("theme-dark");
         }
       } catch (e) {}
+      // Capture OAuth handoff before React boots (hash/query can be lost otherwise).
+      try {
+        var tok = null;
+        var q = new URLSearchParams(location.search);
+        tok = q.get("h") || q.get("hive_token");
+        if (tok) {
+          q.delete("h");
+          q.delete("hive_token");
+          var qs = q.toString();
+          history.replaceState(
+            {},
+            "",
+            location.pathname + (qs ? "?" + qs : "")
+          );
+        }
+        if (!tok && location.hash.length > 1) {
+          var raw = location.hash.slice(1);
+          var hp = new URLSearchParams(raw);
+          tok = hp.get("h") || hp.get("hive_token");
+          if (!tok && raw.indexOf("h=") === 0) {
+            tok = decodeURIComponent(raw.slice(2));
+          }
+          if (tok) {
+            history.replaceState({}, "", location.pathname + location.search);
+          }
+        }
+        if (tok) localStorage.setItem("hive_session_token", tok);
+      } catch (e) {}
     </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>

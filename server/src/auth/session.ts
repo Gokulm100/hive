@@ -36,10 +36,21 @@ function isSecureRequest(req: Request): boolean {
   return host.endsWith(".onrender.com");
 }
 
-/** Lax for same-site (Vite proxy); None+Secure so cookie may work when browsers allow it. */
+/**
+ * Lax when the browser hit the app host (Vercel / localhost via proxy) — cookie sticks.
+ * None+Secure only when the response is served from the raw API host (cross-site).
+ */
 function sessionCookieFlags(req: Request): string {
   const secure = isSecureRequest(req);
-  const sameSite = secure ? "None" : "Lax";
+  const fwdHost = String(req.headers["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim();
+  const host = (fwdHost || req.get("host") || "").toLowerCase();
+  const appHost =
+    host.endsWith(".vercel.app") ||
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1");
+  const sameSite = secure && !appHost ? "None" : "Lax";
   return `Path=/; HttpOnly; SameSite=${sameSite}${secure ? "; Secure" : ""}`;
 }
 
