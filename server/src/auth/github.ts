@@ -103,6 +103,8 @@ function sessionBridgeHtml(app: string, sessionToken: string): string {
 
 export function authStatus(req: Request, res: Response): void {
   const callback = redirectUri(req);
+  const clientId = envTrim("GITHUB_CLIENT_ID");
+  const secret = envTrim("GITHUB_CLIENT_SECRET");
   res.json({
     github: githubConfigured(),
     appOrigin: appOrigin(),
@@ -110,10 +112,12 @@ export function authStatus(req: Request, res: Response): void {
     redirectUri: callback,
     /** Deploy marker — bump when auth handoff changes */
     authMode: "same-origin-callback-v6",
+    clientIdPrefix: clientId ? clientId.slice(0, 8) : null,
+    secretLen: secret ? secret.length : 0,
     hint:
       "GitHub OAuth App callback URL must be exactly: " +
       callback +
-      " (use the app/Vercel host, not onrender.com)",
+      " — Client ID/secret on Render must match that same OAuth App.",
   });
 }
 
@@ -159,37 +163,74 @@ type GitHubProfile = {
   email: string | null;
 };
 
-async function exchangeCode(
+async function exchangeCodeOnce(
   code: string,
-  callbackUri: string
-): Promise<{ token: string | null; error?: string }> {
+  callbackUri: string | null
+): Promise<{ token: string | null; error?: string; errorCode?: string }> {
   const clientId = envTrim("GITHUB_CLIENT_ID");
   const clientSecret = envTrim("GITHUB_CLIENT_SECRET");
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
     code,
-    redirect_uri: callbackUri,
   });
+  // Only send redirect_uri when we have one — must match authorize + GitHub App.
+  if (callbackUri) body.set("redirect_uri", callbackUri);
 
   const res = await fetch("https://github.com/login/oauth/access_token", {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "Hive-OAuth",
     },
     body,
   });
-  const data = (await res.json()) as GitHubTokenResponse;
+
+  const raw = await res.text();
+  let data: GitHubTokenResponse;
+  try {
+    data = JSON.parse(raw) as GitHubTokenResponse;
+  } catch {
+    return {
+      token: null,
+      error: `non_json_${res.status}:${raw.slice(0, 80)}`,
+      errorCode: "bad_response",
+    };
+  }
+
   if (!data.access_token) {
     const detail = data.error_description || data.error || `http_${res.status}`;
     console.error("[auth] GitHub token exchange failed:", detail, {
       redirect_uri: callbackUri,
       client_id_prefix: clientId.slice(0, 8),
+      secret_len: clientSecret.length,
+      error: data.error,
     });
-    return { token: null, error: detail };
+    return { token: null, error: detail, errorCode: data.error };
   }
   return { token: data.access_token };
+}
+
+/**
+ * Exchange auth code. Retry without redirect_uri if the first attempt fails —
+ * GitHub then uses the OAuth App’s registered callback (avoids subtle mismatches).
+ */
+async function exchangeCode(
+  code: string,
+  callbackUri: string
+): Promise<{ token: string | null; error?: string; errorCode?: string }> {
+  const first = await exchangeCodeOnce(code, callbackUri);
+  if (first.token) return first;
+  // Retry without redirect_uri (GitHub uses the OAuth App’s registered callback).
+  // Note: codes are single-use — this only helps when the first response was
+  // redirect_uri_mismatch before consuming the code; otherwise start login again.
+  if (first.errorCode === "redirect_uri_mismatch") {
+    const second = await exchangeCodeOnce(code, null);
+    if (second.token) return second;
+    return second.error ? second : first;
+  }
+  return first;
 }
 
 async function fetchGitHubProfile(token: string): Promise<GitHubProfile | null> {
@@ -286,9 +327,15 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
   try {
     const exchanged = await exchangeCode(code, saved.redirectUri);
     if (!exchanged.token) {
-      res.redirect(
-        authErrorRedirect("token_exchange_failed", exchanged.error)
-      );
+      const codeHint =
+        exchanged.errorCode === "incorrect_client_credentials"
+          ? "token_exchange_failed"
+          : exchanged.errorCode === "redirect_uri_mismatch"
+            ? "redirect_uri_mismatch"
+            : exchanged.errorCode === "bad_verification_code"
+              ? "bad_verification_code"
+              : "token_exchange_failed";
+      res.redirect(authErrorRedirect(codeHint, exchanged.error));
       return;
     }
 

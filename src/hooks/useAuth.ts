@@ -29,9 +29,12 @@ function authErrorMessage(code: string | null, detail?: string | null): string |
       "GitHub sign-in is not set up on this server. Ask the host to add GitHub keys.",
     access_denied: "GitHub sign-in was cancelled.",
     redirect_uri_mismatch:
-      "GitHub callback URL mismatch. In the GitHub OAuth App, set Authorization callback URL to this app’s /api/auth/github/callback (Vercel URL), not onrender.com.",
+      "GitHub callback URL mismatch. Set the OAuth App callback to this site’s /api/auth/github/callback (Vercel URL) and match GITHUB_CLIENT_ID on Render to that same app.",
     invalid_oauth_state: "Sign-in link expired or was tampered with. Try again.",
-    token_exchange_failed: "Could not finish GitHub sign-in (token exchange failed). Try again.",
+    bad_verification_code:
+      "GitHub login code expired or was reused. Click Continue with GitHub again (don’t refresh mid-login).",
+    token_exchange_failed:
+      "GitHub rejected the login token exchange. On Render, check GITHUB_CLIENT_SECRET matches the OAuth App for client Iv23ct… (regenerate secret if unsure).",
     profile_failed: "Could not read your GitHub profile. Try again.",
     session_claim_failed: "Sign-in finished but the session did not stick. Try again.",
     server_error: "Something went wrong during sign-in. Try again.",
