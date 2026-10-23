@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import {
   authStatus,
   finishGitHubOAuth,
@@ -37,6 +37,10 @@ authRouter.get("/me", (req, res) => {
               hasToken: Boolean(raw),
               tokenLen: raw?.length ?? 0,
               verifyOk: raw ? Boolean(userFromSessionToken(raw)) : false,
+              hasCookie: Boolean(
+                (req.headers.cookie || "").includes("hive_session=")
+              ),
+              hasBearer: /^Bearer\s+\S+/i.test(req.get("authorization") || ""),
             },
           }
         : {}),
@@ -47,11 +51,16 @@ authRouter.get("/me", (req, res) => {
 });
 
 /**
- * Same-origin session finish (hit via Vercel / Vite `/api` proxy).
- * Sets hive_session on the *app* host, then redirects home with #h= for Bearer.
+ * Finish sign-in on the *app* host (Vercel rewrite / Vite proxy).
+ * Sets HttpOnly cookie + returns HTML that writes Bearer token to localStorage.
+ * Avoids relying on Location #hash / ?h= (often stripped by browsers/extensions).
  */
-authRouter.get("/claim", (req, res) => {
-  const raw = String(req.query.h ?? "").trim();
+function claimSession(req: Request, res: Response): void {
+  const raw = String(
+    (req.body && typeof req.body === "object" && req.body.h) ||
+      req.query.h ||
+      ""
+  ).trim();
   const user = raw ? userFromSessionToken(raw) : null;
   const app = appOriginFromEnv();
   if (!user) {
@@ -59,10 +68,25 @@ authRouter.get("/claim", (req, res) => {
     return;
   }
   const sessionToken = createSession(res, user, req);
-  const dest = new URL(`${app}/`);
-  dest.hash = `h=${encodeURIComponent(sessionToken)}`;
-  res.redirect(dest.toString());
-});
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><title>Signing in…</title></head>
+<body>
+<p>Signing you in…</p>
+<script>
+try {
+  localStorage.setItem("hive_session_token", ${JSON.stringify(sessionToken)});
+} catch (e) {}
+location.replace(${JSON.stringify(app + "/")});
+</script>
+</body>
+</html>`);
+}
+
+authRouter.get("/claim", claimSession);
+authRouter.post("/claim", claimSession);
 
 /** Mint a real session + claim redirect — only when x-hive-debug matches client id. */
 authRouter.get("/mint-handoff", (req, res) => {
@@ -79,9 +103,16 @@ authRouter.get("/mint-handoff", (req, res) => {
     createdAt: new Date().toISOString(),
   };
   const sessionToken = mintSessionToken(user);
-  const claim = new URL(`${appOriginFromEnv()}/api/auth/claim`);
-  claim.searchParams.set("h", sessionToken);
-  res.redirect(claim.toString());
+  const claim = `${appOriginFromEnv()}/api/auth/claim`;
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.status(200).send(`<!DOCTYPE html>
+<html lang="en"><body>
+<form id="f" method="POST" action=${JSON.stringify(claim)}>
+<input type="hidden" name="h" value=${JSON.stringify(sessionToken)} />
+</form>
+<script>document.getElementById("f").submit()</script>
+</body></html>`);
 });
 
 authRouter.get("/github", startGitHubOAuth);

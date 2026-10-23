@@ -151,21 +151,22 @@ function onVercelHost(): boolean {
 }
 
 /**
- * Local: empty (Vite proxies /api).
- * On Vercel: same-origin `/api` (vercel.json rewrites to Render).
- * Else: VITE_API_URL or Render default.
+ * Resolve at call time (not module init) so Vercel hostname is never baked wrong.
+ * Local / Vercel: same-origin `/api`. Else: VITE_API_URL or Render.
  */
-const API_BASE = (
-  onVercelHost()
-    ? ""
-    : (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
-      (import.meta.env.PROD ? "https://hive-efc7.onrender.com" : "")
-).replace(/\/$/, "");
+function apiBase(): string {
+  if (onVercelHost()) return "";
+  const fromEnv = (import.meta.env.VITE_API_URL as string | undefined)?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  if (import.meta.env.PROD) return "https://hive-efc7.onrender.com";
+  return "";
+}
 
 /** Absolute API origin for full-page OAuth navigations. */
 function apiOrigin(): string {
   if (onVercelHost()) return window.location.origin;
-  if (API_BASE) return API_BASE;
+  const base = apiBase();
+  if (base) return base;
   if (typeof window !== "undefined") {
     return `http://${window.location.hostname}:8787`;
   }
@@ -173,7 +174,7 @@ function apiOrigin(): string {
 }
 
 function apiUrl(path: string) {
-  return `${API_BASE}${path}`;
+  return `${apiBase()}${path}`;
 }
 
 export type AuthUser = {

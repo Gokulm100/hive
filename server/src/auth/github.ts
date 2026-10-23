@@ -73,7 +73,7 @@ export function authStatus(req: Request, res: Response): void {
     /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
     redirectUri: redirectUri(req),
     /** Deploy marker — bump when auth handoff changes */
-    authMode: "claim-cookie-v3",
+    authMode: "claim-post-v4",
   });
 }
 
@@ -234,13 +234,24 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       });
     }
 
-    // Don't Set-Cookie on the Render callback host — the SPA lives on Vercel, so that
-    // cookie never reaches /api/auth/me. Claim on the app origin (Vercel rewrite → here)
-    // so Set-Cookie is scoped to hive-*.vercel.app, plus #h= for Bearer localStorage.
+    // Cookie on Render never reaches the Vercel SPA. Auto-POST the session to
+    // /api/auth/claim on the app origin (via rewrite) so Set-Cookie + localStorage
+    // land on hive-*.vercel.app. Body POST avoids query/hash stripping.
     const sessionToken = mintSessionToken(sessionFromStored(user));
-    const claim = new URL(`${appOrigin()}/api/auth/claim`);
-    claim.searchParams.set("h", sessionToken);
-    res.redirect(claim.toString());
+    const claim = `${appOrigin()}/api/auth/claim`;
+    res.setHeader("Cache-Control", "no-store");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><title>Signing in…</title></head>
+<body>
+<p>Finishing sign-in…</p>
+<form id="f" method="POST" action=${JSON.stringify(claim)}>
+<input type="hidden" name="h" value=${JSON.stringify(sessionToken)} />
+</form>
+<script>document.getElementById("f").submit()</script>
+</body>
+</html>`);
   } catch (e) {
     console.error("[auth] OAuth finish error:", e);
     res.redirect(`${appOrigin()}/?auth_error=server_error`);
