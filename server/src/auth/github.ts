@@ -4,7 +4,11 @@ import {
   upsertGitHubUser,
   type StoredUser,
 } from "../users/store";
-import { mintSessionToken, sessionFromStored } from "./session";
+import {
+  createSession,
+  mintSessionToken,
+  sessionFromStored,
+} from "./session";
 import { openJson, sealJson } from "./signed";
 
 type OAuthState = { createdAt: number; redirectUri: string };
@@ -29,33 +33,38 @@ function appOrigin(): string {
   return fromEnv.replace(/\/$/, "");
 }
 
-function apiOrigin(req: Request): string {
-  const fromEnv = envTrim("HIVE_API_URL");
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-  const host = req.get("host") || `localhost:${process.env.PORT || 8787}`;
-  const forwarded = String(req.get("x-forwarded-proto") || "")
-    .split(",")[0]
-    .trim();
-  // Render / proxies: prefer forwarded proto; .onrender.com is always https
-  const proto =
-    forwarded === "https" ||
-    req.secure ||
-    host.endsWith(".onrender.com")
-      ? "https"
-      : "http";
-  return `${proto}://${host}`;
+/**
+ * Callback must be on the *app* host (Vercel / Vite) so the browser stays
+ * same-origin when we set cookie + sessionStorage. GitHub → app/api/... →
+ * rewrite → Render. Avoids Render→Vercel cross-origin handoff failures.
+ *
+ * GITHUB_CALLBACK_URL is honored only when it is not a Render URL while the
+ * app lives on Vercel (that combo is the broken handshake).
+ */
+function redirectUri(_req: Request): string {
+  const appCb = `${appOrigin()}/api/auth/github/callback`;
+  const fromEnv = envTrim("GITHUB_CALLBACK_URL").replace(/\/$/, "");
+  if (!fromEnv) return appCb;
+  try {
+    const envHost = new URL(fromEnv).hostname.toLowerCase();
+    const appHost = new URL(appOrigin()).hostname.toLowerCase();
+    if (envHost.endsWith(".onrender.com") && appHost.endsWith(".vercel.app")) {
+      console.warn(
+        "[auth] Ignoring GITHUB_CALLBACK_URL on Render; using app callback:",
+        appCb
+      );
+      return appCb;
+    }
+  } catch {
+    /* keep fromEnv */
+  }
+  return fromEnv;
 }
 
-function redirectUri(req: Request): string {
-  const fromEnv = envTrim("GITHUB_CALLBACK_URL");
-  if (fromEnv) return fromEnv.replace(/\/$/, "");
-  return `${apiOrigin(req)}/api/auth/github/callback`;
-}
-
-function createOAuthState(redirectUri: string): string {
+function createOAuthState(redirectUriValue: string): string {
   return sealJson({
     createdAt: Date.now(),
-    redirectUri,
+    redirectUri: redirectUriValue,
   } satisfies OAuthState);
 }
 
@@ -66,14 +75,45 @@ function readOAuthState(state: string): OAuthState | null {
   return saved;
 }
 
+function authErrorRedirect(code: string, detail?: string): string {
+  const u = new URL(`${appOrigin()}/`);
+  u.searchParams.set("auth_error", code);
+  if (detail) u.searchParams.set("auth_detail", detail.slice(0, 180));
+  return u.toString();
+}
+
+/** HTML bridge: cookie already Set-Cookie'd; write sessionStorage then go home. */
+function sessionBridgeHtml(app: string, sessionToken: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"/><meta name="robots" content="noindex"/><title>Signing in…</title></head>
+<body>
+<p>Signing you in…</p>
+<script>
+(function () {
+  var t = ${JSON.stringify(sessionToken)};
+  try { sessionStorage.setItem("hive_session_token", t); } catch (e) {}
+  try { localStorage.setItem("hive_session_token", t); } catch (e) {}
+  location.replace(${JSON.stringify(app + "/")});
+})();
+</script>
+</body>
+</html>`;
+}
+
 export function authStatus(req: Request, res: Response): void {
+  const callback = redirectUri(req);
   res.json({
     github: githubConfigured(),
     appOrigin: appOrigin(),
     /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
-    redirectUri: redirectUri(req),
+    redirectUri: callback,
     /** Deploy marker — bump when auth handoff changes */
-    authMode: "session-storage-v5",
+    authMode: "same-origin-callback-v6",
+    hint:
+      "GitHub OAuth App callback URL must be exactly: " +
+      callback +
+      " (use the app/Vercel host, not onrender.com)",
   });
 }
 
@@ -81,7 +121,7 @@ export function startGitHubOAuth(req: Request, res: Response): void {
   if (!githubConfigured()) {
     const wantsHtml = String(req.get("accept") || "").includes("text/html");
     if (wantsHtml) {
-      res.redirect(`${appOrigin()}/?auth_error=github_not_configured`);
+      res.redirect(authErrorRedirect("github_not_configured"));
       return;
     }
     res.status(503).json({
@@ -92,7 +132,6 @@ export function startGitHubOAuth(req: Request, res: Response): void {
   }
 
   const callback = redirectUri(req);
-  // Signed state (no in-memory Map) so Render restarts / cold starts can't break OAuth
   const state = createOAuthState(callback);
 
   const clientId = envTrim("GITHUB_CLIENT_ID");
@@ -103,6 +142,7 @@ export function startGitHubOAuth(req: Request, res: Response): void {
     state,
   });
 
+  res.setHeader("Cache-Control", "no-store");
   res.redirect(`https://github.com/login/oauth/authorize?${params}`);
 }
 
@@ -191,15 +231,42 @@ async function fetchGitHubProfile(token: string): Promise<GitHubProfile | null> 
   return profile;
 }
 
+/**
+ * If callback hit the API host directly (old Render URL), bounce the sealed
+ * session to the app origin claim endpoint via top-level GET (not cross-site POST).
+ */
+function finishOnApiHost(res: Response, sessionToken: string): void {
+  const claim = new URL(`${appOrigin()}/api/auth/claim`);
+  claim.searchParams.set("h", sessionToken);
+  res.setHeader("Cache-Control", "no-store");
+  res.redirect(302, claim.toString());
+}
+
+function requestLooksLikeAppHost(req: Request): boolean {
+  const fwd = String(req.headers["x-forwarded-host"] || "")
+    .split(",")[0]
+    .trim()
+    .toLowerCase();
+  const host = (fwd || req.get("host") || "").toLowerCase();
+  const appHost = appOrigin().replace(/^https?:\/\//, "").toLowerCase();
+  if (appHost && host === appHost) return true;
+  return (
+    host.endsWith(".vercel.app") ||
+    host.startsWith("localhost") ||
+    host.startsWith("127.0.0.1")
+  );
+}
+
 export async function finishGitHubOAuth(req: Request, res: Response): Promise<void> {
   if (!githubConfigured()) {
-    res.redirect(`${appOrigin()}/?auth_error=github_not_configured`);
+    res.redirect(authErrorRedirect("github_not_configured"));
     return;
   }
 
   const err = String(req.query.error ?? "");
   if (err) {
-    res.redirect(`${appOrigin()}/?auth_error=${encodeURIComponent(err)}`);
+    const detail = String(req.query.error_description ?? "");
+    res.redirect(authErrorRedirect(err, detail || undefined));
     return;
   }
 
@@ -207,20 +274,27 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
   const code = String(req.query.code ?? "");
   const saved = state ? readOAuthState(state) : null;
   if (!state || !saved || !code) {
-    res.redirect(`${appOrigin()}/?auth_error=invalid_oauth_state`);
+    console.error("[auth] invalid_oauth_state", {
+      hasState: Boolean(state),
+      stateOk: Boolean(saved),
+      hasCode: Boolean(code),
+    });
+    res.redirect(authErrorRedirect("invalid_oauth_state"));
     return;
   }
 
   try {
-    const { token } = await exchangeCode(code, saved.redirectUri);
-    if (!token) {
-      res.redirect(`${appOrigin()}/?auth_error=token_exchange_failed`);
+    const exchanged = await exchangeCode(code, saved.redirectUri);
+    if (!exchanged.token) {
+      res.redirect(
+        authErrorRedirect("token_exchange_failed", exchanged.error)
+      );
       return;
     }
 
-    const profile = await fetchGitHubProfile(token);
+    const profile = await fetchGitHubProfile(exchanged.token);
     if (!profile) {
-      res.redirect(`${appOrigin()}/?auth_error=profile_failed`);
+      res.redirect(authErrorRedirect("profile_failed"));
       return;
     }
 
@@ -234,26 +308,22 @@ export async function finishGitHubOAuth(req: Request, res: Response): Promise<vo
       });
     }
 
-    // Cookie on Render never reaches the Vercel SPA. Auto-POST the session to
-    // /api/auth/claim on the app origin (via rewrite) so Set-Cookie + localStorage
-    // land on hive-*.vercel.app. Body POST avoids query/hash stripping.
+    const app = appOrigin();
+
+    // Same-origin (Vercel rewrite): set cookie on app host + sessionStorage bridge.
+    if (requestLooksLikeAppHost(req)) {
+      const sessionToken = createSession(res, sessionFromStored(user), req);
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.status(200).send(sessionBridgeHtml(app, sessionToken));
+      return;
+    }
+
+    // Legacy: callback hit Render directly — redirect to app claim with token.
     const sessionToken = mintSessionToken(sessionFromStored(user));
-    const claim = `${appOrigin()}/api/auth/claim`;
-    res.setHeader("Cache-Control", "no-store");
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.status(200).send(`<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"/><title>Signing in…</title></head>
-<body>
-<p>Finishing sign-in…</p>
-<form id="f" method="POST" action=${JSON.stringify(claim)}>
-<input type="hidden" name="h" value=${JSON.stringify(sessionToken)} />
-</form>
-<script>document.getElementById("f").submit()</script>
-</body>
-</html>`);
+    finishOnApiHost(res, sessionToken);
   } catch (e) {
     console.error("[auth] OAuth finish error:", e);
-    res.redirect(`${appOrigin()}/?auth_error=server_error`);
+    res.redirect(authErrorRedirect("server_error"));
   }
 }

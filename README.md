@@ -28,7 +28,9 @@ npm run dev
 Create a GitHub OAuth App (Settings → Developer settings → OAuth Apps):
 
 - Homepage URL: your web app (local `http://localhost:5173`, prod your Vercel URL)
-- Authorization callback URL: `http://localhost:8787/api/auth/github/callback` (local) or `https://hive-efc7.onrender.com/api/auth/github/callback` (prod)
+- Authorization callback URL (must be the **app** host, not Render):
+  - Local: `http://localhost:5173/api/auth/github/callback` (Vite proxies `/api`)
+  - Prod: `https://hive-sepia-chi.vercel.app/api/auth/github/callback` (Vercel rewrites `/api` → Render)
 
 In API `.env` / Render env:
 
@@ -36,13 +38,13 @@ In API `.env` / Render env:
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...   # no quotes; must match this OAuth App
 HIVE_APP_URL=http://localhost:5173          # prod: your Vercel URL (not localhost)
-GITHUB_CALLBACK_URL=https://hive-efc7.onrender.com/api/auth/github/callback
-# local instead: GITHUB_CALLBACK_URL=http://localhost:8787/api/auth/github/callback
+# Optional override — usually omit; defaults to ${HIVE_APP_URL}/api/auth/github/callback
+# GITHUB_CALLBACK_URL=https://hive-sepia-chi.vercel.app/api/auth/github/callback
 ```
 
-`GITHUB_CALLBACK_URL` must be **identical** to the GitHub App callback (https, no trailing slash). Wrong secret or mismatched callback → `token_exchange_failed`.
+GitHub App callback and `redirect_uri` must match (https, no trailing slash). Wrong secret or mismatched callback → `token_exchange_failed` / `redirect_uri_mismatch`.
 
-After OAuth, the API redirects to your app with a `#h=…` session handoff (Bearer). Opening `/api/auth/me` alone in a tab will still show `SESSION_EXPIRED` — that endpoint needs the session from the app.
+After OAuth, the callback runs on the app origin (via rewrite), sets cookie + `sessionStorage`, then sends you home. Opening `/api/auth/me` alone in a tab without a session still shows `SESSION_EXPIRED`.
 
 Run **both** API and web (`npm run dev`). Locally the GitHub button opens the API on `:8787`, not Vite — otherwise you get `Cannot GET /api/auth/github`.
 

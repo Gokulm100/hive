@@ -22,19 +22,23 @@ export type AuthState = {
   signOut: () => Promise<void>;
 };
 
-function authErrorMessage(code: string | null): string | null {
+function authErrorMessage(code: string | null, detail?: string | null): string | null {
   if (!code) return null;
   const map: Record<string, string> = {
     github_not_configured:
       "GitHub sign-in is not set up on this server. Ask the host to add GitHub keys.",
     access_denied: "GitHub sign-in was cancelled.",
-    invalid_oauth_state: "Sign-in link expired. Try again.",
-    token_exchange_failed: "Could not finish GitHub sign-in. Try again.",
+    redirect_uri_mismatch:
+      "GitHub callback URL mismatch. In the GitHub OAuth App, set Authorization callback URL to this app’s /api/auth/github/callback (Vercel URL), not onrender.com.",
+    invalid_oauth_state: "Sign-in link expired or was tampered with. Try again.",
+    token_exchange_failed: "Could not finish GitHub sign-in (token exchange failed). Try again.",
     profile_failed: "Could not read your GitHub profile. Try again.",
     session_claim_failed: "Sign-in finished but the session did not stick. Try again.",
     server_error: "Something went wrong during sign-in. Try again.",
   };
-  return map[code] ?? "Sign-in failed. Try again.";
+  const base = map[code] ?? "Sign-in failed. Try again.";
+  if (detail && detail.trim()) return `${base} (${detail.trim()})`;
+  return base;
 }
 
 export function useAuth(): AuthState {
@@ -76,9 +80,11 @@ export function useAuth(): AuthState {
     captureAuthTokenFromUrl();
     const params = new URLSearchParams(window.location.search);
     const errCode = params.get("auth_error");
+    const errDetail = params.get("auth_detail");
     if (errCode) {
-      setAuthError(authErrorMessage(errCode));
+      setAuthError(authErrorMessage(errCode, errDetail));
       params.delete("auth_error");
+      params.delete("auth_detail");
       const next = params.toString();
       const url = next
         ? `${window.location.pathname}?${next}`
