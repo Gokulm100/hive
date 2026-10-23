@@ -35,6 +35,13 @@ describe("codeRulesForAgent", () => {
     assert.match(rules, /Do NOT create, edit/i);
     assert.match(rules, /Only Dev and UI Designer/i);
   });
+
+  it("returns spec-only rules for bd", () => {
+    const rules = codeRulesForAgent("bd", "BD");
+    assert.match(rules, /markdown specs/i);
+    assert.match(rules, /docs\//i);
+    assert.doesNotMatch(rules, /UI-related code/i);
+  });
 });
 
 describe("implementClosingLine", () => {
@@ -44,5 +51,11 @@ describe("implementClosingLine", () => {
 
   it("tells non-writers not to change source code", () => {
     assert.match(implementClosingLine("researcher"), /without changing application source code/i);
+  });
+
+  it("lets bd write markdown specs but not code", () => {
+    const line = implementClosingLine("bd");
+    assert.match(line, /markdown spec/i);
+    assert.match(line, /Do not touch application source code/i);
   });
 });

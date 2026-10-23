@@ -9,8 +9,18 @@ export function readOnlyCodeRules(agentLabel: string): string {
   return `CODE RULES (hard):
 - Do NOT create, edit, delete, or commit application or source code.
 - Only Dev and UI Designer may change code in this agent set.
-- ${agentLabel} may plan, research, review diffs, merge PRs, or write plain reports — not patch the repo.
+- ${agentLabel} may plan, research, review diffs, or write plain reports in chat — not patch the repo.
 - If code must change, say Dev or UI Designer should do it.`;
+}
+
+export function bdSpecRules(): string {
+  return `SPECS (BD — hard):
+- Do NOT create, edit, delete, or commit application or source code (no .ts, .tsx, .js, .css, config, tests, etc.).
+- You MAY add or update well-defined markdown specs for Dev when the feature needs them.
+- Put specs under docs/ (e.g. docs/specs/<feature>.md). One clear doc per feature slice.
+- Each spec must state: who it’s for, what we offer, the hook, scope, and acceptance notes Dev can implement from.
+- Commit spec files only when a repo workspace is active; otherwise deliver the spec in chat.
+- Dev and UI Designer own all code changes.`;
 }
 
 export function devCodeAndTestRules(): string {
@@ -29,6 +39,7 @@ export function designerCodeRules(): string {
 export function codeRulesForAgent(agentId: string, agentName: string): string {
   if (agentId === "dev") return devCodeAndTestRules();
   if (agentId === "designer") return designerCodeRules();
+  if (agentId === "bd") return bdSpecRules();
   if (canWriteCode(agentId)) return "";
   return readOnlyCodeRules(agentName);
 }
@@ -37,5 +48,8 @@ export function implementClosingLine(agentId: string): string {
   if (canWriteCode(agentId)) {
     return "Now implement / complete the assignment yourself in the workspace above. Use helper notes where useful. Explain what you're doing in plain language as you go. End with a short summary of what you decided or delivered (include PR/commit links if you created them).";
   }
-  return "Now complete the assignment without changing application source code. Deliver your output in chat (and docs only if the task allows). Use helper notes where useful. End with a short plain-English summary.";
+  if (agentId === "bd") {
+    return "Now complete the assignment: deliver who/offer/hook in chat, and write or update a markdown spec under docs/ when Dev needs a durable brief. Do not touch application source code. End with a short plain-English summary (include spec path or commit link if you wrote one).";
+  }
+  return "Now complete the assignment without changing application source code. Deliver your output in chat. Use helper notes where useful. End with a short plain-English summary.";
 }
