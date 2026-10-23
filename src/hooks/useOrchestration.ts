@@ -36,6 +36,7 @@ import {
 } from "../data/cast";
 import { buildScript } from "../data/script";
 import { uid } from "../lib/utils";
+import { showReplayDemoButton } from "../lib/replayDemoButton";
 import type {
   AgentDef,
   AgentRuntime,
@@ -138,6 +139,7 @@ export function useOrchestration() {
   const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
   const [mapTick, setMapTick] = useState(0);
   const [engine, setEngine] = useState<EngineMode>("demo");
+  const [userPickedDemo, setUserPickedDemo] = useState(false);
   const [runMode, setRunMode] = useState<RunMode>("build");
   const [apiError, setApiError] = useState<string | null>(null);
   const [awaitingIds, setAwaitingIds] = useState<Set<string>>(() => new Set());
@@ -1121,6 +1123,11 @@ export function useOrchestration() {
     ]
   );
 
+  const pickEngine = useCallback((mode: EngineMode) => {
+    if (mode === "demo") setUserPickedDemo(true);
+    setEngine(mode);
+  }, []);
+
   const toggleCard = useCallback((id: string) => {
     setAgentState((s) => ({
       ...s,
@@ -1607,7 +1614,8 @@ export function useOrchestration() {
     flashIds,
     mapTick,
     engine,
-    setEngine,
+    setEngine: pickEngine,
+    showReplayDemo: showReplayDemoButton(engine, userPickedDemo),
     runMode,
     setRunMode,
     apiError,
