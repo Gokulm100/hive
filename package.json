@@ -11,7 +11,8 @@
     "dev:client": "vite",
     "dev:server": "tsx watch server/src/index.ts",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --import tsx --test server/src/**/*.test.ts"
   },
   "dependencies": {
     "@cursor/sdk": "^1.0.18",
