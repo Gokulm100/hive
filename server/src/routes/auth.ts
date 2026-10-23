@@ -52,8 +52,8 @@ authRouter.get("/me", (req, res) => {
 
 /**
  * Finish sign-in on the *app* host (Vercel rewrite / Vite proxy).
- * Sets HttpOnly cookie + returns HTML that writes Bearer token to localStorage.
- * Avoids relying on Location #hash / ?h= (often stripped by browsers/extensions).
+ * Sets HttpOnly cookie + returns HTML that writes Bearer token to sessionStorage
+ * (and localStorage backup). Avoids URL #hash / ?h= stripping.
  */
 function claimSession(req: Request, res: Response): void {
   const raw = String(
@@ -76,10 +76,12 @@ function claimSession(req: Request, res: Response): void {
 <body>
 <p>Signing you in…</p>
 <script>
-try {
-  localStorage.setItem("hive_session_token", ${JSON.stringify(sessionToken)});
-} catch (e) {}
-location.replace(${JSON.stringify(app + "/")});
+(function () {
+  var t = ${JSON.stringify(sessionToken)};
+  try { sessionStorage.setItem("hive_session_token", t); } catch (e) {}
+  try { localStorage.setItem("hive_session_token", t); } catch (e) {}
+  location.replace(${JSON.stringify(app + "/")});
+})();
 </script>
 </body>
 </html>`);

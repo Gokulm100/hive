@@ -6,7 +6,6 @@ import {
   fetchAuthStatus,
   loginAsGuest,
   logout as apiLogout,
-  onUnauthorized,
   type AuthUser,
 } from "../api/client";
 
@@ -58,6 +57,7 @@ export function useAuth(): AuthState {
       setPhase("signed-in");
       setSessionExpired(false);
     } catch {
+      clearSessionToken();
       setUser(null);
       setPhase("guest");
     }
@@ -87,15 +87,6 @@ export function useAuth(): AuthState {
     }
     void refresh();
   }, [refresh]);
-
-  useEffect(() => {
-    return onUnauthorized(() => {
-      clearSessionToken();
-      setUser(null);
-      setPhase("guest");
-      setSessionExpired(true);
-    });
-  }, []);
 
   const continueAsGuest = useCallback(async () => {
     setAuthError(null);

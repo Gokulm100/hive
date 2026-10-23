@@ -187,15 +187,36 @@ export type AuthUser = {
 
 const SESSION_TOKEN_KEY = "hive_session_token";
 
+/** Prefer sessionStorage (survives cookie flakes); mirror to localStorage as backup. */
 export function getSessionToken(): string | null {
   try {
-    return localStorage.getItem(SESSION_TOKEN_KEY);
+    const fromSession = sessionStorage.getItem(SESSION_TOKEN_KEY);
+    if (fromSession) return fromSession;
   } catch {
-    return null;
+    /* private mode */
   }
+  try {
+    const fromLocal = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (fromLocal) {
+      try {
+        sessionStorage.setItem(SESSION_TOKEN_KEY, fromLocal);
+      } catch {
+        /* ignore */
+      }
+      return fromLocal;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 export function setSessionToken(token: string): void {
+  try {
+    sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+  } catch {
+    /* ignore */
+  }
   try {
     localStorage.setItem(SESSION_TOKEN_KEY, token);
   } catch {
@@ -204,6 +225,11 @@ export function setSessionToken(token: string): void {
 }
 
 export function clearSessionToken(): void {
+  try {
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
   try {
     localStorage.removeItem(SESSION_TOKEN_KEY);
   } catch {
@@ -252,18 +278,6 @@ export function captureAuthTokenFromUrl(): boolean {
   return true;
 }
 
-type UnauthorizedListener = () => void;
-const unauthorizedListeners = new Set<UnauthorizedListener>();
-
-export function onUnauthorized(listener: UnauthorizedListener): () => void {
-  unauthorizedListeners.add(listener);
-  return () => unauthorizedListeners.delete(listener);
-}
-
-function notifyUnauthorized(): void {
-  for (const fn of unauthorizedListeners) fn();
-}
-
 function authHeaders(): HeadersInit {
   const token = getSessionToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
@@ -283,10 +297,8 @@ async function apiFetch(
     headers,
     credentials: "include",
   });
-  if (res.status === 401 && !path.startsWith("/api/auth/me")) {
-    clearSessionToken();
-    notifyUnauthorized();
-  }
+  // Do NOT clear the Bearer token on random 401s (jobs/repos/cold start).
+  // That was wiping a fresh GitHub session within seconds. Only /me + logout clear it.
   return res;
 }
 

@@ -46,7 +46,14 @@
             history.replaceState({}, "", location.pathname + location.search);
           }
         }
-        if (tok) localStorage.setItem("hive_session_token", tok);
+        if (tok) {
+          try {
+            sessionStorage.setItem("hive_session_token", tok);
+          } catch (e2) {}
+          try {
+            localStorage.setItem("hive_session_token", tok);
+          } catch (e3) {}
+        }
       } catch (e) {}
     </script>
     <div id="root"></div>

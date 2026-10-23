@@ -73,7 +73,7 @@ export function authStatus(req: Request, res: Response): void {
     /** Must match “Authorization callback URL” on the GitHub OAuth App exactly */
     redirectUri: redirectUri(req),
     /** Deploy marker — bump when auth handoff changes */
-    authMode: "claim-post-v4",
+    authMode: "session-storage-v5",
   });
 }
 
