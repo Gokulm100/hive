@@ -5,7 +5,6 @@ import {
   canWriteCode,
   codeRulesForAgent,
   implementClosingLine,
-  readOnlyCodeRules,
 } from "./codeAccess";
 import { BUILTIN_ROLES, roleBrief } from "./roles";
 import {
@@ -215,7 +214,7 @@ function taskForRole(
     case "researcher":
       return `Feature research for “${goal}”: facts, constraints, and risks Dev needs before building. Keep it short.`;
     case "bd":
-      return `For “${goal}”: who it’s for, the offer, and one clear hook. Skip fluff.`;
+      return `For “${goal}”: who it’s for, the offer, and one clear hook. If Dev needs a written brief, add a markdown spec under docs/ (no application code). Skip fluff.`;
     case "designer":
       return `For “${goal}”: concrete UI direction and any UI code changes needed (styles, components, layout). Dev handles non-UI code.`;
     case "dev":
@@ -754,15 +753,18 @@ Rules for questions:
 
   throwIfCancelled();
 
-  // QA is read-only: no helpers, no code edits — review + unit tests only
+  // QA is read-only; other non-writers skip helpers and must not edit application code
   if (member.id === "qa" || !canWriteCode(member.id)) {
     const readOnly = member.id === "qa";
+    const isBd = member.id === "bd";
     emitStatus(
       member.id,
       "working",
       readOnly
         ? `${member.name} is reviewing (read-only)…`
-        : `${member.name} is working (no code changes)…`
+        : isBd
+          ? `${member.name} is writing specs (no code changes)…`
+          : `${member.name} is working (no code changes)…`
     );
     const qaExtra = readOnly
       ? `
@@ -782,7 +784,7 @@ ${task}
 User answers / guidance:
 ${answers}
 
-${readOnlyCodeRules(member.name)}
+${codeRulesForAgent(member.id, member.name)}
 ${qaExtra}
 - Chat in plain English: no exception names, HTTP codes, file paths, or test-file dumps. Say what a teammate needs to know.
 
@@ -1002,7 +1004,7 @@ Hard rules for lineup:
 3. Include "designer" ONLY if the goal is clearly about UI/visual/brand/layout.
 4. Include "bd" ONLY if the goal is clearly about who-it’s-for / offer / GTM / marketing.
 5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.
-6. Only Dev and UI Designer may write or alter application code. QA runs unit tests read-only and sends failures to Dev. Dev owns unit test updates.`;
+6. Only Dev and UI Designer may write or alter application code. BD may write markdown specs under docs/ only — never application code. QA runs unit tests read-only and sends failures to Dev. Dev owns unit test updates.`;
 
   const planText = await runAgentPrompt(orch, planPrompt, {
     asMain: true,
