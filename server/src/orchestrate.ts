@@ -1001,7 +1001,8 @@ Hard rules for lineup:
 2. FEATURE → "researcher" → "dev" → "qa" → "merger" (in that order). QA = diff review + unit tests (not live E2E).
 3. Include "designer" ONLY if the goal is clearly about UI/visual/brand/layout.
 4. Include "bd" ONLY if the goal is clearly about who-it’s-for / offer / GTM / marketing.
-5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.`;
+5. Never assign the whole roster by default. One clear task per id. Do not implement the work yourself.
+6. Only Dev and UI Designer may write or alter application code. QA runs unit tests read-only and sends failures to Dev. Dev owns unit test updates.`;
 
   const planText = await runAgentPrompt(orch, planPrompt, {
     asMain: true,
