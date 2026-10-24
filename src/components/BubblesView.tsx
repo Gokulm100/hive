@@ -70,6 +70,7 @@ export function BubblesView({ api, addAgentToken }: Props) {
           onWorkspaceBranch={api.setWorkspaceBranch}
           onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
           repoDisabled={api.running}
+          onApplyStoryGoal={api.submitGoal}
         />
         <div className="agent-chat-column">
           <AgentChat

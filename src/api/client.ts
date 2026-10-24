@@ -388,6 +388,59 @@ export async function fetchRepos(): Promise<ListedRepo[]> {
   return data.repos ?? [];
 }
 
+export type JiraStoryListItem = {
+  key: string;
+  summary: string;
+  status: string;
+  issueType: string;
+  assignee?: string;
+  url: string;
+};
+
+export type JiraStoryDetail = JiraStoryListItem & {
+  description: string;
+  acceptanceCriteria: string;
+  goal: string;
+};
+
+export async function fetchJiraStatus(): Promise<{
+  configured: boolean;
+  baseUrl: string | null;
+}> {
+  const res = await apiFetch("/api/jira/status");
+  const data = (await res.json().catch(() => ({}))) as {
+    configured?: boolean;
+    baseUrl?: string | null;
+  };
+  if (!res.ok) return { configured: false, baseUrl: null };
+  return {
+    configured: Boolean(data.configured),
+    baseUrl: data.baseUrl ?? null,
+  };
+}
+
+export async function fetchJiraStories(): Promise<JiraStoryListItem[]> {
+  const res = await apiFetch("/api/jira/stories");
+  const data = (await res.json().catch(() => ({}))) as {
+    stories?: JiraStoryListItem[];
+    error?: string;
+  };
+  if (!res.ok) throw new Error(data.error || `Jira stories failed (${res.status})`);
+  return data.stories ?? [];
+}
+
+export async function fetchJiraStory(key: string): Promise<JiraStoryDetail> {
+  const res = await apiFetch(`/api/jira/issues/${encodeURIComponent(key)}`);
+  const data = (await res.json().catch(() => ({}))) as {
+    story?: JiraStoryDetail;
+    error?: string;
+  };
+  if (!res.ok || !data.story) {
+    throw new Error(data.error || `Jira issue failed (${res.status})`);
+  }
+  return data.story;
+}
+
 export async function startOrchestration(
   goal: string,
   team: TeamMemberPayload[],

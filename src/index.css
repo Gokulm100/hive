@@ -580,7 +580,15 @@
     .composer-row {
       display: contents;
     }
-    .composer input {
+    .composer .story-picker {
+      flex: 1 1 100%;
+      border: none;
+      border-top: 1px solid var(--stroke);
+      background: transparent;
+      padding: 8px 0 0;
+    }
+    .composer input,
+    .composer textarea {
       flex: 1 1 160px;
       min-width: 0;
       border: 1px solid var(--stroke);
@@ -590,15 +598,19 @@
       background: var(--input);
       color: var(--ink);
       outline: none;
+      resize: vertical;
     }
     .composer .btn-primary,
     .composer .btn-ghost,
     .composer .btn-danger {
       flex-shrink: 0;
     }
-    .composer input::placeholder { color: #5c6670; }
-    .composer input:focus { border-color: var(--accent); }
-    .composer input:disabled { opacity: 0.6; }
+    .composer input::placeholder,
+    .composer textarea::placeholder { color: #5c6670; }
+    .composer input:focus,
+    .composer textarea:focus { border-color: var(--accent); }
+    .composer input:disabled,
+    .composer textarea:disabled { opacity: 0.6; }
 
     button {
       font: inherit;
@@ -1904,7 +1916,8 @@
     }
 
     /* Override .repo-picker column layout — must stay a horizontal toolbar */
-    .repo-picker.compact {
+    .repo-picker.compact,
+    .story-picker.compact {
       flex: 1 1 auto;
       min-width: 0;
       display: flex;
@@ -1917,7 +1930,8 @@
       border-bottom: none;
       background: transparent;
     }
-    .repo-picker.compact .repo-field {
+    .repo-picker.compact .repo-field,
+    .story-picker.compact .repo-field {
       flex: 1 1 0;
       min-width: 0;
     }
@@ -1926,7 +1940,8 @@
       min-width: 88px;
       max-width: 140px;
     }
-    .repo-picker.compact .repo-field span {
+    .repo-picker.compact .repo-field span,
+    .story-picker.compact .repo-field span {
       font-size: 0.62rem;
       line-height: 1.2;
       white-space: nowrap;
@@ -1934,7 +1949,8 @@
       text-overflow: ellipsis;
     }
     .repo-picker.compact .repo-field select,
-    .repo-picker.compact .repo-field input {
+    .repo-picker.compact .repo-field input,
+    .story-picker.compact .repo-field select {
       padding: 7px 9px;
       font-size: 0.8rem;
       height: 36px;
@@ -2341,7 +2357,8 @@
       color: var(--ink-soft);
     }
 
-    .repo-picker {
+    .repo-picker,
+    .story-picker {
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -2350,7 +2367,21 @@
       background: var(--bar-bg);
       flex-shrink: 0;
     }
-    .panel.chat .repo-picker {
+    .story-picker {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .story-picker .repo-field {
+      flex: 1 1 200px;
+      min-width: 0;
+    }
+    .story-picker-error {
+      color: var(--danger, #b33);
+      flex: 1 1 100%;
+    }
+    .panel.chat .repo-picker,
+    .panel.chat .story-picker {
       border-bottom: 1px solid var(--stroke);
       border-top: 1px solid var(--stroke);
     }
@@ -3001,7 +3032,8 @@
       .composer-tools .btn-danger {
         flex: 1 1 auto;
       }
-      .composer-row input {
+      .composer-row input,
+      .composer-row textarea {
         flex: 1 1 auto;
       }
 

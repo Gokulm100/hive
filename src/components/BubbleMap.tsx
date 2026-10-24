@@ -6,6 +6,7 @@ import { polarToXY } from "../lib/utils";
 import type { AgentDef, AgentRuntime } from "../types";
 import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
+import { StoryPicker } from "./StoryPicker";
 
 function connectorClass(status: string, ephemeral = false) {
   const parts = ["connector"];
@@ -37,6 +38,8 @@ type Props = {
   onWorkspaceBranch?: (v: string) => void;
   onWorkspaceCustomUrl?: (v: string) => void;
   repoDisabled?: boolean;
+  /** Fill / start a goal from a Jira story */
+  onApplyStoryGoal?: (goal: string) => void;
 };
 
 const STRESS_FX = `<span class="stress-fx" aria-hidden="true">
@@ -118,6 +121,7 @@ export function BubbleMap({
   onWorkspaceBranch,
   onWorkspaceCustomUrl,
   repoDisabled,
+  onApplyStoryGoal,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -724,6 +728,13 @@ export function BubbleMap({
         ) : (
           <span className="add-agent-bar-spacer" />
         )}
+        {onApplyStoryGoal ? (
+          <StoryPicker
+            compact
+            disabled={repoDisabled}
+            onApplyGoal={onApplyStoryGoal}
+          />
+        ) : null}
         <button
           type="button"
           className="btn-primary add-agent-trigger"

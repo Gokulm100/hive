@@ -31,6 +31,7 @@ import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody } from "./workspace";
 import { requireAuth } from "./auth/session";
 import { authRouter } from "./routes/auth";
+import { jiraRouter } from "./routes/jira";
 
 // Stale "running" rows from a previous process crash
 cancelRunningJobs("Server restarted");
@@ -61,6 +62,8 @@ app.use((req, res, next) => {
   if (path.startsWith("/api/auth")) return next();
   requireAuth(req, res, next);
 });
+
+app.use("/api/jira", jiraRouter);
 
 let busy = false;
 

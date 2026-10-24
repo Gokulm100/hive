@@ -5,6 +5,7 @@ import { ORCHESTRATOR } from "../data/cast";
 import type { AgentDef, AgentRuntime, OrchMessage } from "../types";
 import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
+import { StoryPicker } from "./StoryPicker";
 
 type Props = {
   addAgentToken?: number;
@@ -142,13 +143,17 @@ export function ReportsView({
               </button>
             ) : null}
           </div>
+          <StoryPicker
+            disabled={running}
+            onApplyGoal={(goal) => setInput(goal)}
+          />
           <div className="composer-row">
-            <input
-              type="text"
+            <textarea
+              rows={input.length > 120 ? 6 : 2}
               placeholder={
                 running
                   ? "Ask while running (side helper)…"
-                  : "Tell the Orchestrator what to build…"
+                  : "Tell the Orchestrator what to build — or pick a Jira story above…"
               }
               autoComplete="off"
               value={input}
@@ -185,6 +190,11 @@ export function ReportsView({
           ) : (
             <span className="add-agent-bar-spacer" />
           )}
+          <StoryPicker
+            compact
+            disabled={running}
+            onApplyGoal={(goal) => setInput(goal)}
+          />
           <button
             type="button"
             className="btn-primary add-agent-trigger"

@@ -23,6 +23,19 @@ npm run dev
 - API (e.g. Render): start with `npx tsx server/src/index.ts`, set `CURSOR_API_KEY`
 - Frontend (e.g. Vercel): deploy with `vercel.json` (rewrites `/api` → Render). You can leave `VITE_API_URL` unset on Vercel — the app uses same-origin `/api`.
 
+### Jira stories (optional)
+
+Set on the API host:
+
+```bash
+JIRA_BASE_URL=https://your-site.atlassian.net
+JIRA_EMAIL=bot@your-company.com
+JIRA_API_TOKEN=...   # from https://id.atlassian.com/manage-profile/security/api-tokens
+# JIRA_PROJECT=PROJ  # optional
+```
+
+In the UI, **Jira story** lists open-sprint issues assigned to that Jira user. Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
+
 ### GitHub sign-in
 
 Create a GitHub OAuth App (Settings → Developer settings → OAuth Apps):
