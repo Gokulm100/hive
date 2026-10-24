@@ -111,13 +111,42 @@ export function StoryDetailPanel({
         <>
           <header className="story-detail-top">
             <div className="story-detail-heading">
-              <p className="story-detail-key">
-                <a href={detail.url} target="_blank" rel="noreferrer">
-                  {detail.key}
-                </a>
-                <span className="story-detail-badge">{detail.issueType}</span>
-                <span className="story-detail-badge status">{detail.status}</span>
-              </p>
+              <div className="story-detail-keyrow">
+                <p className="story-detail-key">
+                  <a href={detail.url} target="_blank" rel="noreferrer">
+                    {detail.key}
+                  </a>
+                  <span className="story-detail-badge">{detail.issueType}</span>
+                  <span className="story-detail-badge status">
+                    {detail.status}
+                  </span>
+                </p>
+                <div className="story-detail-actions">
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    disabled={disabled}
+                    onClick={() => onApplyGoal(detail.goal)}
+                  >
+                    Use as goal
+                  </button>
+                  <a
+                    className="btn-ghost story-detail-link"
+                    href={detail.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open in Jira
+                  </a>
+                  <button
+                    type="button"
+                    className="btn-ghost story-detail-close"
+                    onClick={onClose}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
               <h4 className="story-detail-title">{detail.summary}</h4>
               {detail.assignee ? (
                 <p className="story-detail-assignee">
@@ -128,9 +157,6 @@ export function StoryDetailPanel({
                 <p className="story-detail-assignee muted">Unassigned</p>
               )}
             </div>
-            <button type="button" className="btn-ghost" onClick={onClose}>
-              Close
-            </button>
           </header>
 
           <div className="story-detail-sections">
@@ -151,25 +177,6 @@ export function StoryDetailPanel({
                 <StoryBody text={detail.acceptanceCriteria} />
               </section>
             ) : null}
-          </div>
-
-          <div className="story-detail-actions">
-            <button
-              type="button"
-              className="btn-primary"
-              disabled={disabled}
-              onClick={() => onApplyGoal(detail.goal)}
-            >
-              Use as goal
-            </button>
-            <a
-              className="btn-ghost story-detail-link"
-              href={detail.url}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open in Jira
-            </a>
           </div>
         </>
       ) : null}

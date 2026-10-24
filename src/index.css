@@ -2964,25 +2964,37 @@
     }
     .story-detail-top {
       display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: flex-start;
+      flex-direction: column;
+      gap: 0;
       padding-bottom: 14px;
       margin-bottom: 4px;
       border-bottom: 1px solid var(--stroke);
     }
     .story-detail-heading {
       min-width: 0;
-      flex: 1 1 auto;
+      width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
-    .story-detail-top .btn-ghost {
+    .story-detail-keyrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .story-detail-keyrow .story-detail-actions {
+      margin-top: 0;
       flex-shrink: 0;
-      padding: 6px 10px;
+      margin-left: auto;
+    }
+    .story-detail-close {
+      flex-shrink: 0;
+      padding: 0 12px;
       font-size: 0.76rem;
-      height: 32px;
+      height: 36px;
     }
     .story-detail-key {
       margin: 0;
@@ -2992,6 +3004,7 @@
       gap: 8px;
       font-size: 0.78rem;
       line-height: 1.3;
+      min-width: 0;
     }
     .story-detail-key a {
       color: var(--accent);
@@ -3052,9 +3065,10 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      padding: 16px 0;
+      padding: 16px 0 4px;
       flex: 1 1 auto;
       min-height: 0;
+      overflow: auto;
     }
     .story-detail-block {
       display: flex;
@@ -3122,20 +3136,27 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
-      margin-top: auto;
-      border-top: 1px solid var(--stroke);
-      padding-top: 14px;
+      padding-top: 0;
+      border-top: none;
     }
     .story-detail-actions .btn-primary {
-      padding: 8px 14px;
+      padding: 0 14px;
+      height: 36px;
       font-size: 0.82rem;
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
     }
     a.story-detail-link {
       display: inline-flex;
       align-items: center;
+      justify-content: center;
       text-decoration: none;
-      padding: 8px 14px;
+      padding: 0 14px;
+      height: 36px;
       font-size: 0.82rem;
+      border-radius: 12px;
+      white-space: nowrap;
     }
 
     @media (max-width: 860px) {
