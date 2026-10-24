@@ -31,10 +31,13 @@ Set on the API host:
 JIRA_BASE_URL=https://your-site.atlassian.net
 JIRA_EMAIL=bot@your-company.com
 JIRA_API_TOKEN=...   # from https://id.atlassian.com/manage-profile/security/api-tokens
+# JIRA_CLOUD_ID=...  # optional; required if auto-detect fails (see site/_edge/tenant_info)
 # JIRA_PROJECT=PROJ  # optional
 ```
 
-In the UI, **Jira story** lists open issues whose type name contains “Story” (e.g. Story / User Story), not Done. Auth is **email + API token** (Basic). For scoped tokens, `read:jira-work` (+ `read:jira-user` / `read:me`) is enough; the account must also have **Browse projects**. Picking a story fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
+**Scoped API tokens** must use `https://api.atlassian.com/ex/jira/{cloudId}` (Hive resolves `cloudId` automatically). Classic tokens also work on that gateway. Scopes: `read:jira-work`, `read:me` / `read:jira-user`. Account needs **Browse projects**.
+
+In the UI, **Jira story** lists open issues whose type name contains “Story”. Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
 
 ### GitHub sign-in
 

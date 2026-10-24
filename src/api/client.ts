@@ -406,6 +406,8 @@ export type JiraStoryDetail = JiraStoryListItem & {
 export type JiraStatus = {
   configured: boolean;
   baseUrl: string | null;
+  apiBase: string | null;
+  cloudId: string | null;
   authOk: boolean | null;
   authError: string | null;
   account: string | null;
@@ -422,6 +424,8 @@ export async function fetchJiraStatus(): Promise<JiraStatus> {
     return {
       configured: false,
       baseUrl: null,
+      apiBase: null,
+      cloudId: null,
       authOk: false,
       authError: data.error || `status ${res.status}`,
       account: null,
@@ -432,6 +436,8 @@ export async function fetchJiraStatus(): Promise<JiraStatus> {
   return {
     configured: Boolean(data.configured),
     baseUrl: data.baseUrl ?? null,
+    apiBase: data.apiBase ?? null,
+    cloudId: data.cloudId ?? null,
     authOk: data.authOk ?? null,
     authError: data.authError ?? null,
     account: data.account ?? null,

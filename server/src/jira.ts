@@ -1,9 +1,11 @@
 /**
  * Shared-site Jira Cloud client (Basic auth: email + API token).
- * Env: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, optional JIRA_JQL / JIRA_PROJECT.
+ * Env: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, optional JIRA_CLOUD_ID /
+ * JIRA_API_BASE, JIRA_JQL, JIRA_PROJECT.
  *
- * Scoped API tokens need read:jira-work (search/issues) and usually read:me /
- * read:jira-user. The token account must also have Browse projects.
+ * Scoped API tokens MUST call https://api.atlassian.com/ex/jira/{cloudId}/…
+ * (not https://yoursite.atlassian.net). Classic tokens work on either.
+ * Scopes: read:jira-work, read:me / read:jira-user. Account needs Browse projects.
  */
 
 function envTrim(name: string): string {
@@ -31,6 +33,9 @@ export type JiraStoryDetail = JiraStoryListItem & {
 export type JiraStatusInfo = {
   configured: boolean;
   baseUrl: string | null;
+  /** REST gateway actually used (site or api.atlassian.com/ex/jira/{cloudId}) */
+  apiBase: string | null;
+  cloudId: string | null;
   defaultJql: string | null;
   authOk: boolean | null;
   authError: string | null;
@@ -52,6 +57,7 @@ export function jiraConfigured(): boolean {
   );
 }
 
+/** Site URL for browse links (https://yoursite.atlassian.net). */
 export function jiraBaseUrl(): string {
   return envTrim("JIRA_BASE_URL").replace(/\/$/, "");
 }
@@ -59,6 +65,56 @@ export function jiraBaseUrl(): string {
 function authHeader(): string {
   const raw = `${envTrim("JIRA_EMAIL")}:${envTrim("JIRA_API_TOKEN")}`;
   return `Basic ${Buffer.from(raw, "utf8").toString("base64")}`;
+}
+
+let cachedApiBase: string | null = null;
+let cachedCloudId: string | null = null;
+
+/** Resolve cloudId from site `_edge/tenant_info` (public). */
+async function discoverCloudId(site: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${site}/_edge/tenant_info`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { cloudId?: string };
+    return data.cloudId?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * REST base URL. Scoped tokens require the api.atlassian.com gateway.
+ * Order: JIRA_API_BASE → JIRA_CLOUD_ID → auto cloudId → site URL (classic).
+ */
+export async function getJiraApiBase(): Promise<string> {
+  if (cachedApiBase) return cachedApiBase;
+
+  const explicit = envTrim("JIRA_API_BASE").replace(/\/$/, "");
+  if (explicit) {
+    cachedApiBase = explicit;
+    return explicit;
+  }
+
+  const site = jiraBaseUrl();
+  if (!site) throw new Error("JIRA_BASE_URL is empty");
+
+  let cloudId = envTrim("JIRA_CLOUD_ID");
+  if (!cloudId) cloudId = (await discoverCloudId(site)) || "";
+  if (cloudId) {
+    cachedCloudId = cloudId;
+    // Prefer gateway — required for scoped tokens; classic tokens work here too
+    cachedApiBase = `https://api.atlassian.com/ex/jira/${cloudId}`;
+    return cachedApiBase;
+  }
+
+  cachedApiBase = site;
+  return site;
+}
+
+export function getCachedCloudId(): string | null {
+  return cachedCloudId || envTrim("JIRA_CLOUD_ID") || null;
 }
 
 function projectClause(): string {
@@ -154,8 +210,7 @@ async function jiraFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
-  const base = jiraBaseUrl();
-  if (!base) throw new Error("JIRA_BASE_URL is empty");
+  const base = await getJiraApiBase();
   const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
   return fetch(url, {
     ...init,
@@ -173,12 +228,13 @@ export async function jiraMyself(): Promise<{
   displayName: string;
   emailAddress?: string;
 }> {
+  const apiBase = await getJiraApiBase();
   const res = await jiraFetch("/rest/api/3/myself");
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(
       res.status === 401 || res.status === 403
-        ? `Jira auth failed (${res.status}). Check JIRA_EMAIL + API token (scoped token needs read:jira-work / read:me). ${text.slice(0, 120)}`
+        ? `Jira auth failed (${res.status}) via ${apiBase}. Check JIRA_EMAIL + API token. Scoped tokens need read:jira-work/read:me and the api.atlassian.com gateway (set JIRA_CLOUD_ID if auto-detect fails). ${text.slice(0, 140)}`
         : `Jira /myself failed (${res.status}): ${text.slice(0, 160)}`
     );
   }
@@ -212,6 +268,8 @@ export async function getJiraStatusInfo(): Promise<JiraStatusInfo> {
     return {
       configured: false,
       baseUrl: null,
+      apiBase: null,
+      cloudId: null,
       defaultJql: null,
       authOk: null,
       authError: null,
@@ -223,7 +281,9 @@ export async function getJiraStatusInfo(): Promise<JiraStatusInfo> {
   let authError: string | null = null;
   let account: string | null = null;
   let storyTypes: string[] = [];
+  let apiBase: string | null = null;
   try {
+    apiBase = await getJiraApiBase();
     const me = await jiraMyself();
     authOk = true;
     account = me.displayName;
@@ -231,10 +291,17 @@ export async function getJiraStatusInfo(): Promise<JiraStatusInfo> {
   } catch (e) {
     authOk = false;
     authError = e instanceof Error ? e.message : String(e);
+    try {
+      apiBase = await getJiraApiBase();
+    } catch {
+      /* ignore */
+    }
   }
   return {
     configured: true,
     baseUrl: jiraBaseUrl(),
+    apiBase,
+    cloudId: getCachedCloudId(),
     defaultJql: buildOpenStoriesJql(storyTypes),
     authOk,
     authError,
