@@ -269,7 +269,7 @@ export function StoryBoard({
         <div>
           <h3 id={titleId}>Jira stories</h3>
           <p className="story-board-sub">
-            Open user stories — click a card for details on the right
+            Open user stories — click a card to read the full story below
           </p>
         </div>
         <button

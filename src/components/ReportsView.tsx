@@ -36,6 +36,8 @@ type Props = {
   onWorkspaceCustomUrl?: (v: string) => void;
 };
 
+type BoardTab = "stories" | "chat";
+
 export function ReportsView({
   addAgentToken,
   teamAgents,
@@ -62,6 +64,7 @@ export function ReportsView({
 }: Props) {
   const [input, setInput] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [boardTab, setBoardTab] = useState<BoardTab>("stories");
   const [storySel, setStorySel] = useState<StorySelection>({
     key: null,
     detail: null,
@@ -90,6 +93,7 @@ export function ReportsView({
 
   function applyGoal(goal: string) {
     setInput(goal);
+    setBoardTab("chat");
     requestAnimationFrame(() => {
       composerRef.current?.scrollIntoView({
         behavior: "smooth",
@@ -99,191 +103,208 @@ export function ReportsView({
     });
   }
 
+  function closeStory() {
+    setStorySel({
+      key: null,
+      detail: null,
+      loading: false,
+      error: null,
+    });
+    setStoryClearEpoch((n) => n + 1);
+  }
+
+  const chatPanel = (
+    <section className="panel chat reports-chat" aria-label="Orchestrator chat">
+      <div className="chat-head">
+        <CharAvatar refAgent={ORCHESTRATOR} className="avatar" />
+        <div>
+          <h2>Orchestrator</h2>
+          <p className="sub">You talk here. Subagents only report.</p>
+        </div>
+        <div className="agent-chat-actions chat-head-actions">
+          {running ? (
+            <button type="button" className="btn-danger" onClick={onStop}>
+              Stop
+            </button>
+          ) : null}
+          {showReplayDemo ? (
+            <button type="button" className="btn-ghost" onClick={onReplay}>
+              Replay demo
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <div className="messages" ref={messagesRef}>
+        {successSummary ? (
+          <div className="success-banner show" role="status">
+            <p className="eyebrow">All tasks complete</p>
+            <p>{successSummary}</p>
+          </div>
+        ) : null}
+        {!messages.length ? (
+          <div className="empty">
+            Give the <strong>Orchestrator</strong> a goal.
+            <br />
+            Pick a Jira story, or type one below.
+          </div>
+        ) : (
+          messages.map((m) => (
+            <div
+              key={m.id}
+              className={`msg ${m.kind} ${m.extraClass ?? ""}`.trim()}
+            >
+              {m.text}
+            </div>
+          ))
+        )}
+      </div>
+      <form className="composer" onSubmit={submit}>
+        <div className="composer-tools">
+          <button
+            type="button"
+            className="btn-ghost"
+            title="Reset run"
+            onClick={onReset}
+          >
+            Reset
+          </button>
+          {running ? (
+            <button
+              type="button"
+              className="btn-danger"
+              title="Stop current work"
+              onClick={onStop}
+            >
+              Stop
+            </button>
+          ) : null}
+        </div>
+        <div className="composer-row">
+          <textarea
+            ref={composerRef}
+            rows={input.length > 120 ? 6 : 2}
+            placeholder={
+              running
+                ? "Ask while running (side helper)…"
+                : "Tell the Orchestrator what to build — or pick a Jira story…"
+            }
+            autoComplete="off"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+          />
+          <button type="submit" className="btn-primary">
+            Send
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+
+  const teamStrip = (
+    <section className="team-strip" aria-label="Team reports">
+      <div className="team-strip-head">
+        <div>
+          <h3>Team</h3>
+          <p className="team-strip-sub">Status at a glance</p>
+        </div>
+        <button
+          type="button"
+          className="btn-ghost team-strip-add"
+          onClick={() => setAddOpen(true)}
+        >
+          Add
+        </button>
+      </div>
+      {showRepoPicker &&
+      onWorkspaceUrl &&
+      onWorkspaceBranch &&
+      onWorkspaceCustomUrl ? (
+        <div className="team-strip-repo">
+          <RepoPicker
+            compact
+            repos={repos}
+            loading={reposLoading}
+            value={workspaceUrl}
+            branch={workspaceBranch}
+            customUrl={workspaceCustomUrl}
+            onRepo={onWorkspaceUrl}
+            onBranch={onWorkspaceBranch}
+            onCustomUrl={onWorkspaceCustomUrl}
+            disabled={running}
+          />
+        </div>
+      ) : null}
+      <div className="team-strip-track" role="list">
+        {teamAgents.map((a) => {
+          const s = agentState[a.id];
+          if (!s) return null;
+          return (
+            <button
+              type="button"
+              role="listitem"
+              key={a.id}
+              className={`team-chip ${s.status}${s.open ? " open" : ""}`}
+              aria-expanded={s.open}
+              title={s.report || a.role}
+              onClick={() => onToggleCard(a.id)}
+            >
+              <CharAvatar refAgent={a} className="avatar" />
+              <span className="team-chip-meta">
+                <span className="team-chip-name">{a.name}</span>
+                <span className={`chip ${s.status}`}>{s.status}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+
   return (
     <div
-      className={`reports-stack${storySel.key ? " has-story" : ""}`}
+      className={`reports-stack${storySel.key ? " has-story" : ""} board-tab-${boardTab}`}
     >
-      <div className="reports-main">
-        <section className="panel chat" aria-label="Orchestrator chat">
-          <div className="chat-head">
-            <CharAvatar refAgent={ORCHESTRATOR} className="avatar" />
-            <div>
-              <h2>Orchestrator</h2>
-              <p className="sub">You talk here. Subagents only report.</p>
-            </div>
-            <div className="agent-chat-actions chat-head-actions">
-              {running ? (
-                <button type="button" className="btn-danger" onClick={onStop}>
-                  Stop
-                </button>
-              ) : null}
-              {showReplayDemo ? (
-                <button type="button" className="btn-ghost" onClick={onReplay}>
-                  Replay demo
-                </button>
-              ) : null}
-            </div>
-          </div>
-          <div className="messages" ref={messagesRef}>
-            {successSummary ? (
-              <div className="success-banner show" role="status">
-                <p className="eyebrow">All tasks complete</p>
-                <p>{successSummary}</p>
-              </div>
-            ) : null}
-            {!messages.length ? (
-              <div className="empty">
-                Give the <strong>Orchestrator</strong> a goal.
-                <br />
-                Try: plan a landing page for a specialty coffee brand.
-              </div>
-            ) : (
-              messages.map((m) => (
-                <div
-                  key={m.id}
-                  className={`msg ${m.kind} ${m.extraClass ?? ""}`.trim()}
-                >
-                  {m.text}
-                </div>
-              ))
-            )}
-          </div>
-          <form className="composer" onSubmit={submit}>
-            <div className="composer-tools">
-              <button
-                type="button"
-                className="btn-ghost"
-                title="Reset run"
-                onClick={onReset}
-              >
-                Reset
-              </button>
-              {running ? (
-                <button
-                  type="button"
-                  className="btn-danger"
-                  title="Stop current work"
-                  onClick={onStop}
-                >
-                  Stop
-                </button>
-              ) : null}
-            </div>
-            <div className="composer-row">
-              <textarea
-                ref={composerRef}
-                rows={input.length > 120 ? 6 : 2}
-                placeholder={
-                  running
-                    ? "Ask while running (side helper)…"
-                    : "Tell the Orchestrator what to build — or pick a Jira story…"
-                }
-                autoComplete="off"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-              />
-              <button type="submit" className="btn-primary">
-                Send
-              </button>
-            </div>
-          </form>
-        </section>
+      <div className="board-mobile-tabs" role="tablist" aria-label="Board views">
+        <button
+          type="button"
+          role="tab"
+          className="board-tab"
+          aria-selected={boardTab === "stories"}
+          onClick={() => setBoardTab("stories")}
+        >
+          Stories
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className="board-tab"
+          aria-selected={boardTab === "chat"}
+          onClick={() => setBoardTab("chat")}
+        >
+          Chat
+        </button>
+      </div>
 
+      <div className="reports-main board-stories-pane">
         <StoryBoard
           disabled={running}
           onApplyGoal={applyGoal}
           onSelectionChange={setStorySel}
           clearEpoch={storyClearEpoch}
         />
-
-        <section className="team-below" aria-label="Team reports">
-          <div className="team-below-head">
-            <div>
-              <h3>Team</h3>
-              <p className="team-below-sub">Subagents report here</p>
-            </div>
-            <button
-              type="button"
-              className="btn-primary add-agent-trigger"
-              onClick={() => setAddOpen(true)}
-            >
-              Add agent
-            </button>
-          </div>
-          {showRepoPicker &&
-          onWorkspaceUrl &&
-          onWorkspaceBranch &&
-          onWorkspaceCustomUrl ? (
-            <div className="add-agent-bar-reports">
-              <RepoPicker
-                compact
-                repos={repos}
-                loading={reposLoading}
-                value={workspaceUrl}
-                branch={workspaceBranch}
-                customUrl={workspaceCustomUrl}
-                onRepo={onWorkspaceUrl}
-                onBranch={onWorkspaceBranch}
-                onCustomUrl={onWorkspaceCustomUrl}
-                disabled={running}
-              />
-            </div>
-          ) : null}
-          <div className="cards team-below-cards">
-            {teamAgents.map((a) => {
-              const s = agentState[a.id];
-              if (!s) return null;
-              return (
-                <button
-                  type="button"
-                  key={a.id}
-                  className={`card ${s.status} ${s.open ? "open" : ""}`}
-                  aria-expanded={s.open}
-                  onClick={() => onToggleCard(a.id)}
-                >
-                  <div className="card-top">
-                    <CharAvatar refAgent={a} className="avatar" />
-                    <div className="meta">
-                      <p className="name">
-                        {a.name}
-                        {a.custom ? " · custom" : ""}
-                      </p>
-                      <p className="role" title={a.role}>
-                        {a.role}
-                      </p>
-                    </div>
-                    <span className={`chip ${s.status}`}>{s.status}</span>
-                  </div>
-                  <p className="report">
-                    {s.status === "working" ? (
-                      <span className="pulse">Working on it</span>
-                    ) : (
-                      s.report
-                    )}
-                  </p>
-                  <div className="report-tag">↑ Reported to Orchestrator</div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
+        <aside className="story-detail-main" aria-label="Story detail">
+          <StoryDetailPanel
+            selection={storySel}
+            disabled={running}
+            onApplyGoal={applyGoal}
+            onClose={closeStory}
+          />
+        </aside>
       </div>
 
-      <aside className="rail reports-rail story-rail" aria-label="Story detail">
-        <StoryDetailPanel
-          selection={storySel}
-          disabled={running}
-          onApplyGoal={applyGoal}
-          onClose={() => {
-            setStorySel({
-              key: null,
-              detail: null,
-              loading: false,
-              error: null,
-            });
-            setStoryClearEpoch((n) => n + 1);
-          }}
-        />
+      <aside className="reports-rail board-chat-pane" aria-label="Orchestrator and team">
+        {chatPanel}
+        {teamStrip}
       </aside>
 
       <AddAgentModal

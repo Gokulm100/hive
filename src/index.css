@@ -353,18 +353,18 @@
       min-width: 0;
       width: 100%;
     }
-    /* Board: grow with content so chat + team keep readable heights */
+    /* Board: main = Jira + detail; right = chat + team strip */
     body.view-reports .reports-stack {
       display: flex;
       flex: 0 0 auto;
       min-height: calc(100dvh - 110px);
-      height: auto;
+      height: calc(100dvh - 110px);
       flex-direction: row;
       align-items: stretch;
       gap: 16px;
       border: none;
       background: transparent;
-      overflow: visible;
+      overflow: hidden;
       border-radius: 0;
       min-width: 0;
       width: 100%;
@@ -378,67 +378,168 @@
       border-radius: var(--radius);
       overflow: hidden;
     }
-    body.view-reports .reports-stack .reports-main {
+    body.view-reports .board-mobile-tabs {
+      display: none;
+    }
+    body.view-reports .reports-stack .reports-main,
+    body.view-reports .reports-stack .board-stories-pane {
       flex: 7 1 0;
       min-width: 0;
       min-height: 0;
       display: flex;
       flex-direction: column;
       gap: 14px;
-      overflow: visible;
-    }
-    body.view-reports .reports-stack .chat {
-      flex: 0 0 auto;
-      min-width: 0;
-      min-height: 380px;
-      height: min(48dvh, 560px);
-      max-height: none;
+      overflow: hidden;
     }
     body.view-reports .reports-stack .story-board {
       flex: 0 0 auto;
       max-height: none;
     }
-    body.view-reports .reports-stack .team-below {
-      flex: 0 0 auto;
-      min-height: 420px;
-      height: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      padding: 14px 16px 16px;
-      border: 1px solid var(--stroke);
-      border-radius: var(--radius);
-      background: var(--surface);
-      overflow: visible;
-    }
-    body.view-reports .reports-stack .team-below .add-agent-bar-reports {
-      margin-bottom: 0;
-      flex-shrink: 0;
-    }
-    body.view-reports .reports-stack .team-below-cards,
-    body.view-reports .reports-stack .cards {
-      flex: 0 0 auto;
-      min-height: 0;
-      max-height: none;
-      overflow: visible;
-      gap: 10px;
-      padding-bottom: 2px;
-    }
-    body.view-reports .reports-stack .reports-rail,
-    body.view-reports .reports-stack .story-rail {
-      flex: 3 1 0;
-      min-width: 300px;
-      max-width: 400px;
-      min-height: min(100%, calc(100dvh - 110px));
-      align-self: stretch;
+    body.view-reports .reports-stack .story-detail-main {
+      flex: 1 1 auto;
+      min-height: 220px;
       display: flex;
       flex-direction: column;
       gap: 0;
-      padding: 16px;
+      padding: 16px 18px;
       border: 1px solid var(--stroke);
       border-radius: var(--radius);
-      overflow: hidden;
       background: var(--surface);
+      overflow: hidden;
+    }
+    body.view-reports .reports-stack .story-detail-main .story-detail,
+    body.view-reports .reports-stack .story-detail-main .story-detail-rail,
+    body.view-reports .reports-stack .story-detail-main .story-rail-empty {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow: auto;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
+    }
+    body.view-reports .reports-stack .story-detail-main .story-detail-body {
+      max-height: none;
+    }
+    body.view-reports .reports-stack .reports-rail,
+    body.view-reports .reports-stack .board-chat-pane {
+      flex: 3 1 0;
+      min-width: 300px;
+      max-width: 420px;
+      min-height: 0;
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      overflow: hidden;
+    }
+    body.view-reports .reports-stack .reports-chat {
+      flex: 1 1 auto;
+      min-height: 280px;
+      min-width: 0;
+      height: auto;
+      max-height: none;
+      overflow: hidden;
+    }
+    body.view-reports .reports-stack .team-strip {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px 14px 14px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: var(--surface);
+      min-width: 0;
+    }
+    body.view-reports .reports-stack .team-strip-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    body.view-reports .reports-stack .team-strip-head h3 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+    body.view-reports .reports-stack .team-strip-sub {
+      margin: 2px 0 0;
+      font-size: 0.72rem;
+      line-height: 1.35;
+      color: var(--ink-soft);
+    }
+    body.view-reports .reports-stack .team-strip-add {
+      flex-shrink: 0;
+      height: 30px;
+      padding: 0 10px;
+      font-size: 0.76rem;
+    }
+    body.view-reports .reports-stack .team-strip-repo {
+      min-width: 0;
+    }
+    body.view-reports .reports-stack .team-strip-track {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 4px;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+    }
+    body.view-reports .reports-stack .team-chip {
+      flex: 0 0 auto;
+      width: 148px;
+      scroll-snap-align: start;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--stroke);
+      background: var(--input);
+      color: var(--ink);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    body.view-reports .reports-stack .team-chip:hover {
+      border-color: #3d4a55;
+    }
+    body.view-reports .reports-stack .team-chip.open,
+    body.view-reports .reports-stack .team-chip.working {
+      border-color: rgba(212, 161, 92, 0.45);
+    }
+    body.view-reports .reports-stack .team-chip .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      flex-shrink: 0;
+    }
+    body.view-reports .reports-stack .team-chip-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    body.view-reports .reports-stack .team-chip-name {
+      font-size: 0.78rem;
+      font-weight: 650;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    body.view-reports .reports-stack .team-chip .chip {
+      align-self: flex-start;
+      font-size: 0.58rem;
+      padding: 2px 6px;
     }
     body.view-reports .chat-head-actions {
       margin-left: auto;
@@ -488,47 +589,72 @@
         min-height: 300px;
         width: 100%;
       }
-      body.view-reports .reports-stack .reports-main {
-        flex: 0 0 auto;
-        width: 100%;
+      body.view-reports .reports-stack {
+        height: auto;
+        min-height: 0;
         overflow: visible;
         gap: 12px;
       }
-      body.view-reports .reports-stack .chat {
-        flex: 0 0 auto;
-        min-height: 320px;
-        height: min(50dvh, 480px);
-        max-height: none;
+      body.view-reports .board-mobile-tabs {
+        display: flex;
         width: 100%;
+        gap: 4px;
+        padding: 3px;
+        border: 1px solid var(--stroke);
+        border-radius: 12px;
+        background: var(--surface);
+        flex-shrink: 0;
       }
-      body.view-reports .reports-stack .team-below {
-        flex: 0 0 auto;
-        min-height: 360px;
-        height: auto;
-        max-height: none;
-        overflow: visible;
-        padding: 12px 14px 14px;
-      }
-      body.view-reports .reports-stack .team-below-cards,
-      body.view-reports .reports-stack .cards {
-        overflow: visible;
-        max-height: none;
-      }
-      body.view-reports .reports-stack .reports-rail,
-      body.view-reports .reports-stack .story-rail {
-        flex: 0 0 auto;
+      body.view-reports .board-tab {
+        flex: 1 1 0;
         min-width: 0;
-        max-width: none;
-        width: 100%;
-        min-height: 260px;
-        height: min(44dvh, 400px);
-        max-height: none;
-        padding: 14px 16px;
-        /* Keep natural order: main content first, detail below cards on mobile */
-        order: 0;
+        border: none;
+        background: transparent;
+        color: var(--ink-soft);
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 0.85rem;
+        font-weight: 650;
+        cursor: pointer;
       }
-      body.view-reports .reports-stack.has-story .story-rail {
-        order: 0;
+      body.view-reports .board-tab[aria-selected="true"] {
+        background: var(--ink);
+        color: var(--bg);
+      }
+      body.view-reports .reports-stack .board-stories-pane,
+      body.view-reports .reports-stack .board-chat-pane {
+        display: none;
+        flex: 0 0 auto;
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        min-height: min(70dvh, 640px);
+        height: auto;
+      }
+      body.view-reports .reports-stack.board-tab-stories .board-stories-pane,
+      body.view-reports .reports-stack.board-tab-chat .board-chat-pane {
+        display: flex;
+      }
+      body.view-reports .reports-stack .board-stories-pane {
+        gap: 12px;
+        overflow: visible;
+      }
+      body.view-reports .reports-stack .story-detail-main {
+        min-height: 280px;
+        height: min(52dvh, 480px);
+        padding: 14px 16px;
+      }
+      body.view-reports .reports-stack .board-chat-pane {
+        gap: 12px;
+        overflow: visible;
+      }
+      body.view-reports .reports-stack .reports-chat {
+        min-height: 360px;
+        height: min(58dvh, 520px);
+        width: 100%;
+      }
+      body.view-reports .reports-stack .team-strip {
+        width: 100%;
       }
       body.view-bubbles .agent-chat-column {
         flex: 0 0 auto;
@@ -3570,13 +3696,13 @@
         height: min(52dvh, 440px);
         min-height: 260px;
       }
-      body.view-reports .reports-stack .chat {
-        height: min(50dvh, 400px);
+      body.view-reports .reports-stack .reports-chat {
+        height: min(52dvh, 420px);
         min-height: 300px;
       }
-      body.view-reports .reports-stack .team-below {
-        height: auto;
-        min-height: 320px;
+      body.view-reports .reports-stack .story-detail-main {
+        height: min(48dvh, 400px);
+        min-height: 240px;
       }
     }
 
