@@ -5,7 +5,11 @@ import { ORCHESTRATOR } from "../data/cast";
 import type { AgentDef, AgentRuntime, OrchMessage } from "../types";
 import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
-import { StoryBoard } from "./StoryBoard";
+import {
+  StoryBoard,
+  StoryDetailPanel,
+  type StorySelection,
+} from "./StoryBoard";
 
 type Props = {
   addAgentToken?: number;
@@ -58,7 +62,15 @@ export function ReportsView({
 }: Props) {
   const [input, setInput] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [storySel, setStorySel] = useState<StorySelection>({
+    key: null,
+    detail: null,
+    loading: false,
+    error: null,
+  });
+  const [storyClearEpoch, setStoryClearEpoch] = useState(0);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const el = messagesRef.current;
@@ -76,174 +88,201 @@ export function ReportsView({
     setInput("");
   }
 
+  function applyGoal(goal: string) {
+    setInput(goal);
+    requestAnimationFrame(() => {
+      composerRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+      composerRef.current?.focus();
+    });
+  }
+
   return (
-    <div className="reports-stack">
-      <section className="panel chat" aria-label="Orchestrator chat">
-        <div className="chat-head">
-          <CharAvatar refAgent={ORCHESTRATOR} className="avatar" />
-          <div>
-            <h2>Orchestrator</h2>
-            <p className="sub">You talk here. Subagents only report.</p>
-          </div>
-          <div className="agent-chat-actions chat-head-actions">
-            {running ? (
-              <button type="button" className="btn-danger" onClick={onStop}>
-                Stop
-              </button>
-            ) : null}
-            {showReplayDemo ? (
-              <button type="button" className="btn-ghost" onClick={onReplay}>
-                Replay demo
-              </button>
-            ) : null}
-          </div>
-        </div>
-        <div className="messages" ref={messagesRef}>
-          {successSummary ? (
-            <div className="success-banner show" role="status">
-              <p className="eyebrow">All tasks complete</p>
-              <p>{successSummary}</p>
+    <div
+      className={`reports-stack${storySel.key ? " has-story" : ""}`}
+    >
+      <div className="reports-main">
+        <section className="panel chat" aria-label="Orchestrator chat">
+          <div className="chat-head">
+            <CharAvatar refAgent={ORCHESTRATOR} className="avatar" />
+            <div>
+              <h2>Orchestrator</h2>
+              <p className="sub">You talk here. Subagents only report.</p>
             </div>
-          ) : null}
-          {!messages.length ? (
-            <div className="empty">
-              Give the <strong>Orchestrator</strong> a goal.
-              <br />
-              Try: plan a landing page for a specialty coffee brand.
+            <div className="agent-chat-actions chat-head-actions">
+              {running ? (
+                <button type="button" className="btn-danger" onClick={onStop}>
+                  Stop
+                </button>
+              ) : null}
+              {showReplayDemo ? (
+                <button type="button" className="btn-ghost" onClick={onReplay}>
+                  Replay demo
+                </button>
+              ) : null}
             </div>
-          ) : (
-            messages.map((m) => (
-              <div
-                key={m.id}
-                className={`msg ${m.kind} ${m.extraClass ?? ""}`.trim()}
-              >
-                {m.text}
+          </div>
+          <div className="messages" ref={messagesRef}>
+            {successSummary ? (
+              <div className="success-banner show" role="status">
+                <p className="eyebrow">All tasks complete</p>
+                <p>{successSummary}</p>
               </div>
-            ))
-          )}
-        </div>
+            ) : null}
+            {!messages.length ? (
+              <div className="empty">
+                Give the <strong>Orchestrator</strong> a goal.
+                <br />
+                Try: plan a landing page for a specialty coffee brand.
+              </div>
+            ) : (
+              messages.map((m) => (
+                <div
+                  key={m.id}
+                  className={`msg ${m.kind} ${m.extraClass ?? ""}`.trim()}
+                >
+                  {m.text}
+                </div>
+              ))
+            )}
+          </div>
+          <form className="composer" onSubmit={submit}>
+            <div className="composer-tools">
+              <button
+                type="button"
+                className="btn-ghost"
+                title="Reset run"
+                onClick={onReset}
+              >
+                Reset
+              </button>
+              {running ? (
+                <button
+                  type="button"
+                  className="btn-danger"
+                  title="Stop current work"
+                  onClick={onStop}
+                >
+                  Stop
+                </button>
+              ) : null}
+            </div>
+            <div className="composer-row">
+              <textarea
+                ref={composerRef}
+                rows={input.length > 120 ? 6 : 2}
+                placeholder={
+                  running
+                    ? "Ask while running (side helper)…"
+                    : "Tell the Orchestrator what to build — or pick a Jira story…"
+                }
+                autoComplete="off"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+              />
+              <button type="submit" className="btn-primary">
+                Send
+              </button>
+            </div>
+          </form>
+        </section>
+
         <StoryBoard
           disabled={running}
-          onApplyGoal={(goal) => {
-            setInput(goal);
-            // Scroll composer into view after filling
-            requestAnimationFrame(() => {
-              document
-                .querySelector(".composer textarea")
-                ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-            });
-          }}
+          onApplyGoal={applyGoal}
+          onSelectionChange={setStorySel}
+          clearEpoch={storyClearEpoch}
         />
 
-        <form className="composer" onSubmit={submit}>
-          <div className="composer-tools">
+        <section className="team-below" aria-label="Team reports">
+          <div className="rail-head team-below-head">
+            <h3>Team</h3>
+          </div>
+          <div className="add-agent-bar-reports">
+            {showRepoPicker &&
+            onWorkspaceUrl &&
+            onWorkspaceBranch &&
+            onWorkspaceCustomUrl ? (
+              <RepoPicker
+                compact
+                repos={repos}
+                loading={reposLoading}
+                value={workspaceUrl}
+                branch={workspaceBranch}
+                customUrl={workspaceCustomUrl}
+                onRepo={onWorkspaceUrl}
+                onBranch={onWorkspaceBranch}
+                onCustomUrl={onWorkspaceCustomUrl}
+                disabled={running}
+              />
+            ) : (
+              <span className="add-agent-bar-spacer" />
+            )}
             <button
               type="button"
-              className="btn-ghost"
-              title="Reset run"
-              onClick={onReset}
+              className="btn-primary add-agent-trigger"
+              onClick={() => setAddOpen(true)}
             >
-              Reset
-            </button>
-            {running ? (
-              <button
-                type="button"
-                className="btn-danger"
-                title="Stop current work"
-                onClick={onStop}
-              >
-                Stop
-              </button>
-            ) : null}
-          </div>
-          <div className="composer-row">
-            <textarea
-              rows={input.length > 120 ? 6 : 2}
-              placeholder={
-                running
-                  ? "Ask while running (side helper)…"
-                  : "Tell the Orchestrator what to build — or pick a Jira story above…"
-              }
-              autoComplete="off"
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-            />
-            <button type="submit" className="btn-primary">
-              Send
+              Add agent
             </button>
           </div>
-        </form>
-      </section>
-
-      <aside className="rail reports-rail" aria-label="Subagent reports">
-        <div className="rail-head">
-          <h3>Team reports</h3>
-        </div>
-        <div className="add-agent-bar-reports">
-          {showRepoPicker &&
-          onWorkspaceUrl &&
-          onWorkspaceBranch &&
-          onWorkspaceCustomUrl ? (
-            <RepoPicker
-              compact
-              repos={repos}
-              loading={reposLoading}
-              value={workspaceUrl}
-              branch={workspaceBranch}
-              customUrl={workspaceCustomUrl}
-              onRepo={onWorkspaceUrl}
-              onBranch={onWorkspaceBranch}
-              onCustomUrl={onWorkspaceCustomUrl}
-              disabled={running}
-            />
-          ) : (
-            <span className="add-agent-bar-spacer" />
-          )}
-          <button
-            type="button"
-            className="btn-primary add-agent-trigger"
-            onClick={() => setAddOpen(true)}
-          >
-            Add agent
-          </button>
-        </div>
-        <div className="cards">
-          {teamAgents.map((a) => {
-            const s = agentState[a.id];
-            if (!s) return null;
-            return (
-              <button
-                type="button"
-                key={a.id}
-                className={`card ${s.status} ${s.open ? "open" : ""}`}
-                aria-expanded={s.open}
-                onClick={() => onToggleCard(a.id)}
-              >
-                <div className="card-top">
-                  <CharAvatar refAgent={a} className="avatar" />
-                  <div className="meta">
-                    <p className="name">
-                      {a.name}
-                      {a.custom ? " · custom" : ""}
-                    </p>
-                    <p className="role" title={a.role}>
-                      {a.role}
-                    </p>
+          <div className="cards team-below-cards">
+            {teamAgents.map((a) => {
+              const s = agentState[a.id];
+              if (!s) return null;
+              return (
+                <button
+                  type="button"
+                  key={a.id}
+                  className={`card ${s.status} ${s.open ? "open" : ""}`}
+                  aria-expanded={s.open}
+                  onClick={() => onToggleCard(a.id)}
+                >
+                  <div className="card-top">
+                    <CharAvatar refAgent={a} className="avatar" />
+                    <div className="meta">
+                      <p className="name">
+                        {a.name}
+                        {a.custom ? " · custom" : ""}
+                      </p>
+                      <p className="role" title={a.role}>
+                        {a.role}
+                      </p>
+                    </div>
+                    <span className={`chip ${s.status}`}>{s.status}</span>
                   </div>
-                  <span className={`chip ${s.status}`}>{s.status}</span>
-                </div>
-                <p className="report">
-                  {s.status === "working" ? (
-                    <span className="pulse">Working on it</span>
-                  ) : (
-                    s.report
-                  )}
-                </p>
-                <div className="report-tag">↑ Reported to Orchestrator</div>
-              </button>
-            );
-          })}
-        </div>
+                  <p className="report">
+                    {s.status === "working" ? (
+                      <span className="pulse">Working on it</span>
+                    ) : (
+                      s.report
+                    )}
+                  </p>
+                  <div className="report-tag">↑ Reported to Orchestrator</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+
+      <aside className="rail reports-rail story-rail" aria-label="Story detail">
+        <StoryDetailPanel
+          selection={storySel}
+          disabled={running}
+          onApplyGoal={applyGoal}
+          onClose={() => {
+            setStorySel({
+              key: null,
+              detail: null,
+              loading: false,
+              error: null,
+            });
+            setStoryClearEpoch((n) => n + 1);
+          }}
+        />
       </aside>
 
       <AddAgentModal

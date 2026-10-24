@@ -7,12 +7,139 @@ import {
   type JiraStoryListItem,
 } from "../api/client";
 
+export type StorySelection = {
+  key: string | null;
+  detail: JiraStoryDetail | null;
+  loading: boolean;
+  error: string | null;
+};
+
 type Props = {
   onApplyGoal: (goal: string) => void;
   disabled?: boolean;
+  /** Fired when selection / detail load state changes (for the right rail). */
+  onSelectionChange?: (sel: StorySelection) => void;
+  /** When false, only the card strip is rendered (detail lives in the parent rail). */
+  showInlineDetail?: boolean;
+  /** Bump to clear the active card (e.g. when the rail Close is pressed). */
+  clearEpoch?: number;
 };
 
-export function StoryBoard({ onApplyGoal, disabled }: Props) {
+const EMPTY_SEL: StorySelection = {
+  key: null,
+  detail: null,
+  loading: false,
+  error: null,
+};
+
+export function StoryDetailPanel({
+  selection,
+  disabled,
+  onApplyGoal,
+  onClose,
+}: {
+  selection: StorySelection;
+  disabled?: boolean;
+  onApplyGoal: (goal: string) => void;
+  onClose: () => void;
+}) {
+  const { key, detail, loading, error } = selection;
+
+  if (!key) {
+    return (
+      <div className="story-rail-empty">
+        <p className="story-rail-empty-title">Story detail</p>
+        <p className="story-rail-empty-copy">
+          Click a Jira card to read the full user story here.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="story-detail story-detail-rail"
+      role="region"
+      aria-label={`Details for ${key}`}
+    >
+      {loading ? (
+        <p className="story-detail-loading">Loading {key}…</p>
+      ) : null}
+      {error ? (
+        <p className="story-board-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {detail ? (
+        <>
+          <div className="story-detail-top">
+            <div>
+              <p className="story-detail-key">
+                <a href={detail.url} target="_blank" rel="noreferrer">
+                  {detail.key}
+                </a>
+                <span className="story-detail-badge">{detail.issueType}</span>
+                <span className="story-detail-badge status">{detail.status}</span>
+              </p>
+              <h4 className="story-detail-title">{detail.summary}</h4>
+              {detail.assignee ? (
+                <p className="story-detail-assignee">
+                  Assignee · {detail.assignee}
+                </p>
+              ) : null}
+            </div>
+            <button type="button" className="btn-ghost" onClick={onClose}>
+              Close
+            </button>
+          </div>
+
+          {detail.description ? (
+            <div className="story-detail-block">
+              <h5>Description</h5>
+              <pre className="story-detail-body">{detail.description}</pre>
+            </div>
+          ) : (
+            <p className="story-board-hint">No description on this issue.</p>
+          )}
+
+          {detail.acceptanceCriteria ? (
+            <div className="story-detail-block">
+              <h5>Acceptance criteria</h5>
+              <pre className="story-detail-body">{detail.acceptanceCriteria}</pre>
+            </div>
+          ) : null}
+
+          <div className="story-detail-actions">
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={disabled}
+              onClick={() => onApplyGoal(detail.goal)}
+            >
+              Use as goal
+            </button>
+            <a
+              className="btn-ghost story-detail-link"
+              href={detail.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open in Jira
+            </a>
+          </div>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+export function StoryBoard({
+  onApplyGoal,
+  disabled,
+  onSelectionChange,
+  showInlineDetail = false,
+  clearEpoch = 0,
+}: Props) {
   const titleId = useId();
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [stories, setStories] = useState<JiraStoryListItem[]>([]);
@@ -22,6 +149,21 @@ export function StoryBoard({ onApplyGoal, disabled }: Props) {
   const [detail, setDetail] = useState<JiraStoryDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const emit = useCallback(
+    (sel: StorySelection) => {
+      onSelectionChange?.(sel);
+    },
+    [onSelectionChange]
+  );
+
+  const clearSelection = useCallback(() => {
+    setSelectedKey(null);
+    setDetail(null);
+    setDetailError(null);
+    setDetailLoading(false);
+    emit(EMPTY_SEL);
+  }, [emit]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,11 +203,23 @@ export function StoryBoard({ onApplyGoal, disabled }: Props) {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (clearEpoch > 0) clearSelection();
+  }, [clearEpoch, clearSelection]);
+
+  useEffect(() => {
+    emit({
+      key: selectedKey,
+      detail,
+      loading: detailLoading,
+      error: detailError,
+    });
+  }, [selectedKey, detail, detailLoading, detailError, emit]);
+
   async function openStory(key: string) {
     if (disabled) return;
-    if (selectedKey === key && detail) {
-      setSelectedKey(null);
-      setDetail(null);
+    if (selectedKey === key) {
+      clearSelection();
       return;
     }
     setSelectedKey(key);
@@ -82,11 +236,6 @@ export function StoryBoard({ onApplyGoal, disabled }: Props) {
     }
   }
 
-  function useAsGoal() {
-    if (!detail || disabled) return;
-    onApplyGoal(detail.goal);
-  }
-
   if (configured === false) {
     return (
       <section className="story-board" aria-labelledby={titleId}>
@@ -100,13 +249,20 @@ export function StoryBoard({ onApplyGoal, disabled }: Props) {
     );
   }
 
+  const selection: StorySelection = {
+    key: selectedKey,
+    detail,
+    loading: detailLoading,
+    error: detailError,
+  };
+
   return (
     <section className="story-board" aria-labelledby={titleId}>
       <div className="story-board-head">
         <div>
           <h3 id={titleId}>Jira stories</h3>
           <p className="story-board-sub">
-            Open user stories — click a card for details
+            Open user stories — click a card for details on the right
           </p>
         </div>
         <button
@@ -164,91 +320,13 @@ export function StoryBoard({ onApplyGoal, disabled }: Props) {
         </div>
       ) : null}
 
-      {selectedKey ? (
-        <div
-          className="story-detail"
-          role="region"
-          aria-label={`Details for ${selectedKey}`}
-        >
-          {detailLoading ? (
-            <p className="story-detail-loading">Loading {selectedKey}…</p>
-          ) : null}
-          {detailError ? (
-            <p className="story-board-error" role="alert">
-              {detailError}
-            </p>
-          ) : null}
-          {detail ? (
-            <>
-              <div className="story-detail-top">
-                <div>
-                  <p className="story-detail-key">
-                    <a href={detail.url} target="_blank" rel="noreferrer">
-                      {detail.key}
-                    </a>
-                    <span className="story-detail-badge">{detail.issueType}</span>
-                    <span className="story-detail-badge status">
-                      {detail.status}
-                    </span>
-                  </p>
-                  <h4 className="story-detail-title">{detail.summary}</h4>
-                  {detail.assignee ? (
-                    <p className="story-detail-assignee">
-                      Assignee · {detail.assignee}
-                    </p>
-                  ) : null}
-                </div>
-                <button
-                  type="button"
-                  className="btn-ghost"
-                  onClick={() => {
-                    setSelectedKey(null);
-                    setDetail(null);
-                  }}
-                >
-                  Close
-                </button>
-              </div>
-
-              {detail.description ? (
-                <div className="story-detail-block">
-                  <h5>Description</h5>
-                  <pre className="story-detail-body">{detail.description}</pre>
-                </div>
-              ) : (
-                <p className="story-board-hint">No description on this issue.</p>
-              )}
-
-              {detail.acceptanceCriteria ? (
-                <div className="story-detail-block">
-                  <h5>Acceptance criteria</h5>
-                  <pre className="story-detail-body">
-                    {detail.acceptanceCriteria}
-                  </pre>
-                </div>
-              ) : null}
-
-              <div className="story-detail-actions">
-                <button
-                  type="button"
-                  className="btn-primary"
-                  disabled={disabled}
-                  onClick={useAsGoal}
-                >
-                  Use as goal
-                </button>
-                <a
-                  className="btn-ghost story-detail-link"
-                  href={detail.url}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Open in Jira
-                </a>
-              </div>
-            </>
-          ) : null}
-        </div>
+      {showInlineDetail && selectedKey ? (
+        <StoryDetailPanel
+          selection={selection}
+          disabled={disabled}
+          onApplyGoal={onApplyGoal}
+          onClose={clearSelection}
+        />
       ) : null}
     </section>
   );

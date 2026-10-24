@@ -363,16 +363,52 @@
       border-radius: var(--radius);
       overflow: hidden;
     }
-    body.view-reports .reports-stack .chat {
+    body.view-reports .reports-stack .reports-main {
       flex: 7 1 0;
       min-width: 0;
       min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow: hidden;
+    }
+    body.view-reports .reports-stack .chat {
+      flex: 1 1 42%;
+      min-width: 0;
+      min-height: 180px;
       max-height: none;
       height: auto;
     }
-    body.view-reports .reports-stack .reports-rail {
+    body.view-reports .reports-stack .story-board {
+      flex: 0 0 auto;
+      max-height: none;
+    }
+    body.view-reports .reports-stack .team-below {
+      flex: 1 1 38%;
+      min-height: 160px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    body.view-reports .reports-stack .team-below-head {
+      flex-shrink: 0;
+    }
+    body.view-reports .reports-stack .team-below-cards,
+    body.view-reports .reports-stack .cards {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow: auto;
+    }
+    body.view-reports .reports-stack .reports-rail,
+    body.view-reports .reports-stack .story-rail {
       flex: 3 1 0;
-      min-width: 260px;
+      min-width: 280px;
       max-width: none;
       min-height: 0;
       display: flex;
@@ -383,11 +419,6 @@
       border-radius: var(--radius);
       overflow: hidden;
       background: var(--surface);
-    }
-    body.view-reports .reports-stack .cards {
-      flex: 1 1 auto;
-      min-height: 0;
-      max-height: none;
     }
     body.view-reports .chat-head-actions {
       margin-left: auto;
@@ -437,19 +468,34 @@
         min-height: 300px;
         width: 100%;
       }
+      body.view-reports .reports-stack .reports-main {
+        flex: 0 0 auto;
+        width: 100%;
+        overflow: visible;
+      }
       body.view-reports .reports-stack .chat {
         flex: 0 0 auto;
-        min-height: 280px;
-        height: min(58dvh, 480px);
+        min-height: 240px;
+        height: min(42dvh, 360px);
         max-height: none;
         width: 100%;
       }
-      body.view-reports .reports-stack .reports-rail {
+      body.view-reports .reports-stack .team-below {
+        flex: 0 0 auto;
+        min-height: 200px;
+        max-height: none;
+      }
+      body.view-reports .reports-stack .reports-rail,
+      body.view-reports .reports-stack .story-rail {
         flex: 0 0 auto;
         min-width: 0;
         width: 100%;
-        min-height: 240px;
+        min-height: 220px;
         max-height: none;
+        order: -1; /* story detail above on narrow screens when a story is open */
+      }
+      body.view-reports .reports-stack:not(.has-story) .story-rail {
+        order: 0;
       }
       body.view-bubbles .agent-chat-column {
         flex: 0 0 auto;
@@ -2382,13 +2428,51 @@
     /* —— Jira story board (Reports) —— */
     .story-board {
       flex-shrink: 0;
-      border-top: 1px solid var(--stroke);
+      border: 1px solid var(--stroke);
+      border-radius: var(--radius);
       background: var(--bar-bg);
       padding: 12px 14px 14px;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-height: min(42vh, 360px);
+    }
+    .story-rail-empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 8px 4px;
+      min-height: 160px;
+    }
+    .story-rail-empty-title {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .story-rail-empty-copy {
+      margin: 0;
+      font-size: 0.84rem;
+      line-height: 1.4;
+      color: var(--ink-soft);
+      max-width: 18rem;
+    }
+    .story-detail-rail {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow: auto;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      padding: 0;
+      animation: story-detail-in 0.18s ease;
+    }
+    .story-detail-rail .story-detail-body {
+      max-height: none;
     }
     .story-board-head {
       display: flex;
@@ -2537,7 +2621,6 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      max-height: min(28vh, 240px);
       overflow: auto;
       animation: story-detail-in 0.18s ease;
     }
