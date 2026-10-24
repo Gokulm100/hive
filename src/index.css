@@ -597,9 +597,13 @@
       }
       body.view-bubbles .map-shell {
         flex: 0 0 auto;
-        height: min(62dvh, 560px);
-        min-height: 300px;
+        height: min(72dvh, 680px);
+        min-height: 440px;
         width: 100%;
+      }
+      body.view-bubbles .map-shell .map-canvas-wrap {
+        flex: 1 1 auto;
+        min-height: 320px;
       }
       body.view-reports .reports-stack {
         height: auto;
@@ -3985,8 +3989,8 @@
 
     @media (max-width: 860px) and (max-height: 700px) {
       body.view-bubbles .map-shell {
-        height: min(52dvh, 440px);
-        min-height: 260px;
+        height: min(68dvh, 560px);
+        min-height: 380px;
       }
       body.view-reports .reports-stack .reports-chat {
         height: min(52dvh, 420px);
@@ -4000,8 +4004,8 @@
 
     @media (max-width: 520px) {
       body.view-bubbles .map-shell {
-        height: min(58dvh, 520px);
-        min-height: 280px;
+        height: min(70dvh, 640px);
+        min-height: 420px;
       }
       .map-shell .agent-bubble {
         width: 68px;
