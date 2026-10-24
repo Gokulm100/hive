@@ -10,7 +10,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useOrchestration } from "./hooks/useOrchestration";
 import { useUiSounds } from "./hooks/useUiSounds";
 import { play } from "./lib/sounds";
-import type { AuthUser } from "./api/client";
+import { isGuestUser, type AuthUser } from "./api/client";
 
 type HiveAppProps = {
   authUser: AuthUser;
@@ -18,7 +18,8 @@ type HiveAppProps = {
 };
 
 function HiveApp({ authUser, onSignOut }: HiveAppProps) {
-  const api = useOrchestration();
+  const guest = isGuestUser(authUser);
+  const api = useOrchestration({ isGuest: guest });
   useUiSounds(api.agentState);
   const [addAgentToken, setAddAgentToken] = useState(0);
   const requestAddAgent = useCallback(() => {
@@ -45,15 +46,16 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
         }}
         apiError={api.apiError}
         authUser={authUser}
+        isGuest={guest}
         onSignOut={onSignOut}
-        onRequestAddAgent={requestAddAgent}
+        onRequestAddAgent={guest ? undefined : requestAddAgent}
       />
 
       <div className="layout">
         {api.view === "reports" ? (
           <aside className="reports-panel" aria-label="Board">
             <ReportsView
-              addAgentToken={addAgentToken}
+              addAgentToken={guest ? 0 : addAgentToken}
               teamAgents={api.teamAgents}
               agentState={api.agentState}
               messages={api.messages}
@@ -64,9 +66,9 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
               onReplay={api.startReplay}
               onStop={api.stopRun}
               onToggleCard={api.toggleCard}
-              onAddAgent={api.addAgent}
+              onAddAgent={guest ? undefined : api.addAgent}
               successSummary={api.successSummary}
-              showRepoPicker={api.engine === "live"}
+              showRepoPicker={api.showRepoPicker}
               repos={api.repos}
               reposLoading={api.reposLoading}
               workspaceUrl={api.workspaceUrl}

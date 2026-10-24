@@ -59,8 +59,8 @@ export function BubblesView({ api, addAgentToken }: Props) {
             api.ensureChatSeed(id);
           }}
           onPersistPos={api.persistBubblePos}
-          onAddAgent={api.addAgent}
-          showRepoPicker={api.engine === "live"}
+          onAddAgent={api.isGuest ? undefined : api.addAgent}
+          showRepoPicker={api.showRepoPicker}
           repos={api.repos}
           reposLoading={api.reposLoading}
           workspaceUrl={api.workspaceUrl}

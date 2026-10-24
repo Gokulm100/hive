@@ -10,6 +10,18 @@ type SessionPayload = {
   exp: number;
 };
 
+/** Guest sessions are demo + casual only (no Live Cursor / repos). */
+export function isGuestUser(
+  user: Pick<SessionUser, "id" | "email" | "login"> | null | undefined
+): boolean {
+  if (!user) return false;
+  return (
+    user.login === "guest" ||
+    user.email === "guest@hive.local" ||
+    user.id.startsWith("guest-")
+  );
+}
+
 const SESSION_COOKIE = "hive_session";
 const SESSION_MS = 7 * 24 * 60 * 60 * 1000;
 

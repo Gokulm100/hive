@@ -27,7 +27,7 @@ type Props = {
   celebrateOrch: boolean;
   onSelect: (id: string) => void;
   onPersistPos: (id: string, x: number, y: number, w: number, h: number) => void;
-  onAddAgent: (name: string, skills: string) => void;
+  onAddAgent?: (name: string, skills: string) => void;
   showRepoPicker?: boolean;
   repos?: ListedRepo[];
   reposLoading?: boolean;
@@ -738,13 +738,17 @@ export function BubbleMap({
         ) : (
           <span className="add-agent-bar-spacer" />
         )}
-        <button
-          type="button"
-          className="btn-primary add-agent-trigger"
-          onClick={() => setAddOpen(true)}
-        >
-          Add agent
-        </button>
+        {onAddAgent ? (
+          <button
+            type="button"
+            className="btn-primary add-agent-trigger"
+            onClick={() => setAddOpen(true)}
+          >
+            Add agent
+          </button>
+        ) : (
+          <span className="add-agent-bar-spacer" />
+        )}
       </div>
       {onApplyStoryGoal ? (
         <StoryPicker
@@ -756,11 +760,13 @@ export function BubbleMap({
       <div className="map-canvas-wrap" ref={wrapRef}>
         <div className="map-canvas" id="mapCanvas" ref={canvasRef} />
       </div>
-      <AddAgentModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdd={onAddAgent}
-      />
+      {onAddAgent ? (
+        <AddAgentModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onAdd={onAddAgent}
+        />
+      ) : null}
     </div>
   );
 }

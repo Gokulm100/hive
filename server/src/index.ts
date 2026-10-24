@@ -1,7 +1,7 @@
 import "./polyfill";
 import "dotenv/config";
 import cors from "cors";
-import express from "express";
+import express, { type Request, type Response } from "express";
 import { rejectAllAwaiting, rejectAwaiting } from "./awaiting";
 import { bus, type HiveEvent } from "./bus";
 import {
@@ -29,9 +29,30 @@ import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody, resolveWorkspace } from "./workspace";
-import { requireAuth } from "./auth/session";
+import {
+  getSessionUser,
+  isGuestUser,
+  requireAuth,
+  type SessionUser,
+} from "./auth/session";
 import { authRouter } from "./routes/auth";
 import { jiraRouter } from "./routes/jira";
+
+function requestUser(req: Request): SessionUser | null {
+  return (
+    (req as Request & { user?: SessionUser }).user ?? getSessionUser(req)
+  );
+}
+
+function rejectGuestLive(req: Request, res: Response): boolean {
+  if (!isGuestUser(requestUser(req))) return false;
+  res.status(403).json({
+    error:
+      "Guests can only use Demo + Casual. Sign in with GitHub for Live and repos.",
+    code: "GUEST_RESTRICTED",
+  });
+  return true;
+}
 
 // Stale "running" rows from a previous process crash
 cancelRunningJobs("Server restarted");
@@ -77,7 +98,8 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.get("/api/repos", async (_req, res) => {
+app.get("/api/repos", async (req, res) => {
+  if (rejectGuestLive(req, res)) return;
   if (!isCursorConfigured()) {
     res.status(503).json({ error: "CURSOR_API_KEY missing", repos: [] });
     return;
@@ -253,6 +275,7 @@ app.post("/api/skip", async (req, res) => {
 });
 
 app.post("/api/orchestrate", async (req, res) => {
+  if (rejectGuestLive(req, res)) return;
   if (!isCursorConfigured()) {
     res.status(503).json({
       error:
@@ -307,6 +330,7 @@ app.post("/api/orchestrate", async (req, res) => {
 });
 
 app.post("/api/instruct", async (req, res) => {
+  if (rejectGuestLive(req, res)) return;
   if (!isCursorConfigured()) {
     res.status(503).json({
       error:

@@ -23,7 +23,7 @@ type Props = {
   onReplay: () => void;
   onStop: () => void;
   onToggleCard: (id: string) => void;
-  onAddAgent: (name: string, skills: string) => void;
+  onAddAgent?: (name: string, skills: string) => void;
   successSummary?: string | null;
   showRepoPicker?: boolean;
   repos?: ListedRepo[];
@@ -216,13 +216,15 @@ export function ReportsView({
           <h3>Team</h3>
           <p className="team-strip-sub">Status at a glance</p>
         </div>
-        <button
-          type="button"
-          className="btn-ghost team-strip-add"
-          onClick={() => setAddOpen(true)}
-        >
-          Add
-        </button>
+        {onAddAgent ? (
+          <button
+            type="button"
+            className="btn-ghost team-strip-add"
+            onClick={() => setAddOpen(true)}
+          >
+            Add
+          </button>
+        ) : null}
       </div>
       {showRepoPicker &&
       onWorkspaceUrl &&
@@ -320,11 +322,13 @@ export function ReportsView({
         {teamStrip}
       </aside>
 
-      <AddAgentModal
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onAdd={onAddAgent}
-      />
+      {onAddAgent ? (
+        <AddAgentModal
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onAdd={onAddAgent}
+        />
+      ) : null}
     </div>
   );
 }

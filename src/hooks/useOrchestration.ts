@@ -112,7 +112,13 @@ function bootstrap() {
   };
 }
 
-export function useOrchestration() {
+type OrchestrationOptions = {
+  /** Guest sessions: Demo + Casual only, no Live / repos */
+  isGuest?: boolean;
+};
+
+export function useOrchestration(options: OrchestrationOptions = {}) {
+  const isGuest = Boolean(options.isGuest);
   const [boot] = useState(bootstrap);
   const [teamAgents, setTeamAgents] = useState<AgentDef[]>(boot.team);
   const [ephemeralAgents, setEphemeralAgents] = useState<AgentDef[]>([]);
@@ -139,8 +145,12 @@ export function useOrchestration() {
   const [flashIds, setFlashIds] = useState<Set<string>>(() => new Set());
   const [mapTick, setMapTick] = useState(0);
   const [engine, setEngine] = useState<EngineMode>("demo");
-  const [userPickedDemo, setUserPickedDemo] = useState(false);
-  const [runMode, setRunMode] = useState<RunMode>("build");
+  const [userPickedDemo, setUserPickedDemo] = useState(() =>
+    Boolean(options.isGuest)
+  );
+  const [runMode, setRunMode] = useState<RunMode>(() =>
+    options.isGuest ? "casual" : "build"
+  );
   const [apiError, setApiError] = useState<string | null>(null);
   const [awaitingIds, setAwaitingIds] = useState<Set<string>>(() => new Set());
   const [pendingQuestions, setPendingQuestions] = useState<
@@ -1188,10 +1198,40 @@ export function useOrchestration() {
     ]
   );
 
-  const pickEngine = useCallback((mode: EngineMode) => {
-    if (mode === "demo") setUserPickedDemo(true);
-    setEngine(mode);
-  }, []);
+  const pickEngine = useCallback(
+    (mode: EngineMode) => {
+      if (isGuest) {
+        setEngine("demo");
+        setUserPickedDemo(true);
+        return;
+      }
+      if (mode === "demo") setUserPickedDemo(true);
+      setEngine(mode);
+    },
+    [isGuest]
+  );
+
+  const pickRunMode = useCallback(
+    (mode: RunMode) => {
+      if (isGuest) {
+        setRunMode("casual");
+        return;
+      }
+      setRunMode(mode);
+    },
+    [isGuest]
+  );
+
+  useEffect(() => {
+    if (!isGuest) return;
+    setEngine("demo");
+    setUserPickedDemo(true);
+    setRunMode("casual");
+    setWorkspaceUrl("");
+    setWorkspaceCustomUrl("");
+    setWorkspaceLocalPath("");
+    setRepos([]);
+  }, [isGuest]);
 
   const toggleCard = useCallback((id: string) => {
     setAgentState((s) => ({
@@ -1231,6 +1271,12 @@ export function useOrchestration() {
       .then((h) => {
         if (cancelled) return;
         if (h.cwd) setApiCwd(h.cwd);
+        if (isGuest) {
+          setEngine("demo");
+          setUserPickedDemo(true);
+          setApiError(null);
+          return;
+        }
         if (h.cursor) {
           setEngine("live");
           setApiError(null);
@@ -1242,15 +1288,19 @@ export function useOrchestration() {
       .catch(() => {
         if (cancelled) return;
         setEngine("demo");
-        setApiError("API offline — demo mode. Run npm run dev (client+server).");
+        if (!isGuest) {
+          setApiError(
+            "API offline — demo mode. Run npm run dev (client+server)."
+          );
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isGuest]);
 
   useEffect(() => {
-    if (engine !== "live") {
+    if (isGuest || engine !== "live") {
       setRepos([]);
       setJobs(readDemoJobs());
       setArtifacts([]);
@@ -1685,7 +1735,9 @@ export function useOrchestration() {
     setEngine: pickEngine,
     showReplayDemo: showReplayDemoButton(engine, userPickedDemo),
     runMode,
-    setRunMode,
+    setRunMode: pickRunMode,
+    isGuest,
+    showRepoPicker: !isGuest && engine === "live",
     apiError,
     awaitingIds,
     pendingQuestions,

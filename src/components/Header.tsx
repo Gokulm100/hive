@@ -36,6 +36,7 @@ type Props = {
   onRunMode: (m: RunMode) => void;
   apiError: string | null;
   authUser: AuthUser | null;
+  isGuest?: boolean;
   onSignOut?: () => void;
   onRequestAddAgent?: () => void;
 };
@@ -49,6 +50,7 @@ export function Header({
   onRunMode,
   apiError,
   authUser,
+  isGuest = false,
   onSignOut,
   onRequestAddAgent,
 }: Props) {
@@ -145,25 +147,33 @@ export function Header({
           </button>
           <div
             className="badge brand-engine-badge"
-            title={apiError ?? undefined}
+            title={
+              isGuest
+                ? "Guests use Demo + Casual — sign in with GitHub for Live and repos"
+                : apiError ?? undefined
+            }
           >
-            {runMode === "casual"
-              ? engine === "live"
-                ? "Casual · live"
-                : "Casual · demo"
-              : runMode === "fast"
+            {isGuest
+              ? "Guest · demo"
+              : runMode === "casual"
                 ? engine === "live"
-                  ? "Fast · Dev only"
-                  : "Fast · demo"
-                : engine === "live"
-                  ? "Live · Cursor agents"
-                  : "Demo mode · scripted"}
+                  ? "Casual · live"
+                  : "Casual · demo"
+                : runMode === "fast"
+                  ? engine === "live"
+                    ? "Fast · Dev only"
+                    : "Fast · demo"
+                  : engine === "live"
+                    ? "Live · Cursor agents"
+                    : "Demo mode · scripted"}
           </div>
         </div>
         <p id="brandSub">
-          {runMode === "casual"
-            ? "Casual — chat freely; agents assume and don’t ask clarifying questions"
-            : runMode === "fast"
+          {isGuest
+            ? "Guest — Demo + Casual only. Sign in with GitHub for Live and repos."
+            : runMode === "casual"
+              ? "Casual — chat freely; agents assume and don’t ask clarifying questions"
+              : runMode === "fast"
                 ? "Fast — Dev only: code, commit, merge the PR"
                 : view === "bubbles"
                   ? "Your AI crew on a map — instruct any agent in the side chat"
@@ -263,22 +273,26 @@ export function Header({
           </button>
         </div>
         <div className="view-toggle" role="group" aria-label="Run mode">
-          <button
-            type="button"
-            aria-pressed={runMode === "build"}
-            onClick={() => onRunMode("build")}
-            title="Full build — implement with needed agents"
-          >
-            Build
-          </button>
-          <button
-            type="button"
-            aria-pressed={runMode === "fast"}
-            onClick={() => onRunMode("fast")}
-            title="Fast — Dev alone: code, commit, merge PR"
-          >
-            Fast
-          </button>
+          {!isGuest ? (
+            <>
+              <button
+                type="button"
+                aria-pressed={runMode === "build"}
+                onClick={() => onRunMode("build")}
+                title="Full build — implement with needed agents"
+              >
+                Build
+              </button>
+              <button
+                type="button"
+                aria-pressed={runMode === "fast"}
+                onClick={() => onRunMode("fast")}
+                title="Fast — Dev alone: code, commit, merge PR"
+              >
+                Fast
+              </button>
+            </>
+          ) : null}
           <button
             type="button"
             aria-pressed={runMode === "casual"}
@@ -289,18 +303,25 @@ export function Header({
           </button>
         </div>
         <div className="view-toggle" role="group" aria-label="Engine">
-          <button
-            type="button"
-            aria-pressed={engine === "live"}
-            onClick={() => onEngine("live")}
-            title={apiError ?? "Cursor SDK · one agent per bubble"}
-          >
-            Live
-          </button>
+          {!isGuest ? (
+            <button
+              type="button"
+              aria-pressed={engine === "live"}
+              onClick={() => onEngine("live")}
+              title={apiError ?? "Cursor SDK · one agent per bubble"}
+            >
+              Live
+            </button>
+          ) : null}
           <button
             type="button"
             aria-pressed={engine === "demo"}
             onClick={() => onEngine("demo")}
+            title={
+              isGuest
+                ? "Guests use Demo only — sign in with GitHub for Live"
+                : "Scripted demo"
+            }
           >
             Demo
           </button>

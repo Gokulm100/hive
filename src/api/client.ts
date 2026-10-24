@@ -191,6 +191,18 @@ export type AuthUser = {
   createdAt: string;
 };
 
+/** Guest sessions are demo + casual only (no Live / repos). */
+export function isGuestUser(
+  user: Pick<AuthUser, "id" | "email" | "login"> | null | undefined
+): boolean {
+  if (!user) return false;
+  return (
+    user.login === "guest" ||
+    user.email === "guest@hive.local" ||
+    user.id.startsWith("guest-")
+  );
+}
+
 const SESSION_TOKEN_KEY = "hive_session_token";
 
 /** Prefer sessionStorage (survives cookie flakes); mirror to localStorage as backup. */
