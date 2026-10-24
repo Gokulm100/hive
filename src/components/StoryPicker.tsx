@@ -82,7 +82,7 @@ export function StoryPicker({ onApplyGoal, disabled, compact }: Props) {
         aria-label="Jira stories"
       >
         <p className="repo-hint">
-          Jira off — set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN on the API.
+          Jira not connected — set env on the API to load stories.
         </p>
       </div>
     );

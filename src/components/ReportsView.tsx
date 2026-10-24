@@ -197,14 +197,24 @@ export function ReportsView({
         />
 
         <section className="team-below" aria-label="Team reports">
-          <div className="rail-head team-below-head">
-            <h3>Team</h3>
+          <div className="team-below-head">
+            <div>
+              <h3>Team</h3>
+              <p className="team-below-sub">Subagents report here</p>
+            </div>
+            <button
+              type="button"
+              className="btn-primary add-agent-trigger"
+              onClick={() => setAddOpen(true)}
+            >
+              Add agent
+            </button>
           </div>
-          <div className="add-agent-bar-reports">
-            {showRepoPicker &&
-            onWorkspaceUrl &&
-            onWorkspaceBranch &&
-            onWorkspaceCustomUrl ? (
+          {showRepoPicker &&
+          onWorkspaceUrl &&
+          onWorkspaceBranch &&
+          onWorkspaceCustomUrl ? (
+            <div className="add-agent-bar-reports">
               <RepoPicker
                 compact
                 repos={repos}
@@ -217,17 +227,8 @@ export function ReportsView({
                 onCustomUrl={onWorkspaceCustomUrl}
                 disabled={running}
               />
-            ) : (
-              <span className="add-agent-bar-spacer" />
-            )}
-            <button
-              type="button"
-              className="btn-primary add-agent-trigger"
-              onClick={() => setAddOpen(true)}
-            >
-              Add agent
-            </button>
-          </div>
+            </div>
+          ) : null}
           <div className="cards team-below-cards">
             {teamAgents.map((a) => {
               const s = agentState[a.id];

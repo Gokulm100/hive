@@ -240,10 +240,17 @@ export function StoryBoard({
     return (
       <section className="story-board" aria-labelledby={titleId}>
         <div className="story-board-head">
-          <h3 id={titleId}>Jira stories</h3>
+          <div>
+            <h3 id={titleId}>Jira stories</h3>
+            <p className="story-board-sub">
+              Connect Jira to pull open user stories into this board
+            </p>
+          </div>
         </div>
         <p className="story-board-hint">
-          Jira off — set JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN on the API.
+          Not connected. Set{" "}
+          <code>JIRA_BASE_URL</code>, <code>JIRA_EMAIL</code>, and{" "}
+          <code>JIRA_API_TOKEN</code> on the API, then refresh.
         </p>
       </section>
     );
@@ -303,8 +310,10 @@ export function StoryBoard({
                 aria-pressed={active}
                 onClick={() => void openStory(s.key)}
               >
-                <span className="story-card-key">{s.key}</span>
-                <span className="story-card-type">{s.issueType}</span>
+                <span className="story-card-keyrow">
+                  <span className="story-card-key">{s.key}</span>
+                  <span className="story-card-type">{s.issueType}</span>
+                </span>
                 <span className="story-card-title">{s.summary}</span>
                 <span className="story-card-meta">
                   <span className="story-card-status">{s.status}</span>
