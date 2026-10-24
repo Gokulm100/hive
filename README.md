@@ -37,7 +37,7 @@ JIRA_API_TOKEN=...   # from https://id.atlassian.com/manage-profile/security/api
 
 **Scoped API tokens** must use `https://api.atlassian.com/ex/jira/{cloudId}` (Hive resolves `cloudId` automatically). Classic tokens also work on that gateway. Scopes: `read:jira-work`, `read:me` / `read:jira-user`. Account needs **Browse projects**.
 
-In the UI, **Jira story** lists open issues whose type name contains “Story”. Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
+In the UI, **Jira story** lists unfinished issues whose type name contains “Story” and that are assigned to the Jira account (`assignee = currentUser()`). Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
 
 ### GitHub sign-in
 

@@ -139,7 +139,7 @@ export function buildOpenStoriesJql(storyTypeNames: string[]): string {
       ? `issuetype = ${quoteJqlString(types[0])}`
       : `issuetype in (${types.map(quoteJqlString).join(", ")})`;
   return (
-    `${projectClause()}${typeClause} AND statusCategory != Done ORDER BY updated DESC`
+    `${projectClause()}${typeClause} AND statusCategory != Done AND assignee = currentUser() ORDER BY updated DESC`
   );
 }
 
@@ -371,9 +371,9 @@ export async function searchStories(
 
   let result = await postSearch(query, maxResults);
 
-  // If Story type name was wrong / empty, fall back to all unfinished issues
+  // If Story type name was wrong / empty, fall back to unfinished issues assigned to me
   if (result.issues.length === 0 && !envTrim("JIRA_JQL") && !jql) {
-    const fallback = `${projectClause()}statusCategory != Done ORDER BY updated DESC`;
+    const fallback = `${projectClause()}statusCategory != Done AND assignee = currentUser() ORDER BY updated DESC`;
     if (fallback !== query) {
       const second = await postSearch(fallback, maxResults);
       if (second.issues.length > 0) {

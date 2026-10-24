@@ -294,7 +294,7 @@ export function StoryBoard({
           <div>
             <h3 id={titleId}>Jira stories</h3>
             <p className="story-board-sub">
-              Connect Jira to pull open user stories into this board
+              Connect Jira to pull your open user stories into this board
             </p>
           </div>
         </div>
@@ -320,7 +320,7 @@ export function StoryBoard({
         <div>
           <h3 id={titleId}>Jira stories</h3>
           <p className="story-board-sub">
-            Open user stories — click a card to read the full story below
+            Your open stories — click a card to read the full story below
           </p>
         </div>
         <button

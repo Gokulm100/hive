@@ -20,7 +20,7 @@ jiraRouter.get("/status", async (_req, res) => {
   }
 });
 
-/** Open User Stories (any assignee), or JIRA_JQL / JIRA_PROJECT. */
+/** Open User Stories assigned to currentUser(), or JIRA_JQL / JIRA_PROJECT. */
 jiraRouter.get("/stories", async (req, res) => {
   if (!jiraConfigured()) {
     res.status(503).json({
