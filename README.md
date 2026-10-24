@@ -34,7 +34,7 @@ JIRA_API_TOKEN=...   # from https://id.atlassian.com/manage-profile/security/api
 # JIRA_PROJECT=PROJ  # optional
 ```
 
-In the UI, **Jira story** lists open-sprint issues assigned to that Jira user. Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
+In the UI, **Jira story** lists all open User Stories (`issuetype = Story`, not Done). Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
 
 ### GitHub sign-in
 

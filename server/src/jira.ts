@@ -48,7 +48,7 @@ function authHeader(): string {
   return `Basic ${Buffer.from(raw, "utf8").toString("base64")}`;
 }
 
-/** Default: my open-sprint work that isn’t Done. */
+/** Default: all open User Stories (any assignee). Override with JIRA_JQL. */
 export function defaultStoriesJql(): string {
   const custom = envTrim("JIRA_JQL");
   if (custom) return custom;
@@ -56,8 +56,7 @@ export function defaultStoriesJql(): string {
   const projectClause = project ? `project = "${project}" AND ` : "";
   return (
     `${projectClause}` +
-    `assignee = currentUser() AND sprint in openSprints() ` +
-    `AND statusCategory != Done ORDER BY Rank ASC`
+    `issuetype = Story AND statusCategory != Done ORDER BY updated DESC`
   );
 }
 
@@ -136,7 +135,7 @@ async function jiraFetch(
 
 export async function searchStories(
   jql = defaultStoriesJql(),
-  maxResults = 30
+  maxResults = 50
 ): Promise<JiraStoryListItem[]> {
   if (!jiraConfigured()) {
     throw new Error("Jira is not configured on this server");

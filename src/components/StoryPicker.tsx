@@ -117,8 +117,7 @@ export function StoryPicker({ onApplyGoal, disabled, compact }: Props) {
       {error ? <p className="repo-hint story-picker-error">{error}</p> : null}
       {!compact && !error && configured && stories.length > 0 ? (
         <p className="repo-hint">
-          Picks fill the goal box — review, then Send. Open sprint + assigned to
-          the Jira API user.
+          Picks fill the goal box — review, then Send. All open User Stories.
         </p>
       ) : null}
     </div>

@@ -17,7 +17,7 @@ jiraRouter.get("/status", (_req, res) => {
   });
 });
 
-/** Open-sprint stories assigned to the Jira API user (or JIRA_JQL). */
+/** Open User Stories site-wide (or JIRA_JQL / JIRA_PROJECT). */
 jiraRouter.get("/stories", async (req, res) => {
   if (!jiraConfigured()) {
     res.status(503).json({
