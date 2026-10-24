@@ -1,9 +1,10 @@
-import type { ListedRepo } from "../api/client";
+import { useState } from "react";
+import { pickLocalFolder, type ListedRepo } from "../api/client";
 
 type Props = {
   repos: ListedRepo[];
   loading?: boolean;
-  /** empty = default API cwd; __local__ = custom local folder; __custom__ = paste URL */
+  /** empty = default cwd; __local__ = folder on this computer; __custom__ = paste URL */
   value: string;
   branch: string;
   onRepo: (url: string) => void;
@@ -12,8 +13,10 @@ type Props = {
   onCustomUrl: (url: string) => void;
   localPath: string;
   onLocalPath: (path: string) => void;
-  /** Default cwd from API health (hint / fill) */
+  /** Default cwd from health (hint / fill) */
   defaultCwd?: string | null;
+  /** Native Browse… available (API running on this computer) */
+  localFolderPick?: boolean;
   disabled?: boolean;
   /** Horizontal bar layout (map / reports toolbar) */
   compact?: boolean;
@@ -31,12 +34,31 @@ export function RepoPicker({
   localPath,
   onLocalPath,
   defaultCwd,
+  localFolderPick = false,
   disabled,
   compact,
 }: Props) {
+  const [picking, setPicking] = useState(false);
+  const [pickError, setPickError] = useState<string | null>(null);
   const isLocal = value === "__local__";
   const isCustom = value === "__custom__";
   const isGithub = Boolean(value) && !isLocal && !isCustom;
+
+  async function onBrowse() {
+    if (disabled || picking) return;
+    setPicking(true);
+    setPickError(null);
+    try {
+      const path = await pickLocalFolder();
+      onLocalPath(path);
+      if (value !== "__local__") onRepo("__local__");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not pick folder";
+      if (!/no folder selected/i.test(msg)) setPickError(msg);
+    } finally {
+      setPicking(false);
+    }
+  }
 
   return (
     <div
@@ -52,8 +74,8 @@ export function RepoPicker({
           disabled={disabled}
           onChange={(e) => onRepo(e.target.value)}
         >
-          <option value="">Default local folder (API host)</option>
-          <option value="__local__">Choose local folder…</option>
+          <option value="">Default folder on this computer</option>
+          <option value="__local__">Folder on this computer…</option>
           {repos.map((r) => (
             <option key={r.url} value={r.url}>
               {r.name}
@@ -63,28 +85,42 @@ export function RepoPicker({
         </select>
       </label>
       {isLocal ? (
-        <label className="repo-field repo-local-path">
-          <span>Local folder on API host</span>
-          <input
-            type="text"
-            placeholder={defaultCwd || "/path/to/project"}
-            value={localPath}
-            disabled={disabled}
-            onChange={(e) => onLocalPath(e.target.value)}
-            autoComplete="off"
-            spellCheck={false}
-          />
-          {defaultCwd && !compact ? (
+        <div className="repo-field repo-local-path">
+          <span>Folder on this computer</span>
+          <div className="repo-local-row">
+            <input
+              type="text"
+              placeholder={defaultCwd || "/Users/you/Projects/app"}
+              value={localPath}
+              disabled={disabled || picking}
+              onChange={(e) => onLocalPath(e.target.value)}
+              autoComplete="off"
+              spellCheck={false}
+            />
             <button
               type="button"
-              className="btn-ghost repo-use-default"
-              disabled={disabled}
-              onClick={() => onLocalPath(defaultCwd)}
+              className="btn-ghost repo-browse"
+              disabled={disabled || picking || !localFolderPick}
+              title={
+                localFolderPick
+                  ? "Open a folder picker on this computer"
+                  : "Run Hive API on this computer (npm run dev) to browse"
+              }
+              onClick={() => void onBrowse()}
             >
-              Use API default
+              {picking ? "…" : "Browse…"}
             </button>
+          </div>
+          {!localFolderPick ? (
+            <p className="repo-hint repo-local-warn">
+              Browse needs Hive API on this computer (`npm run dev`). Or paste
+              the full path below.
+            </p>
           ) : null}
-        </label>
+          {pickError ? (
+            <p className="repo-hint story-picker-error">{pickError}</p>
+          ) : null}
+        </div>
       ) : null}
       {isCustom ? (
         <label className="repo-field">
@@ -116,16 +152,16 @@ export function RepoPicker({
       {!compact && !loading && isGithub ? (
         <p className="repo-hint">Agents will commit / open a PR on this repo.</p>
       ) : null}
-      {!compact && !loading && isLocal ? (
+      {!compact && !loading && isLocal && localFolderPick ? (
         <p className="repo-hint">
-          Path must exist on the machine running the Hive API (not only in the
-          browser). Local Cursor agents use this folder as cwd.
+          Agents edit files in this folder on your machine.
         </p>
       ) : null}
       {!compact && !loading && !value ? (
         <p className="repo-hint">
-          Default is the API host cwd{defaultCwd ? ` (${defaultCwd})` : ""}.
-          Pick a GitHub repo for cloud agents, or choose a local folder.
+          Default is this computer
+          {defaultCwd ? ` (${defaultCwd})` : ""}. Pick a folder here, or a
+          GitHub repo for cloud agents.
         </p>
       ) : null}
     </div>

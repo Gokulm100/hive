@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 export type WorkspaceTarget = {
   /** GitHub repo URL, e.g. https://github.com/org/repo */
   url?: string;
-  /** Absolute folder on the API host for local Cursor agents */
+  /** Absolute folder on this computer for local Cursor agents */
   localPath?: string;
   startingRef?: string;
   autoCreatePR?: boolean;
@@ -21,7 +21,7 @@ export function defaultLocalCwd(): string {
   );
 }
 
-/** Expand ~ and require an existing directory on the API host. */
+/** Expand ~ and require an existing directory on this computer. */
 export function assertLocalDir(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) {
@@ -31,7 +31,7 @@ export function assertLocalDir(raw: string): string {
   const abs = resolve(expanded);
   if (!existsSync(abs) || !statSync(abs).isDirectory()) {
     throw new Error(
-      `Local folder not found on the API host: ${abs}. The path must exist on the machine running Hive’s API.`
+      `Local folder not found on this computer: ${abs}. Run Hive API locally (npm run dev) and pick a folder that exists here.`
     );
   }
   return abs;
@@ -117,11 +117,11 @@ export function resolveWorkspace(
 
 export function workspaceHint(ws: WorkspaceTarget | null): string {
   if (ws?.localPath) {
-    return `Workspace: local folder ${ws.localPath} on the API host.
+    return `Workspace: local folder on this computer — ${ws.localPath}.
 Edit files in this directory. Commit when useful if it is a git repo. Include paths of changed files in your summary.`;
   }
   if (!ws?.url) {
-    return "Workspace: local server folder (not a GitHub repo). Prefer planning/docs unless asked to edit files.";
+    return "Workspace: default local folder on this computer (not a GitHub repo). Prefer planning/docs unless asked to edit files.";
   }
   return `Workspace: GitHub repo ${ws.url}${
     ws.startingRef ? ` @ ${ws.startingRef}` : ""

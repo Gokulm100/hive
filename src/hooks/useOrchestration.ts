@@ -176,6 +176,7 @@ export function useOrchestration() {
     }
   });
   const [apiCwd, setApiCwd] = useState<string | null>(null);
+  const [localFolderPick, setLocalFolderPick] = useState(false);
   const [repos, setRepos] = useState<ListedRepo[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
   const [activeWorkspace, setActiveWorkspace] =
@@ -671,7 +672,7 @@ export function useOrchestration() {
       if (engineRef.current === "live") {
         if (workspaceUrl === "__local__" && !workspaceLocalPath.trim()) {
           const msg =
-            "Choose a local folder path (on the API host) before starting.";
+            "Choose a folder on this computer before starting.";
           setApiError(msg);
           addMsg("orch", msg);
           play("error");
@@ -1144,7 +1145,7 @@ export function useOrchestration() {
         !workspaceLocalPath.trim()
       ) {
         const msg =
-          "Choose a local folder path (on the API host) before starting.";
+          "Choose a folder on this computer before starting.";
         setApiError(msg);
         addMsg("orch", msg);
         play("error");
@@ -1231,6 +1232,7 @@ export function useOrchestration() {
       .then((h) => {
         if (cancelled) return;
         if (h.cwd) setApiCwd(h.cwd);
+        setLocalFolderPick(Boolean(h.localFolderPick));
         if (h.cursor) {
           setEngine("live");
           setApiError(null);
@@ -1706,6 +1708,7 @@ export function useOrchestration() {
     workspaceLocalPath,
     setWorkspaceLocalPath: setWorkspaceLocalPathPersist,
     apiCwd,
+    localFolderPick,
     repos,
     reposLoading,
     successSummary,

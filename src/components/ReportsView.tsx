@@ -33,6 +33,7 @@ type Props = {
   workspaceCustomUrl?: string;
   workspaceLocalPath?: string;
   apiCwd?: string | null;
+  localFolderPick?: boolean;
   onWorkspaceUrl?: (v: string) => void;
   onWorkspaceBranch?: (v: string) => void;
   onWorkspaceCustomUrl?: (v: string) => void;
@@ -63,6 +64,7 @@ export function ReportsView({
   workspaceCustomUrl = "",
   workspaceLocalPath = "",
   apiCwd = null,
+  localFolderPick = false,
   onWorkspaceUrl,
   onWorkspaceBranch,
   onWorkspaceCustomUrl,
@@ -239,6 +241,7 @@ export function ReportsView({
             customUrl={workspaceCustomUrl}
             localPath={workspaceLocalPath}
             defaultCwd={apiCwd}
+            localFolderPick={localFolderPick}
             onRepo={onWorkspaceUrl}
             onBranch={onWorkspaceBranch}
             onCustomUrl={onWorkspaceCustomUrl}

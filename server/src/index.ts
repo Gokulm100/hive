@@ -29,6 +29,10 @@ import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
 import { parseWorkspaceBody, resolveWorkspace } from "./workspace";
+import {
+  localFolderPickAvailable,
+  pickLocalFolder,
+} from "./pickFolder";
 import { requireAuth } from "./auth/session";
 import { authRouter } from "./routes/auth";
 import { jiraRouter } from "./routes/jira";
@@ -74,7 +78,26 @@ app.get("/api/health", (_req, res) => {
     busy,
     model: process.env.CURSOR_MODEL || "composer-2.5",
     cwd: process.env.HIVE_CWD || process.env.NEXUS_CWD || process.cwd(),
+    localFolderPick: localFolderPickAvailable(),
   });
+});
+
+/** Native folder dialog on this computer (requires local Hive API). */
+app.post("/api/workspace/pick-folder", async (_req, res) => {
+  try {
+    const path = await pickLocalFolder();
+    res.json({ path });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const cancelled =
+      /user canceled|user cancelled|no folder selected|(-128)/i.test(message) ||
+      (typeof (err as { code?: string })?.code === "string" &&
+        (err as { code: string }).code === "1");
+    res.status(cancelled ? 400 : 503).json({
+      error: cancelled ? "No folder selected" : message,
+      cancelled: Boolean(cancelled),
+    });
+  }
 });
 
 app.get("/api/repos", async (_req, res) => {

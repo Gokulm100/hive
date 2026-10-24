@@ -988,7 +988,7 @@ Workspace: ${
       workspace?.url
         ? `${workspace.url} (PR/merge expected)`
         : workspace?.localPath
-          ? `${workspace.localPath} (local folder on API host)`
+          ? `${workspace.localPath} (local folder on this computer)`
           : "local / no GitHub repo (no merger unless goal explicitly asks for a PR)"
     }
 Classified as: ${scope.kind === "small_fix" ? "SMALL FIX" : "FEATURE"}
