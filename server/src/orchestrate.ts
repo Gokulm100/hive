@@ -1449,8 +1449,8 @@ ${digest || "(none)"}
 Reply with a VERY brief synthesis:
 - Exactly 1–2 short sentences
 - Name the strongest direction or open question
-- Plain language, no bullets, no “next steps” list
-- Keep the tone conversational`
+- Everyday words, no jargon or filler
+- No “next steps” list`
         : `You are the Orchestrator. All teammates finished.
 
 Goal: ${goal}
@@ -1460,9 +1460,8 @@ ${digest || "(none)"}
 
 Reply with a VERY brief final summary for the user:
 - Exactly 1–2 short sentences
-- Plain language
-- No bullets, no headings, no next-steps list
-- Celebrate completion lightly`,
+- Everyday words; skip nothing crucial from the outcome
+- No headings or long next-steps list`,
       {
         asMain: true,
         label: isDiscussMode(runMode)

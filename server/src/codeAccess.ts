@@ -45,11 +45,13 @@ export function codeRulesForAgent(agentId: string, agentName: string): string {
 }
 
 export function implementClosingLine(agentId: string): string {
+  const format =
+    "Format the final reply: answer first; use bullets for 2+ points; brief and precise; everyday words; skip nothing crucial.";
   if (canWriteCode(agentId)) {
-    return "Now implement / complete the assignment yourself in the workspace above. Use helper notes where useful. Explain what you're doing in plain language as you go. End with a short summary of what you decided or delivered (include PR/commit links if you created them).";
+    return `Now implement / complete the assignment yourself in the workspace above. Use helper notes where useful. ${format} End with what you decided or delivered (include PR/commit links if you created them).`;
   }
   if (agentId === "bd") {
-    return "Now complete the assignment: deliver who/offer/hook in chat, and write or update a markdown spec under docs/ when Dev needs a durable brief. Do not touch application source code. End with a short plain-English summary (include spec path or commit link if you wrote one).";
+    return `Now complete the assignment: deliver who/offer/hook in chat, and write or update a markdown spec under docs/ when Dev needs a durable brief. Do not touch application source code. ${format} Include spec path or commit link if you wrote one.`;
   }
-  return "Now complete the assignment without changing application source code. Deliver your output in chat. Use helper notes where useful. End with a short plain-English summary.";
+  return `Now complete the assignment without changing application source code. Deliver your output in chat. Use helper notes where useful. ${format}`;
 }

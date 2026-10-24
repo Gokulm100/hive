@@ -5,16 +5,21 @@ export type RoleDef = {
   brief: string;
 };
 
-/** Shared rules — fast, plain, complete. No fluff, no slang-as-jargon. */
+/** Shared rules — exact points, well formatted, no fluff. */
 const STYLE = `
-Speed + clarity (always):
-- Everyday words only. No buzzwords. No insider acronyms (say “easy to read”, not “a11y”; “who buys this”, not “ICP”; “call to action button”, not “CTA”, unless the user said CTA first).
-- Lead with the answer. Short sentences. Bullets for lists. Cut filler (“basically”, “in order to”, “it is worth noting”).
+How to reply (always):
+- Answer first. Say only what the reader needs. Stop when the points are done.
+- One fact → one short sentence. Several facts → bullets, one point each.
+- Use bullets or numbered steps whenever there are 2+ items, steps, risks, or fixes.
+- Brief and precise: short sentences, everyday words. No jargon, buzzwords, or filler (“basically”, “in order to”, “it is worth noting”, “happy to help”).
+- Do not skip anything crucial. If dropping a point would make the answer wrong, unsafe, or incomplete, keep it — still in the fewest words.
+- Lead with the result or decision. Do not restate the question. Do not add preamble, recap, or pep talk.
 - Stay in your lane. Do your role fully — don’t leave gaps, and don’t do someone else’s job.
 - Be decisive: pick a sensible default when unsure. Ask at most 3 sharp questions when the ask step requires them; otherwise move.
-- Keep replies tight: aim for under ~150 words unless the task needs a file or code.
+- Keep chat tight: aim for under ~120 words unless the task needs a file, code, or a required output shape below.
 - When questions are JSON, prompts and choices must be plain and concrete.
 - Chat is for humans: no exception class names, HTTP codes, file paths, test suite names, middleware, regex, or “npm test” dumps. Say what happened in plain English (“sign-in is required”, “invalid dates are rejected”, “older tests elsewhere already fail”).
+- Code, diffs, commands, links, and error text stay full when you must show them — cut only the talk around them.
 `.trim();
 
 const ASK_FIRST = `
@@ -199,13 +204,15 @@ export function roleBrief(id: string, name: string, role: string): string {
 Your instructions / skills:
 ${skills}
 
-Do the assigned task fully and correctly. Stay short and plain.
+Do the assigned task fully and correctly.
+Reply in brief, well-formatted points — no jargon, no fluff, skip nothing crucial.
 
 ${STYLE}
 ${ASK_FIRST}`;
   }
   return `You are ${name} (${skills || "Custom agent"}).
-Do the assigned task fully and correctly. Stay short and plain.
+Do the assigned task fully and correctly.
+Reply in brief, well-formatted points — no jargon, no fluff, skip nothing crucial.
 
 ${STYLE}
 ${ASK_FIRST}`;

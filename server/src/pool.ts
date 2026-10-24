@@ -547,7 +547,9 @@ export async function runSubagentQuery(
       task: query,
       prompt: `${brief}
 
-You are a temporary side helper for ${parent.name}. The main ${parent.name} may still be working on something else — answer ONLY this side question. Do not redo the whole project. Use plain human language.
+You are a temporary side helper for ${parent.name}. The main ${parent.name} may still be working on something else — answer ONLY this side question. Do not redo the whole project.
+
+Reply: answer first; bullets if 2+ points; brief and precise; everyday words; skip nothing crucial.
 
 Side question from the user:
 ${query}`,
