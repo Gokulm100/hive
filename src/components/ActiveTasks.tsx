@@ -137,6 +137,10 @@ export function ActiveTasks({
                 ? ` @ ${activeWorkspace.startingRef}`
                 : ""}
             </p>
+          ) : activeWorkspace?.localPath ? (
+            <p className="goal-repo" title={activeWorkspace.localPath}>
+              Local: {activeWorkspace.localPath}
+            </p>
           ) : (
             <p className="goal-repo muted">Workspace: local server folder</p>
           )}

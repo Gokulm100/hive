@@ -70,7 +70,11 @@ export type HiveEvent =
   | {
       type: "goal";
       goal: string;
-      workspace?: { url: string; startingRef?: string } | null;
+      workspace?: {
+        url?: string;
+        localPath?: string;
+        startingRef?: string;
+      } | null;
       mode?: "build" | "casual";
     }
   | {

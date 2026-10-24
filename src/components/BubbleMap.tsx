@@ -34,9 +34,12 @@ type Props = {
   workspaceUrl?: string;
   workspaceBranch?: string;
   workspaceCustomUrl?: string;
+  workspaceLocalPath?: string;
+  apiCwd?: string | null;
   onWorkspaceUrl?: (v: string) => void;
   onWorkspaceBranch?: (v: string) => void;
   onWorkspaceCustomUrl?: (v: string) => void;
+  onWorkspaceLocalPath?: (v: string) => void;
   repoDisabled?: boolean;
   /** Fill / start a goal from a Jira story */
   onApplyStoryGoal?: (goal: string) => void;
@@ -117,9 +120,12 @@ export function BubbleMap({
   workspaceUrl = "",
   workspaceBranch = "",
   workspaceCustomUrl = "",
+  workspaceLocalPath = "",
+  apiCwd = null,
   onWorkspaceUrl,
   onWorkspaceBranch,
   onWorkspaceCustomUrl,
+  onWorkspaceLocalPath,
   repoDisabled,
   onApplyStoryGoal,
 }: Props) {
@@ -712,7 +718,8 @@ export function BubbleMap({
         {showRepoPicker &&
         onWorkspaceUrl &&
         onWorkspaceBranch &&
-        onWorkspaceCustomUrl ? (
+        onWorkspaceCustomUrl &&
+        onWorkspaceLocalPath ? (
           <RepoPicker
             compact
             repos={repos}
@@ -720,9 +727,12 @@ export function BubbleMap({
             value={workspaceUrl}
             branch={workspaceBranch}
             customUrl={workspaceCustomUrl}
+            localPath={workspaceLocalPath}
+            defaultCwd={apiCwd}
             onRepo={onWorkspaceUrl}
             onBranch={onWorkspaceBranch}
             onCustomUrl={onWorkspaceCustomUrl}
+            onLocalPath={onWorkspaceLocalPath}
             disabled={repoDisabled}
           />
         ) : (

@@ -28,7 +28,7 @@ import {
 import { cancelRunningJobs, deleteJob, getJob, listJobs } from "./jobs";
 import { listConnectedRepos } from "./repos";
 import { markSkip, SkippedError } from "./skip";
-import { parseWorkspaceBody } from "./workspace";
+import { parseWorkspaceBody, resolveWorkspace } from "./workspace";
 import { requireAuth } from "./auth/session";
 import { authRouter } from "./routes/auth";
 import { jiraRouter } from "./routes/jira";
@@ -263,7 +263,15 @@ app.post("/api/orchestrate", async (req, res) => {
 
   const goal = String(req.body?.goal ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
-  const workspace = parseWorkspaceBody(req.body?.workspace);
+  let workspace;
+  try {
+    workspace = resolveWorkspace(parseWorkspaceBody(req.body?.workspace));
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
   const mode = parseRunMode(req.body?.mode);
   if (!goal) {
     res.status(400).json({ error: "goal is required" });
@@ -310,7 +318,15 @@ app.post("/api/instruct", async (req, res) => {
   const member = req.body?.member as TeamMember | undefined;
   const instruction = String(req.body?.instruction ?? "").trim();
   const team = (req.body?.team ?? []) as TeamMember[];
-  const workspace = parseWorkspaceBody(req.body?.workspace);
+  let workspace;
+  try {
+    workspace = resolveWorkspace(parseWorkspaceBody(req.body?.workspace));
+  } catch (err) {
+    res.status(400).json({
+      error: err instanceof Error ? err.message : String(err),
+    });
+    return;
+  }
   const mode = parseRunMode(req.body?.mode);
 
   if (!member?.id || !instruction) {

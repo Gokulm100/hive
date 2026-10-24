@@ -2249,6 +2249,19 @@
       min-width: 112px;
       max-width: 128px;
     }
+    .repo-picker.compact .repo-local-path {
+      flex: 1 1 180px;
+      min-width: 140px;
+    }
+    .repo-local-path {
+      position: relative;
+    }
+    .repo-use-default {
+      margin-top: 6px;
+      height: 28px;
+      padding: 0 10px;
+      font-size: 0.72rem;
+    }
     .repo-picker.compact .repo-field span {
       font-size: 0.62rem;
       line-height: 1.2;

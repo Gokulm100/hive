@@ -31,9 +31,12 @@ type Props = {
   workspaceUrl?: string;
   workspaceBranch?: string;
   workspaceCustomUrl?: string;
+  workspaceLocalPath?: string;
+  apiCwd?: string | null;
   onWorkspaceUrl?: (v: string) => void;
   onWorkspaceBranch?: (v: string) => void;
   onWorkspaceCustomUrl?: (v: string) => void;
+  onWorkspaceLocalPath?: (v: string) => void;
 };
 
 type BoardTab = "stories" | "chat";
@@ -58,9 +61,12 @@ export function ReportsView({
   workspaceUrl = "",
   workspaceBranch = "",
   workspaceCustomUrl = "",
+  workspaceLocalPath = "",
+  apiCwd = null,
   onWorkspaceUrl,
   onWorkspaceBranch,
   onWorkspaceCustomUrl,
+  onWorkspaceLocalPath,
 }: Props) {
   const [input, setInput] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -221,7 +227,8 @@ export function ReportsView({
       {showRepoPicker &&
       onWorkspaceUrl &&
       onWorkspaceBranch &&
-      onWorkspaceCustomUrl ? (
+      onWorkspaceCustomUrl &&
+      onWorkspaceLocalPath ? (
         <div className="team-strip-repo">
           <RepoPicker
             compact
@@ -230,9 +237,12 @@ export function ReportsView({
             value={workspaceUrl}
             branch={workspaceBranch}
             customUrl={workspaceCustomUrl}
+            localPath={workspaceLocalPath}
+            defaultCwd={apiCwd}
             onRepo={onWorkspaceUrl}
             onBranch={onWorkspaceBranch}
             onCustomUrl={onWorkspaceCustomUrl}
+            onLocalPath={onWorkspaceLocalPath}
             disabled={running}
           />
         </div>

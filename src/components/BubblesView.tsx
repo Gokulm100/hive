@@ -66,9 +66,12 @@ export function BubblesView({ api, addAgentToken }: Props) {
           workspaceUrl={api.workspaceUrl}
           workspaceBranch={api.workspaceBranch}
           workspaceCustomUrl={api.workspaceCustomUrl}
+          workspaceLocalPath={api.workspaceLocalPath}
+          apiCwd={api.apiCwd}
           onWorkspaceUrl={api.setWorkspaceUrl}
           onWorkspaceBranch={api.setWorkspaceBranch}
           onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
+          onWorkspaceLocalPath={api.setWorkspaceLocalPath}
           repoDisabled={api.running}
           onApplyStoryGoal={api.submitGoal}
         />

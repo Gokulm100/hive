@@ -72,9 +72,12 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
               workspaceUrl={api.workspaceUrl}
               workspaceBranch={api.workspaceBranch}
               workspaceCustomUrl={api.workspaceCustomUrl}
+              workspaceLocalPath={api.workspaceLocalPath}
+              apiCwd={api.apiCwd}
               onWorkspaceUrl={api.setWorkspaceUrl}
               onWorkspaceBranch={api.setWorkspaceBranch}
               onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}
+              onWorkspaceLocalPath={api.setWorkspaceLocalPath}
             />
             <JobsList
               jobs={api.jobs}

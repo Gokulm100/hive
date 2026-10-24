@@ -68,7 +68,11 @@ export type LiveEvent =
   | {
       type: "goal";
       goal: string;
-      workspace?: { url: string; startingRef?: string } | null;
+      workspace?: {
+        url?: string;
+        localPath?: string;
+        startingRef?: string;
+      } | null;
       mode?: "build" | "casual" | "fast";
     }
   | {
@@ -125,7 +129,9 @@ export type TeamMemberPayload = {
 };
 
 export type WorkspacePayload = {
-  url: string;
+  url?: string;
+  /** Absolute folder on the API host for local Cursor agents */
+  localPath?: string;
   startingRef?: string;
   autoCreatePR?: boolean;
 };

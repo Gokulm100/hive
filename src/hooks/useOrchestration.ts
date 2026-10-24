@@ -157,9 +157,25 @@ export function useOrchestration() {
   const demoJobIdRef = useRef<string | null>(null);
   const [currentGoal, setCurrentGoal] = useState<string | null>(null);
   const [plannedTasks, setPlannedTasks] = useState<PlannedTask[]>([]);
-  const [workspaceUrl, setWorkspaceUrl] = useState("");
+  const [workspaceUrl, setWorkspaceUrl] = useState(() => {
+    try {
+      return localStorage.getItem("hive-workspace-mode") === "__local__"
+        ? "__local__"
+        : "";
+    } catch {
+      return "";
+    }
+  });
   const [workspaceBranch, setWorkspaceBranch] = useState("");
   const [workspaceCustomUrl, setWorkspaceCustomUrl] = useState("");
+  const [workspaceLocalPath, setWorkspaceLocalPath] = useState(() => {
+    try {
+      return localStorage.getItem("hive-local-cwd") || "";
+    } catch {
+      return "";
+    }
+  });
+  const [apiCwd, setApiCwd] = useState<string | null>(null);
   const [repos, setRepos] = useState<ListedRepo[]>([]);
   const [reposLoading, setReposLoading] = useState(false);
   const [activeWorkspace, setActiveWorkspace] =
@@ -198,6 +214,11 @@ export function useOrchestration() {
   }, []);
 
   const workspacePayload = useCallback((): WorkspacePayload | null => {
+    if (workspaceUrl === "__local__") {
+      const localPath = workspaceLocalPath.trim();
+      if (!localPath) return null;
+      return { localPath, autoCreatePR: false };
+    }
     const raw =
       workspaceUrl === "__custom__"
         ? workspaceCustomUrl.trim()
@@ -208,7 +229,27 @@ export function useOrchestration() {
       startingRef: workspaceBranch.trim() || undefined,
       autoCreatePR: true,
     };
-  }, [workspaceUrl, workspaceCustomUrl, workspaceBranch]);
+  }, [workspaceUrl, workspaceCustomUrl, workspaceLocalPath, workspaceBranch]);
+
+  const setWorkspaceUrlPersist = useCallback((v: string) => {
+    setWorkspaceUrl(v);
+    try {
+      if (v === "__local__") localStorage.setItem("hive-workspace-mode", "__local__");
+      else localStorage.removeItem("hive-workspace-mode");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const setWorkspaceLocalPathPersist = useCallback((v: string) => {
+    setWorkspaceLocalPath(v);
+    try {
+      if (v.trim()) localStorage.setItem("hive-local-cwd", v.trim());
+      else localStorage.removeItem("hive-local-cwd");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach(clearTimeout);
@@ -628,6 +669,14 @@ export function useOrchestration() {
       const task = instruction.trim();
 
       if (engineRef.current === "live") {
+        if (workspaceUrl === "__local__" && !workspaceLocalPath.trim()) {
+          const msg =
+            "Choose a local folder path (on the API host) before starting.";
+          setApiError(msg);
+          addMsg("orch", msg);
+          play("error");
+          return;
+        }
         ensureChatSeed(id);
         pushAgentChat(id, "user", task);
         if (a.hub) addMsg("user", task);
@@ -706,7 +755,9 @@ export function useOrchestration() {
       setAgent,
       showTyping,
       teamPayload,
+      workspaceLocalPath,
       workspacePayload,
+      workspaceUrl,
     ]
   );
 
@@ -1087,6 +1138,18 @@ export function useOrchestration() {
     (text: string) => {
       const t = text.trim();
       if (!t) return;
+      if (
+        engineRef.current === "live" &&
+        workspaceUrl === "__local__" &&
+        !workspaceLocalPath.trim()
+      ) {
+        const msg =
+          "Choose a local folder path (on the API host) before starting.";
+        setApiError(msg);
+        addMsg("orch", msg);
+        play("error");
+        return;
+      }
       ensureChatSeed("orchestrator");
       pushAgentChat("orchestrator", "user", t);
       addMsg("user", t);
@@ -1119,7 +1182,9 @@ export function useOrchestration() {
       pushAgentChat,
       runScript,
       teamPayload,
+      workspaceLocalPath,
       workspacePayload,
+      workspaceUrl,
     ]
   );
 
@@ -1165,6 +1230,7 @@ export function useOrchestration() {
     fetchHealth()
       .then((h) => {
         if (cancelled) return;
+        if (h.cwd) setApiCwd(h.cwd);
         if (h.cursor) {
           setEngine("live");
           setApiError(null);
@@ -1508,7 +1574,9 @@ export function useOrchestration() {
                 url: e.workspace.url,
                 startingRef: e.workspace.startingRef,
               }
-            : null
+            : e.workspace?.localPath
+              ? { localPath: e.workspace.localPath, autoCreatePR: false }
+              : null
         );
         return;
       }
@@ -1630,11 +1698,14 @@ export function useOrchestration() {
       setArtifacts((prev) => prev.filter((a) => a.id !== id)),
     activeWorkspace,
     workspaceUrl,
-    setWorkspaceUrl,
+    setWorkspaceUrl: setWorkspaceUrlPersist,
     workspaceBranch,
     setWorkspaceBranch,
     workspaceCustomUrl,
     setWorkspaceCustomUrl,
+    workspaceLocalPath,
+    setWorkspaceLocalPath: setWorkspaceLocalPathPersist,
+    apiCwd,
     repos,
     reposLoading,
     successSummary,

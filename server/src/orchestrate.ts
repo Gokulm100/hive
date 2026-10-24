@@ -987,7 +987,9 @@ Goal: ${goal}
 Workspace: ${
       workspace?.url
         ? `${workspace.url} (PR/merge expected)`
-        : "local / no GitHub repo (no merger unless goal explicitly asks for a PR)"
+        : workspace?.localPath
+          ? `${workspace.localPath} (local folder on API host)`
+          : "local / no GitHub repo (no merger unless goal explicitly asks for a PR)"
     }
 Classified as: ${scope.kind === "small_fix" ? "SMALL FIX" : "FEATURE"}
 Suggested ids (prefer this order): ${suggestedIds || "dev"}
@@ -1155,14 +1157,18 @@ export async function runOrchestration(
   const job = startJob({
     goal: trimmedGoal,
     mode: runMode,
-    workspaceUrl: workspace?.url ?? null,
+    workspaceUrl: workspace?.url ?? workspace?.localPath ?? null,
   });
   bus.emitEvent({ type: "run", running: true });
   bus.emitEvent({
     type: "goal",
     goal: trimmedGoal,
     workspace: workspace
-      ? { url: workspace.url, startingRef: workspace.startingRef }
+      ? {
+          url: workspace.url,
+          localPath: workspace.localPath,
+          startingRef: workspace.startingRef,
+        }
       : null,
     mode: runMode,
   });
@@ -1185,6 +1191,12 @@ export async function runOrchestration(
       text: `Working in repo: ${workspace.url}${
         workspace.startingRef ? ` @ ${workspace.startingRef}` : ""
       }`,
+      kind: "normal",
+    });
+  } else if (workspace?.localPath) {
+    bus.emitEvent({
+      type: "orch",
+      text: `Working in local folder: ${workspace.localPath}`,
       kind: "normal",
     });
   }
@@ -1527,14 +1539,18 @@ export async function instructOne(
   const job = startJob({
     goal: instruction.trim(),
     mode: runMode,
-    workspaceUrl: workspace?.url ?? null,
+    workspaceUrl: workspace?.url ?? workspace?.localPath ?? null,
   });
   bus.emitEvent({ type: "run", running: true });
   bus.emitEvent({
     type: "goal",
     goal: instruction,
     workspace: workspace
-      ? { url: workspace.url, startingRef: workspace.startingRef }
+      ? {
+          url: workspace.url,
+          localPath: workspace.localPath,
+          startingRef: workspace.startingRef,
+        }
       : null,
     mode: runMode,
   });

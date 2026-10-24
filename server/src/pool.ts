@@ -4,7 +4,7 @@ import { bus } from "./bus";
 import { roleBrief } from "./roles";
 import { isSkipped, SkippedError, throwIfSkipped } from "./skip";
 import { nextSubagentId, type SubagentSpec } from "./subagents";
-import { getActiveWorkspace } from "./workspace";
+import { defaultLocalCwd, getActiveWorkspace } from "./workspace";
 
 export { SkippedError };
 
@@ -45,11 +45,9 @@ function modelId(): { id: string } {
 }
 
 function workspaceCwd(): string {
-  return (
-    process.env.HIVE_CWD?.trim() ||
-    process.env.NEXUS_CWD?.trim() ||
-    process.cwd()
-  );
+  const ws = getActiveWorkspace();
+  if (ws?.localPath) return ws.localPath;
+  return defaultLocalCwd();
 }
 
 export function clearCancelFlag() {
@@ -165,7 +163,9 @@ function emitProcess(agentId: string, text: string) {
 
 function workspacePoolKey(agentId: string) {
   const ws = getActiveWorkspace();
-  return ws?.url ? `${agentId}::${ws.url}` : `${agentId}::local`;
+  if (ws?.url) return `${agentId}::${ws.url}`;
+  if (ws?.localPath) return `${agentId}::local:${ws.localPath}`;
+  return `${agentId}::local`;
 }
 
 async function createCursorAgent(name: string) {
