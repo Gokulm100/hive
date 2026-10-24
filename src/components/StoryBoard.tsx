@@ -32,6 +32,43 @@ const EMPTY_SEL: StorySelection = {
   error: null,
 };
 
+/** Lines that read as section labels inside freeform Jira story text. */
+function isStoryInlineHeading(line: string): boolean {
+  const t = line.trim();
+  if (!t) return false;
+  if (/^#{1,3}\s+\S/.test(t)) return true;
+  if (/^[A-Z][A-Za-z0-9 /&'()-]{1,48}:\s*$/.test(t)) return true;
+  return /^(as a|i want|so that|acceptance criteria|given|when|then|and|but|scenario|background|notes?|context|goal|problem|solution|out of scope|dependencies|technical notes?)\b/i.test(
+    t
+  );
+}
+
+function StoryBody({ text }: { text: string }) {
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  return (
+    <div className="story-detail-body">
+      {lines.map((line, i) => {
+        const empty = !line.trim();
+        if (empty) {
+          return <div key={i} className="story-detail-body-gap" />;
+        }
+        const heading = isStoryInlineHeading(line);
+        const label = line.replace(/^#{1,3}\s+/, "").trim();
+        return (
+          <p
+            key={i}
+            className={
+              heading ? "story-detail-line heading" : "story-detail-line"
+            }
+          >
+            {heading ? <strong>{label}</strong> : line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 export function StoryDetailPanel({
   selection,
   disabled,
@@ -72,8 +109,8 @@ export function StoryDetailPanel({
       ) : null}
       {detail ? (
         <>
-          <div className="story-detail-top">
-            <div>
+          <header className="story-detail-top">
+            <div className="story-detail-heading">
               <p className="story-detail-key">
                 <a href={detail.url} target="_blank" rel="noreferrer">
                   {detail.key}
@@ -84,30 +121,37 @@ export function StoryDetailPanel({
               <h4 className="story-detail-title">{detail.summary}</h4>
               {detail.assignee ? (
                 <p className="story-detail-assignee">
-                  Assignee · {detail.assignee}
+                  <span className="story-detail-meta-label">Assignee</span>
+                  {detail.assignee}
                 </p>
-              ) : null}
+              ) : (
+                <p className="story-detail-assignee muted">Unassigned</p>
+              )}
             </div>
             <button type="button" className="btn-ghost" onClick={onClose}>
               Close
             </button>
+          </header>
+
+          <div className="story-detail-sections">
+            {detail.description ? (
+              <section className="story-detail-block">
+                <h5 className="story-detail-section-title">Description</h5>
+                <StoryBody text={detail.description} />
+              </section>
+            ) : (
+              <p className="story-board-hint">No description on this issue.</p>
+            )}
+
+            {detail.acceptanceCriteria ? (
+              <section className="story-detail-block">
+                <h5 className="story-detail-section-title">
+                  Acceptance criteria
+                </h5>
+                <StoryBody text={detail.acceptanceCriteria} />
+              </section>
+            ) : null}
           </div>
-
-          {detail.description ? (
-            <div className="story-detail-block">
-              <h5>Description</h5>
-              <pre className="story-detail-body">{detail.description}</pre>
-            </div>
-          ) : (
-            <p className="story-board-hint">No description on this issue.</p>
-          )}
-
-          {detail.acceptanceCriteria ? (
-            <div className="story-detail-block">
-              <h5>Acceptance criteria</h5>
-              <pre className="story-detail-body">{detail.acceptanceCriteria}</pre>
-            </div>
-          ) : null}
 
           <div className="story-detail-actions">
             <button

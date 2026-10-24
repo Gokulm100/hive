@@ -158,41 +158,44 @@ export function ReportsView({
           ))
         )}
       </div>
-      <form className="composer" onSubmit={submit}>
-        <div className="composer-tools">
-          <button
-            type="button"
-            className="btn-ghost"
-            title="Reset run"
-            onClick={onReset}
-          >
-            Reset
-          </button>
-          {running ? (
-            <button
-              type="button"
-              className="btn-danger"
-              title="Stop current work"
-              onClick={onStop}
-            >
-              Stop
-            </button>
-          ) : null}
-        </div>
-        <div className="composer-row">
+      <form className="composer composer-stacked" onSubmit={submit}>
+        <label className="composer-field">
+          <span className="composer-label">Goal</span>
           <textarea
             ref={composerRef}
-            rows={input.length > 120 ? 6 : 2}
+            rows={input.length > 160 ? 5 : 3}
             placeholder={
               running
-                ? "Ask while running (side helper)…"
-                : "Tell the Orchestrator what to build — or pick a Jira story…"
+                ? "Ask while the hive is working…"
+                : "What should the hive build?"
             }
             autoComplete="off"
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
-          <button type="submit" className="btn-primary">
+        </label>
+        <div className="composer-footer">
+          <div className="composer-tools">
+            <button
+              type="button"
+              className="btn-ghost"
+              title="Reset run"
+              onClick={onReset}
+            >
+              Reset
+            </button>
+            {running ? (
+              <button
+                type="button"
+                className="btn-danger"
+                title="Stop current work"
+                onClick={onStop}
+              >
+                Stop
+              </button>
+            ) : null}
+          </div>
+          <button type="submit" className="btn-primary composer-send">
             Send
           </button>
         </div>
