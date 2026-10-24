@@ -403,19 +403,40 @@ export type JiraStoryDetail = JiraStoryListItem & {
   goal: string;
 };
 
-export async function fetchJiraStatus(): Promise<{
+export type JiraStatus = {
   configured: boolean;
   baseUrl: string | null;
-}> {
+  authOk: boolean | null;
+  authError: string | null;
+  account: string | null;
+  storyTypes: string[];
+  defaultJql: string | null;
+};
+
+export async function fetchJiraStatus(): Promise<JiraStatus> {
   const res = await apiFetch("/api/jira/status");
-  const data = (await res.json().catch(() => ({}))) as {
-    configured?: boolean;
-    baseUrl?: string | null;
+  const data = (await res.json().catch(() => ({}))) as Partial<JiraStatus> & {
+    error?: string;
   };
-  if (!res.ok) return { configured: false, baseUrl: null };
+  if (!res.ok) {
+    return {
+      configured: false,
+      baseUrl: null,
+      authOk: false,
+      authError: data.error || `status ${res.status}`,
+      account: null,
+      storyTypes: [],
+      defaultJql: null,
+    };
+  }
   return {
     configured: Boolean(data.configured),
     baseUrl: data.baseUrl ?? null,
+    authOk: data.authOk ?? null,
+    authError: data.authError ?? null,
+    account: data.account ?? null,
+    storyTypes: data.storyTypes ?? [],
+    defaultJql: data.defaultJql ?? null,
   };
 }
 
@@ -424,6 +445,7 @@ export async function fetchJiraStories(): Promise<JiraStoryListItem[]> {
   const data = (await res.json().catch(() => ({}))) as {
     stories?: JiraStoryListItem[];
     error?: string;
+    jql?: string;
   };
   if (!res.ok) throw new Error(data.error || `Jira stories failed (${res.status})`);
   return data.stories ?? [];

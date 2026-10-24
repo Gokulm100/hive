@@ -1,6 +1,9 @@
 /**
  * Shared-site Jira Cloud client (Basic auth: email + API token).
  * Env: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN, optional JIRA_JQL / JIRA_PROJECT.
+ *
+ * Scoped API tokens need read:jira-work (search/issues) and usually read:me /
+ * read:jira-user. The token account must also have Browse projects.
  */
 
 function envTrim(name: string): string {
@@ -23,6 +26,16 @@ export type JiraStoryDetail = JiraStoryListItem & {
   acceptanceCriteria: string;
   /** Ready-to-send Hive goal */
   goal: string;
+};
+
+export type JiraStatusInfo = {
+  configured: boolean;
+  baseUrl: string | null;
+  defaultJql: string | null;
+  authOk: boolean | null;
+  authError: string | null;
+  account: string | null;
+  storyTypes: string[];
 };
 
 type AdfNode = {
@@ -48,16 +61,35 @@ function authHeader(): string {
   return `Basic ${Buffer.from(raw, "utf8").toString("base64")}`;
 }
 
-/** Default: all open User Stories (any assignee). Override with JIRA_JQL. */
-export function defaultStoriesJql(): string {
+function projectClause(): string {
+  const project = envTrim("JIRA_PROJECT");
+  return project ? `project = "${project}" AND ` : "";
+}
+
+function quoteJqlString(s: string): string {
+  return `"${s.replace(/"/g, '\\"')}"`;
+}
+
+/** Build open-story JQL; uses discovered type names when available. */
+export function buildOpenStoriesJql(storyTypeNames: string[]): string {
   const custom = envTrim("JIRA_JQL");
   if (custom) return custom;
-  const project = envTrim("JIRA_PROJECT");
-  const projectClause = project ? `project = "${project}" AND ` : "";
+  const types =
+    storyTypeNames.length > 0
+      ? storyTypeNames
+      : ["Story", "User Story"];
+  const typeClause =
+    types.length === 1
+      ? `issuetype = ${quoteJqlString(types[0])}`
+      : `issuetype in (${types.map(quoteJqlString).join(", ")})`;
   return (
-    `${projectClause}` +
-    `issuetype = Story AND statusCategory != Done ORDER BY updated DESC`
+    `${projectClause()}${typeClause} AND statusCategory != Done ORDER BY updated DESC`
   );
+}
+
+/** @deprecated use buildOpenStoriesJql — kept for status preview before types load */
+export function defaultStoriesJql(): string {
+  return buildOpenStoriesJql(["Story", "User Story"]);
 }
 
 function adfToPlain(node: unknown): string {
@@ -122,7 +154,9 @@ async function jiraFetch(
   path: string,
   init?: RequestInit
 ): Promise<Response> {
-  const url = `${jiraBaseUrl()}${path.startsWith("/") ? path : `/${path}`}`;
+  const base = jiraBaseUrl();
+  if (!base) throw new Error("JIRA_BASE_URL is empty");
+  const url = `${base}${path.startsWith("/") ? path : `/${path}`}`;
   return fetch(url, {
     ...init,
     headers: {
@@ -133,15 +167,88 @@ async function jiraFetch(
   });
 }
 
-export async function searchStories(
-  jql = defaultStoriesJql(),
-  maxResults = 50
-): Promise<JiraStoryListItem[]> {
-  if (!jiraConfigured()) {
-    throw new Error("Jira is not configured on this server");
+/** Verify Basic auth + return display name. */
+export async function jiraMyself(): Promise<{
+  accountId: string;
+  displayName: string;
+  emailAddress?: string;
+}> {
+  const res = await jiraFetch("/rest/api/3/myself");
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(
+      res.status === 401 || res.status === 403
+        ? `Jira auth failed (${res.status}). Check JIRA_EMAIL + API token (scoped token needs read:jira-work / read:me). ${text.slice(0, 120)}`
+        : `Jira /myself failed (${res.status}): ${text.slice(0, 160)}`
+    );
   }
+  const data = (await res.json()) as {
+    accountId?: string;
+    displayName?: string;
+    emailAddress?: string;
+  };
+  return {
+    accountId: data.accountId || "",
+    displayName: data.displayName || data.emailAddress || "unknown",
+    emailAddress: data.emailAddress,
+  };
+}
 
-  // Prefer enhanced search; fall back to classic /search
+/** Issue type names that look like user stories on this site. */
+export async function listStoryTypeNames(): Promise<string[]> {
+  const res = await jiraFetch("/rest/api/3/issuetype");
+  if (!res.ok) return ["Story", "User Story"];
+  const types = (await res.json()) as Array<{ name?: string; subtask?: boolean }>;
+  const matched = types
+    .filter((t) => !t.subtask && t.name && /story/i.test(t.name))
+    .map((t) => t.name as string);
+  if (matched.length) return [...new Set(matched)];
+  // Site has no *Story* type — still try common names
+  return ["Story", "User Story"];
+}
+
+export async function getJiraStatusInfo(): Promise<JiraStatusInfo> {
+  if (!jiraConfigured()) {
+    return {
+      configured: false,
+      baseUrl: null,
+      defaultJql: null,
+      authOk: null,
+      authError: null,
+      account: null,
+      storyTypes: [],
+    };
+  }
+  let authOk: boolean | null = null;
+  let authError: string | null = null;
+  let account: string | null = null;
+  let storyTypes: string[] = [];
+  try {
+    const me = await jiraMyself();
+    authOk = true;
+    account = me.displayName;
+    storyTypes = await listStoryTypeNames();
+  } catch (e) {
+    authOk = false;
+    authError = e instanceof Error ? e.message : String(e);
+  }
+  return {
+    configured: true,
+    baseUrl: jiraBaseUrl(),
+    defaultJql: buildOpenStoriesJql(storyTypes),
+    authOk,
+    authError,
+    account,
+    storyTypes,
+  };
+}
+
+async function postSearch(
+  jql: string,
+  maxResults: number
+): Promise<{
+  issues: Array<{ key: string; fields?: Record<string, unknown> }>;
+}> {
   const body = {
     jql,
     maxResults,
@@ -154,6 +261,7 @@ export async function searchStories(
     body: JSON.stringify(body),
   });
 
+  // Legacy fallback while some sites still expose classic search
   if (res.status === 404 || res.status === 405) {
     res = await jiraFetch("/rest/api/3/search", {
       method: "POST",
@@ -162,17 +270,56 @@ export async function searchStories(
     });
   }
 
+  const text = await res.text();
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
     throw new Error(
-      `Jira search failed (${res.status}): ${text.slice(0, 200) || res.statusText}`
+      `Jira search failed (${res.status}): ${text.slice(0, 240) || res.statusText}`
     );
   }
 
-  const data = (await res.json()) as {
+  let data: {
     issues?: Array<{ key: string; fields?: Record<string, unknown> }>;
   };
-  return (data.issues || []).map(mapListItem);
+  try {
+    data = JSON.parse(text) as typeof data;
+  } catch {
+    throw new Error(`Jira search returned non-JSON: ${text.slice(0, 120)}`);
+  }
+  return { issues: data.issues || [] };
+}
+
+export async function searchStories(
+  jql?: string,
+  maxResults = 50
+): Promise<{ stories: JiraStoryListItem[]; jql: string }> {
+  if (!jiraConfigured()) {
+    throw new Error("Jira is not configured on this server");
+  }
+
+  // Fail fast with a clear message if token/email is wrong
+  await jiraMyself();
+
+  const storyTypes = await listStoryTypeNames();
+  let query = (jql && jql.trim()) || buildOpenStoriesJql(storyTypes);
+
+  let result = await postSearch(query, maxResults);
+
+  // If Story type name was wrong / empty, fall back to all unfinished issues
+  if (result.issues.length === 0 && !envTrim("JIRA_JQL") && !jql) {
+    const fallback = `${projectClause()}statusCategory != Done ORDER BY updated DESC`;
+    if (fallback !== query) {
+      const second = await postSearch(fallback, maxResults);
+      if (second.issues.length > 0) {
+        result = second;
+        query = fallback;
+      }
+    }
+  }
+
+  return {
+    stories: result.issues.map(mapListItem),
+    jql: query,
+  };
 }
 
 export async function getStory(key: string): Promise<JiraStoryDetail> {

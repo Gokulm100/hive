@@ -34,7 +34,7 @@ JIRA_API_TOKEN=...   # from https://id.atlassian.com/manage-profile/security/api
 # JIRA_PROJECT=PROJ  # optional
 ```
 
-In the UI, **Jira story** lists all open User Stories (`issuetype = Story`, not Done). Picking one fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
+In the UI, **Jira story** lists open issues whose type name contains “Story” (e.g. Story / User Story), not Done. Auth is **email + API token** (Basic). For scoped tokens, `read:jira-work` (+ `read:jira-user` / `read:me`) is enough; the account must also have **Browse projects**. Picking a story fills the Orchestrator goal (Board) or starts a run (Bubbles). No Jira write-back in v1.
 
 ### GitHub sign-in
 

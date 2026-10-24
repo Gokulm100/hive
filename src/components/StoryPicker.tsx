@@ -31,8 +31,21 @@ export function StoryPicker({ onApplyGoal, disabled, compact }: Props) {
         setStories([]);
         return;
       }
+      if (status.authOk === false) {
+        setStories([]);
+        setError(
+          status.authError ||
+            "Jira auth failed. Check JIRA_EMAIL + API token (needs read:jira-work / read:me)."
+        );
+        return;
+      }
       const list = await fetchJiraStories();
       setStories(list);
+      if (!list.length) {
+        setError(
+          `No open stories found${status.account ? ` (as ${status.account})` : ""}. Types: ${(status.storyTypes || []).join(", ") || "—"}. Check Browse project permission.`
+        );
+      }
     } catch (e) {
       setConfigured(true);
       setStories([]);
