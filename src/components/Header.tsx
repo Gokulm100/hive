@@ -143,6 +143,22 @@ export function Header({
               </svg>
             )}
           </button>
+          <div
+            className="badge brand-engine-badge"
+            title={apiError ?? undefined}
+          >
+            {runMode === "casual"
+              ? engine === "live"
+                ? "Casual · live"
+                : "Casual · demo"
+              : runMode === "fast"
+                ? engine === "live"
+                  ? "Fast · Dev only"
+                  : "Fast · demo"
+                : engine === "live"
+                  ? "Live · Cursor agents"
+                  : "Demo mode · scripted"}
+          </div>
         </div>
         <p id="brandSub">
           {runMode === "casual"
@@ -301,22 +317,6 @@ export function Header({
             Add agent
           </button>
         ) : null}
-        <div
-          className="badge"
-          title={apiError ?? undefined}
-        >
-          {runMode === "casual"
-            ? engine === "live"
-              ? "Casual · live"
-              : "Casual · demo"
-            : runMode === "fast"
-                ? engine === "live"
-                  ? "Fast · Dev only"
-                  : "Fast · demo"
-                : engine === "live"
-                ? "Live · Cursor agents"
-                : "Demo mode · scripted"}
-        </div>
       </div>
     </header>
   );
