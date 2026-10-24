@@ -728,13 +728,6 @@ export function BubbleMap({
         ) : (
           <span className="add-agent-bar-spacer" />
         )}
-        {onApplyStoryGoal ? (
-          <StoryPicker
-            compact
-            disabled={repoDisabled}
-            onApplyGoal={onApplyStoryGoal}
-          />
-        ) : null}
         <button
           type="button"
           className="btn-primary add-agent-trigger"
@@ -743,6 +736,13 @@ export function BubbleMap({
           Add agent
         </button>
       </div>
+      {onApplyStoryGoal ? (
+        <StoryPicker
+          compact
+          disabled={repoDisabled}
+          onApplyGoal={onApplyStoryGoal}
+        />
+      ) : null}
       <div className="map-canvas-wrap" ref={wrapRef}>
         <div className="map-canvas" id="mapCanvas" ref={canvasRef} />
       </div>

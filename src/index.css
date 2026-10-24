@@ -2227,8 +2227,7 @@
     }
 
     /* Override .repo-picker column layout — must stay a horizontal toolbar */
-    .repo-picker.compact,
-    .story-picker.compact {
+    .repo-picker.compact {
       flex: 1 1 auto;
       min-width: 0;
       display: flex;
@@ -2241,8 +2240,7 @@
       border-bottom: none;
       background: transparent;
     }
-    .repo-picker.compact .repo-field,
-    .story-picker.compact .repo-field {
+    .repo-picker.compact .repo-field {
       flex: 1 1 0;
       min-width: 0;
     }
@@ -2251,8 +2249,7 @@
       min-width: 112px;
       max-width: 128px;
     }
-    .repo-picker.compact .repo-field span,
-    .story-picker.compact .repo-field span {
+    .repo-picker.compact .repo-field span {
       font-size: 0.62rem;
       line-height: 1.2;
       white-space: nowrap;
@@ -2260,14 +2257,100 @@
       text-overflow: ellipsis;
     }
     .repo-picker.compact .repo-field select,
-    .repo-picker.compact .repo-field input,
-    .story-picker.compact .repo-field select {
+    .repo-picker.compact .repo-field input {
       padding: 7px 9px;
       font-size: 0.8rem;
       height: 36px;
       box-sizing: border-box;
       min-width: 0;
       width: 100%;
+    }
+
+    .story-picker.story-picker-cards,
+    .story-picker.story-picker-cards.compact {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      align-items: stretch;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+      flex: 0 0 auto;
+      padding: 8px 12px 10px;
+      border: none;
+      border-bottom: 1px solid var(--stroke);
+      background: var(--bar-bg);
+      box-sizing: border-box;
+    }
+    .story-picker-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      min-width: 0;
+    }
+    .story-picker-label {
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 650;
+      letter-spacing: 0.02em;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+    }
+    .story-picker-refresh {
+      flex-shrink: 0;
+      padding: 4px 10px;
+      height: 28px;
+      font-size: 0.72rem;
+    }
+    .story-picker-track {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding: 2px 2px 8px;
+      margin: 0 -2px;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+    }
+    .story-picker-track::-webkit-scrollbar {
+      height: 6px;
+    }
+    .story-picker-track::-webkit-scrollbar-thumb {
+      background: var(--stroke);
+      border-radius: 999px;
+    }
+    .story-picker-card {
+      flex: 0 0 200px;
+      width: 200px;
+      min-height: 148px;
+      scroll-snap-align: start;
+      cursor: default;
+    }
+    .story-picker-card.busy {
+      opacity: 0.85;
+    }
+    .story-picker-card .story-card-title {
+      -webkit-line-clamp: 2;
+    }
+    .story-picker-action {
+      margin-top: auto;
+      width: 100%;
+      height: 34px;
+      padding: 0 12px;
+      font-size: 0.8rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+    .story-picker-cards .story-picker-error,
+    .story-picker-cards .repo-hint {
+      margin: 0;
+      flex: none;
+      width: 100%;
+      font-size: 0.78rem;
     }
 
     .agent-modal-backdrop {
@@ -2678,7 +2761,7 @@
       background: var(--bar-bg);
       flex-shrink: 0;
     }
-    .story-picker {
+    .story-picker:not(.story-picker-cards) {
       flex-direction: row;
       flex-wrap: wrap;
       align-items: flex-end;
