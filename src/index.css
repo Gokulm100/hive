@@ -580,13 +580,6 @@
     .composer-row {
       display: contents;
     }
-    .composer .story-picker {
-      flex: 1 1 100%;
-      border: none;
-      border-top: 1px solid var(--stroke);
-      background: transparent;
-      padding: 8px 0 0;
-    }
     .composer input,
     .composer textarea {
       flex: 1 1 160px;
@@ -2385,6 +2378,269 @@
       border-bottom: 1px solid var(--stroke);
       border-top: 1px solid var(--stroke);
     }
+
+    /* —— Jira story board (Reports) —— */
+    .story-board {
+      flex-shrink: 0;
+      border-top: 1px solid var(--stroke);
+      background: var(--bar-bg);
+      padding: 12px 14px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: min(42vh, 360px);
+    }
+    .story-board-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .story-board-head h3 {
+      margin: 0;
+      font-family: var(--display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .story-board-sub {
+      margin: 2px 0 0;
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+    }
+    .story-board-refresh {
+      padding: 6px 12px;
+      font-size: 0.78rem;
+      flex-shrink: 0;
+    }
+    .story-board-hint {
+      margin: 0;
+      font-size: 0.78rem;
+      color: var(--ink-soft);
+    }
+    .story-board-error {
+      color: var(--blocked);
+    }
+    .story-board-track,
+    .story-board-skeleton {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 4px;
+      scroll-snap-type: x proximity;
+      -webkit-overflow-scrolling: touch;
+    }
+    .story-board-track::-webkit-scrollbar {
+      height: 6px;
+    }
+    .story-board-track::-webkit-scrollbar-thumb {
+      background: var(--stroke);
+      border-radius: 999px;
+    }
+    .story-card {
+      flex: 0 0 min(220px, 72vw);
+      scroll-snap-align: start;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--stroke);
+      background: var(--surface);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+      transition:
+        border-color 0.15s ease,
+        transform 0.15s ease,
+        background 0.15s ease;
+    }
+    .story-card:hover:not(:disabled) {
+      border-color: var(--accent);
+      transform: translateY(-1px);
+    }
+    .story-card.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .story-card.skeleton {
+      min-height: 108px;
+      pointer-events: none;
+      opacity: 0.45;
+      background: linear-gradient(
+        90deg,
+        var(--idle-soft) 0%,
+        var(--surface) 50%,
+        var(--idle-soft) 100%
+      );
+      background-size: 200% 100%;
+      animation: story-shimmer 1.2s ease-in-out infinite;
+    }
+    @keyframes story-shimmer {
+      0% { background-position: 100% 0; }
+      100% { background-position: -100% 0; }
+    }
+    .story-card-key {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .story-card-type {
+      font-size: 0.68rem;
+      color: var(--ink-soft);
+      margin-top: -4px;
+    }
+    .story-card-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      min-height: 3.6em;
+    }
+    .story-card-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 10px;
+      margin-top: auto;
+      padding-top: 4px;
+    }
+    .story-card-status {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--orch-soft);
+      color: var(--orch);
+    }
+    .story-card-assignee {
+      font-size: 0.68rem;
+      color: var(--ink-soft);
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .story-card-assignee.muted {
+      opacity: 0.7;
+    }
+    .story-detail {
+      border: 1px solid var(--stroke);
+      border-radius: 14px;
+      background: var(--surface);
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: min(28vh, 240px);
+      overflow: auto;
+      animation: story-detail-in 0.18s ease;
+    }
+    @keyframes story-detail-in {
+      from {
+        opacity: 0;
+        transform: translateY(4px);
+      }
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+    .story-detail-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .story-detail-key {
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+    }
+    .story-detail-key a {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .story-detail-key a:hover {
+      text-decoration: underline;
+    }
+    .story-detail-badge {
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--idle-soft);
+      color: var(--ink-soft);
+    }
+    .story-detail-badge.status {
+      background: var(--orch-soft);
+      color: var(--orch);
+    }
+    .story-detail-title {
+      margin: 6px 0 0;
+      font-family: var(--display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      line-height: 1.3;
+      color: var(--ink);
+    }
+    .story-detail-assignee {
+      margin: 4px 0 0;
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+    }
+    .story-detail-loading {
+      margin: 0;
+      font-size: 0.82rem;
+      color: var(--ink-soft);
+    }
+    .story-detail-block h5 {
+      margin: 0 0 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .story-detail-body {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: inherit;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--ink);
+      max-height: 7.5em;
+      overflow: auto;
+    }
+    .story-detail-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      padding-top: 2px;
+    }
+    .story-detail-actions .btn-primary {
+      padding: 8px 14px;
+      font-size: 0.82rem;
+    }
+    a.story-detail-link {
+      display: inline-flex;
+      align-items: center;
+      text-decoration: none;
+      padding: 8px 14px;
+      font-size: 0.82rem;
+    }
+
     .repo-field {
       display: flex;
       flex-direction: column;

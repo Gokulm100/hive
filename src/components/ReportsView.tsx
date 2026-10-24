@@ -5,7 +5,7 @@ import { ORCHESTRATOR } from "../data/cast";
 import type { AgentDef, AgentRuntime, OrchMessage } from "../types";
 import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
-import { StoryPicker } from "./StoryPicker";
+import { StoryBoard } from "./StoryBoard";
 
 type Props = {
   addAgentToken?: number;
@@ -122,6 +122,19 @@ export function ReportsView({
             ))
           )}
         </div>
+        <StoryBoard
+          disabled={running}
+          onApplyGoal={(goal) => {
+            setInput(goal);
+            // Scroll composer into view after filling
+            requestAnimationFrame(() => {
+              document
+                .querySelector(".composer textarea")
+                ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            });
+          }}
+        />
+
         <form className="composer" onSubmit={submit}>
           <div className="composer-tools">
             <button
@@ -143,10 +156,6 @@ export function ReportsView({
               </button>
             ) : null}
           </div>
-          <StoryPicker
-            disabled={running}
-            onApplyGoal={(goal) => setInput(goal)}
-          />
           <div className="composer-row">
             <textarea
               rows={input.length > 120 ? 6 : 2}
@@ -190,11 +199,6 @@ export function ReportsView({
           ) : (
             <span className="add-agent-bar-spacer" />
           )}
-          <StoryPicker
-            compact
-            disabled={running}
-            onApplyGoal={(goal) => setInput(goal)}
-          />
           <button
             type="button"
             className="btn-primary add-agent-trigger"
