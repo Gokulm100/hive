@@ -29,7 +29,7 @@ function authErrorMessage(code: string | null, detail?: string | null): string |
       "GitHub sign-in is not set up on this server. Ask the host to add GitHub keys.",
     access_denied: "GitHub sign-in was cancelled.",
     redirect_uri_mismatch:
-      "GitHub callback URL mismatch. Set the OAuth App callback to this site’s /api/auth/github/callback (Vercel URL) and match GITHUB_CLIENT_ID on Render to that same app.",
+      "GitHub callback URL mismatch. On the GitHub App, set Callback URL to a Hive URL (API /api/auth/github/callback or the site homepage) and try again.",
     invalid_oauth_state: "Sign-in link expired or was tampered with. Try again.",
     bad_verification_code:
       "GitHub login code expired or was reused. Click Continue with GitHub again (don’t refresh mid-login).",
@@ -80,8 +80,27 @@ export function useAuth(): AuthState {
   }, [phase]);
 
   useEffect(() => {
-    captureAuthTokenFromUrl();
     const params = new URLSearchParams(window.location.search);
+    const oauthCode = params.get("code");
+    const oauthState = params.get("state");
+    // GitHub App first Callback URL may be the SPA homepage. Forward to the API.
+    if (
+      oauthCode &&
+      oauthState &&
+      !window.location.pathname.includes("/api/auth/github/callback")
+    ) {
+      const next = new URLSearchParams();
+      next.set("code", oauthCode);
+      next.set("state", oauthState);
+      const oauthErr = params.get("error");
+      if (oauthErr) next.set("error", oauthErr);
+      const oauthDesc = params.get("error_description");
+      if (oauthDesc) next.set("error_description", oauthDesc);
+      window.location.replace(`/api/auth/github/callback?${next.toString()}`);
+      return;
+    }
+
+    captureAuthTokenFromUrl();
     const errCode = params.get("auth_error");
     const errDetail = params.get("auth_detail");
     if (errCode) {
