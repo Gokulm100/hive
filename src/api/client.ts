@@ -130,7 +130,7 @@ export type TeamMemberPayload = {
 
 export type WorkspacePayload = {
   url?: string;
-  /** Absolute folder on this computer for local Cursor agents */
+  /** Absolute folder on the API host for local Cursor agents */
   localPath?: string;
   startingRef?: string;
   autoCreatePR?: boolean;
@@ -147,8 +147,6 @@ export type Health = {
   busy: boolean;
   model: string;
   cwd: string;
-  /** Native folder dialog available (Hive API on this computer) */
-  localFolderPick?: boolean;
 };
 
 function onVercelHost(): boolean {
@@ -368,20 +366,6 @@ export async function fetchHealth(): Promise<Health> {
   const res = await fetch(apiUrl("/api/health"));
   if (!res.ok) throw new Error("API unreachable");
   return res.json() as Promise<Health>;
-}
-
-/** Opens a native folder picker on this computer (local Hive API only). */
-export async function pickLocalFolder(): Promise<string> {
-  const res = await apiFetch("/api/workspace/pick-folder", { method: "POST" });
-  const data = (await res.json().catch(() => ({}))) as {
-    path?: string;
-    error?: string;
-    cancelled?: boolean;
-  };
-  if (!res.ok || !data.path) {
-    throw new Error(data.error || `Folder picker failed (${res.status})`);
-  }
-  return data.path;
 }
 
 export function subscribeEvents(onEvent: (e: LiveEvent) => void): () => void {

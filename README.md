@@ -74,7 +74,7 @@ Toggle **Live / Demo** in the header. Live needs a valid key; Demo uses the old 
 
 1. Orchestrator agent plans JSON assignments
 2. Each teammate bubble has its own Cursor `Agent` (created lazily, reused)
-3. Agents run locally against a folder on **this computer** (Workspace → **Folder on this computer…** / Browse) or `HIVE_CWD` / `NEXUS_CWD`. Requires Hive API via `npm run dev` on your machine (not a remote Render-only API).
+3. Agents run locally against a chosen folder (Workspace → **Choose local folder…**) or `HIVE_CWD` / `NEXUS_CWD` (default: this repo). The path must exist on the API host.
 4. SSE streams status and chat updates to the UI
 
 ## Build

@@ -68,7 +68,6 @@ export function BubblesView({ api, addAgentToken }: Props) {
           workspaceCustomUrl={api.workspaceCustomUrl}
           workspaceLocalPath={api.workspaceLocalPath}
           apiCwd={api.apiCwd}
-          localFolderPick={api.localFolderPick}
           onWorkspaceUrl={api.setWorkspaceUrl}
           onWorkspaceBranch={api.setWorkspaceBranch}
           onWorkspaceCustomUrl={api.setWorkspaceCustomUrl}

@@ -2250,51 +2250,17 @@
       max-width: 128px;
     }
     .repo-picker.compact .repo-local-path {
-      flex: 1 1 220px;
-      min-width: 160px;
+      flex: 1 1 180px;
+      min-width: 140px;
     }
     .repo-local-path {
       position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 0;
     }
-    .repo-local-path > span {
-      font-size: 0.72rem;
-      color: var(--ink-soft);
-      font-weight: 600;
-    }
-    .repo-picker.compact .repo-local-path > span {
-      font-size: 0.62rem;
-      line-height: 1.2;
-    }
-    .repo-local-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-width: 0;
-    }
-    .repo-local-row input {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-    .repo-browse {
-      flex-shrink: 0;
-      height: 36px;
-      padding: 0 12px;
-      font-size: 0.78rem;
-      white-space: nowrap;
-    }
-    .repo-picker.compact .repo-browse {
-      height: 36px;
+    .repo-use-default {
+      margin-top: 6px;
+      height: 28px;
       padding: 0 10px;
-      font-size: 0.76rem;
-    }
-    .repo-local-warn {
-      margin: 0;
       font-size: 0.72rem;
-      color: var(--ink-soft);
     }
     .repo-picker.compact .repo-field span {
       font-size: 0.62rem;
