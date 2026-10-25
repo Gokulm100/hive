@@ -625,13 +625,19 @@
         min-height: 0;
         gap: 14px;
       }
-      body.view-bubbles .map-shell, body.view-circuit .map-shell{
+      body.view-bubbles .map-shell {
+        flex: 0 0 auto;
+        height: min(62dvh, 560px);
+        min-height: 300px;
+        width: 100%;
+      }
+      body.view-circuit .map-shell {
         flex: 0 0 auto;
         height: min(72dvh, 680px);
         min-height: 440px;
         width: 100%;
       }
-      body.view-bubbles .map-shell .map-canvas-wrap, body.view-circuit .map-shell .map-canvas-wrap{
+      body.view-circuit .map-shell .map-canvas-wrap {
         flex: 1 1 auto;
         min-height: 320px;
       }
@@ -4156,7 +4162,11 @@
     }
 
     @media (max-width: 860px) and (max-height: 700px) {
-      body.view-bubbles .map-shell, body.view-circuit .map-shell{
+      body.view-bubbles .map-shell {
+        height: min(52dvh, 440px);
+        min-height: 260px;
+      }
+      body.view-circuit .map-shell {
         height: min(68dvh, 560px);
         min-height: 380px;
       }
@@ -4171,7 +4181,11 @@
     }
 
     @media (max-width: 520px) {
-      body.view-bubbles .map-shell, body.view-circuit .map-shell{
+      body.view-bubbles .map-shell {
+        height: min(58dvh, 520px);
+        min-height: 280px;
+      }
+      body.view-circuit .map-shell {
         height: min(70dvh, 640px);
         min-height: 420px;
       }
