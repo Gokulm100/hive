@@ -53,10 +53,6 @@ import type {
 
 export type EngineMode = "live" | "demo";
 
-function isTeamMapView(v: ViewMode): boolean {
-  return v === "bubbles" || v === "circuit";
-}
-
 const DEMO_JOBS_KEY = "hive-demo-jobs";
 const MAX_JOBS = 3;
 
@@ -558,7 +554,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
                 },
               ],
             }));
-            if (isTeamMapView(viewRef.current)) setSelected(step.id);
+            if (viewRef.current === "bubbles") setSelected(step.id);
             bumpMap();
             play("add");
             return;
@@ -1039,7 +1035,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
           : `Joined the team as ${agent.role}.`
       );
       play("add");
-      if (isTeamMapView(viewRef.current)) setSelected(agent.id);
+      if (viewRef.current === "bubbles") setSelected(agent.id);
       bumpMap();
       return agent;
     },
@@ -1113,7 +1109,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
   const startReplay = useCallback(() => {
     if (runningRef.current) return;
     resetAll(false);
-    if (isTeamMapView(viewRef.current)) setSelected("orchestrator");
+    if (viewRef.current === "bubbles") setSelected("orchestrator");
     ensureChatSeed("orchestrator");
     pushAgentChat("orchestrator", "user", DEFAULT_GOAL);
     addMsg("user", DEFAULT_GOAL);
@@ -1265,7 +1261,6 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
   useLayoutEffect(() => {
     document.body.classList.toggle("view-reports", view === "reports");
     document.body.classList.toggle("view-bubbles", view === "bubbles");
-    document.body.classList.toggle("view-circuit", view === "circuit");
   }, [view]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
@@ -1547,7 +1542,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
             ],
           }));
           play("add");
-          if (isTeamMapView(viewRef.current)) setSelected(e.id);
+          if (viewRef.current === "bubbles") setSelected(e.id);
           bumpMap();
           return;
         }

@@ -1,5 +1,5 @@
 export type AgentStatus = "idle" | "working" | "done" | "blocked";
-export type ViewMode = "reports" | "bubbles" | "circuit";
+export type ViewMode = "reports" | "bubbles";
 export type ChatRole = "user" | "agent" | "system" | "process";
 export type ActivityKind = "status" | "report" | "instruct" | "system" | "process";
 export type OrchMsgKind = "user" | "orch";

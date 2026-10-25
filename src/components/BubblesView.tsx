@@ -4,7 +4,6 @@ import { ArtifactsPanel } from "./ArtifactsPanel";
 import { BubbleMap } from "./BubbleMap";
 import { JobsList } from "./JobsList";
 import type { OrchestrationApi } from "../hooks/useOrchestration";
-import { MapStyleSelect } from "./MapStyleSelect";
 
 type Props = {
   api: OrchestrationApi;
@@ -19,11 +18,6 @@ export function BubblesView({ api, addAgentToken }: Props) {
     <aside className="map-panel" aria-label="Agent bubble map">
       <div className="rail-head">
         <h3>Team map</h3>
-        <MapStyleSelect
-          compact
-          value="bubbles"
-          onChange={(style) => api.setView(style)}
-        />
         <div className="agent-chat-actions">
           {api.running ? (
             <button
