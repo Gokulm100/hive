@@ -181,7 +181,11 @@ export function CircuitMap({
         />
       ) : null}
       <div className="map-canvas-wrap circuit-canvas-wrap" ref={wrapRef}>
-        <div className="map-canvas circuit-canvas" aria-hidden={false}>
+        <div
+          className="map-canvas circuit-canvas"
+          style={{ minWidth: layout.width }}
+          aria-hidden={false}
+        >
           <svg
             viewBox={`0 0 ${layout.width} ${layout.height}`}
             preserveAspectRatio="xMidYMid meet"

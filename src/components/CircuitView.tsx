@@ -4,6 +4,7 @@ import { ArtifactsPanel } from "./ArtifactsPanel";
 import { CircuitMap } from "./CircuitMap";
 import { JobsList } from "./JobsList";
 import type { OrchestrationApi } from "../hooks/useOrchestration";
+import { MapStyleSelect } from "./MapStyleSelect";
 
 type Props = {
   api: OrchestrationApi;
@@ -18,6 +19,11 @@ export function CircuitView({ api, addAgentToken }: Props) {
     <aside className="map-panel" aria-label="Agent circuit map">
       <div className="rail-head">
         <h3>Circuit map</h3>
+        <MapStyleSelect
+          compact
+          value="circuit"
+          onChange={(style) => api.setView(style)}
+        />
         <div className="agent-chat-actions">
           {api.running ? (
             <button type="button" className="btn-danger" onClick={api.stopRun}>

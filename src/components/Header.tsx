@@ -4,6 +4,7 @@ import type { EngineMode } from "../hooks/useOrchestration";
 import { isSoundMuted, toggleSoundMuted } from "../lib/sounds";
 import type { ViewMode } from "../types";
 import { HiveLogo } from "./HiveLogo";
+import { MapStyleSelect, type MapStyle } from "./MapStyleSelect";
 
 const THEME_KEY = "hive-theme";
 
@@ -281,6 +282,10 @@ export function Header({
             Circuit
           </button>
         </div>
+        <MapStyleSelect
+          value={view === "circuit" ? "circuit" : "bubbles"}
+          onChange={(style: MapStyle) => onView(style)}
+        />
         <div className="view-toggle" role="group" aria-label="Run mode">
           {!isGuest ? (
             <>

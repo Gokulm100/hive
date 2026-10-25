@@ -285,6 +285,36 @@
       color: var(--bg);
     }
 
+    .map-style-select {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--ink-soft);
+    }
+    .map-style-select select {
+      border: 1px solid var(--stroke);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--ink);
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 8px 12px;
+      cursor: pointer;
+      min-width: 7.5rem;
+    }
+    .map-style-select--compact {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
+    }
+    .map-style-select--compact select {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      min-width: 6.5rem;
+    }
+
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -604,6 +634,19 @@
       body.view-bubbles .map-shell .map-canvas-wrap, body.view-circuit .map-shell .map-canvas-wrap{
         flex: 1 1 auto;
         min-height: 320px;
+      }
+      body.view-circuit .circuit-canvas-wrap {
+        overflow-x: auto;
+        overflow-y: hidden;
+        overscroll-behavior-x: contain;
+        -webkit-overflow-scrolling: touch;
+      }
+      body.view-circuit .circuit-canvas-wrap .circuit-canvas {
+        position: relative;
+        inset: auto;
+        width: auto;
+        height: 100%;
+        min-height: 100%;
       }
       body.view-reports .reports-stack {
         height: auto;

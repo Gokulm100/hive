@@ -17,6 +17,20 @@ export type CircuitLayout = {
 
 const HUB_ID = "orchestrator";
 
+/** Minimum canvas width so every column fits when the viewport is narrow (px). */
+export const CIRCUIT_MIN_COLUMN_GAP = 88;
+export const CIRCUIT_LAYOUT_PAD_X = 144;
+
+export function circuitLayoutMinWidth(agents: AgentDef[]): number {
+  const ordered = orderCircuitAgents(agents);
+  const mainCount = ordered.filter((a) => !a.ephemeral).length;
+  return Math.max(
+    320,
+    CIRCUIT_LAYOUT_PAD_X +
+      Math.max(0, mainCount - 1) * CIRCUIT_MIN_COLUMN_GAP
+  );
+}
+
 /** Left-to-right: hub, then team by angle (workflow ring), helpers after their parent. */
 export function orderCircuitAgents(agents: AgentDef[]): AgentDef[] {
   const hub = agents.find((a) => a.hub || a.id === HUB_ID);
@@ -79,10 +93,14 @@ export function layoutCircuit(
   const mainLine = ordered.filter((a) => !a.ephemeral);
   const ephemeral = ordered.filter((a) => a.ephemeral);
 
-  const padX = Math.max(72, width * 0.06);
+  const minW = circuitLayoutMinWidth(agents);
+  const layoutWidth = Math.max(width, minW);
+  const padX = Math.max(72, layoutWidth * 0.06);
   const colCount = Math.max(1, mainLine.length);
   const colWidth =
-    colCount <= 1 ? 0 : (width - padX * 2) / Math.max(1, colCount - 1);
+    colCount <= 1
+      ? 0
+      : (layoutWidth - padX * 2) / Math.max(1, colCount - 1);
   const centerY = height / 2;
 
   const pos = new Map<string, { x: number; y: number }>();
@@ -123,7 +141,7 @@ export function layoutCircuit(
 
   const edges = buildCircuitEdges(ordered);
 
-  return { nodes, edges, width, height };
+  return { nodes, edges, width: layoutWidth, height };
 }
 
 /** Orthogonal PCB-style path between two points (for SVG d attribute). */

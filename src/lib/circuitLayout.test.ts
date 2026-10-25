@@ -1,8 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ORCHESTRATOR, createInitialAgents } from "../data/cast.js";
+import {
+  ORCHESTRATOR,
+  createInitialAgents,
+  makeCustomAgent,
+} from "../data/cast.js";
 import {
   buildCircuitEdges,
+  circuitLayoutMinWidth,
   circuitTracePath,
   layoutCircuit,
   orderCircuitAgents,
@@ -51,5 +56,26 @@ describe("circuitLayout", () => {
     assert.match(d, /^M 10 20 H 100$/);
     const bent = circuitTracePath(10, 20, 100, 80);
     assert.match(bent, /V 80/);
+  });
+
+  it("includes every team member and a newly added agent as nodes", () => {
+    const team = createInitialAgents();
+    const ids = new Set(team.map((a) => a.id));
+    const custom = makeCustomAgent("Scribe", "Docs helper", ids);
+    const agents = [ORCHESTRATOR, ...team, custom];
+    const { nodes } = layoutCircuit(agents, 320, 400);
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    for (const a of agents) {
+      assert.ok(nodeIds.has(a.id), `expected node for ${a.id}`);
+    }
+  });
+
+  it("expands layout width on narrow viewports so columns do not crowd", () => {
+    const team = createInitialAgents();
+    const agents = [ORCHESTRATOR, ...team];
+    const minW = circuitLayoutMinWidth(agents);
+    const { width } = layoutCircuit(agents, 320, 400);
+    assert.ok(width >= minW);
+    assert.ok(width > 320);
   });
 });
