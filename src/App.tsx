@@ -5,6 +5,7 @@ import { Header } from "./components/Header";
 import { JobsList } from "./components/JobsList";
 import { ReportsView } from "./components/ReportsView";
 import { BubblesView } from "./components/BubblesView";
+import { CircuitView } from "./components/CircuitView";
 import { useCallback, useState } from "react";
 import { useAuth } from "./hooks/useAuth";
 import { useOrchestration } from "./hooks/useOrchestration";
@@ -110,6 +111,8 @@ function HiveApp({ authUser, onSignOut }: HiveAppProps) {
               onSkip={api.skipAgent}
             />
           </aside>
+        ) : api.view === "circuit" ? (
+          <CircuitView api={api} addAgentToken={addAgentToken} />
         ) : (
           <BubblesView api={api} addAgentToken={addAgentToken} />
         )}

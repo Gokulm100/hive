@@ -177,7 +177,9 @@ export function Header({
                 ? "Fast — Dev only: code, commit, merge the PR"
                 : view === "bubbles"
                   ? "Your AI crew on a map — instruct any agent in the side chat"
-                  : "One goal in, the hive reports back"}
+                  : view === "circuit"
+                    ? "Neon circuit view — same team, wired left to right"
+                    : "One goal in, the hive reports back"}
         </p>
       </div>
       <div className="top-end">
@@ -270,6 +272,13 @@ export function Header({
             onClick={() => onView("bubbles")}
           >
             Bubbles
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "circuit"}
+            onClick={() => onView("circuit")}
+          >
+            Circuit
           </button>
         </div>
         <div className="view-toggle" role="group" aria-label="Run mode">

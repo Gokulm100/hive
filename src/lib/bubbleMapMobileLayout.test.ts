@@ -33,6 +33,11 @@ describe("bubble map mobile layout CSS", () => {
       "body.view-bubbles .map-shell",
       BUBBLE_MAP_MOBILE_MIN_HEIGHT.tablet
     );
+    expectMinHeight(
+      block,
+      "body.view-circuit .map-shell",
+      BUBBLE_MAP_MOBILE_MIN_HEIGHT.tablet
+    );
     assert.match(
       block,
       /body\.view-bubbles \.map-shell[\s\S]*?height:\s*min\(72dvh,\s*680px\)/,
@@ -60,6 +65,11 @@ describe("bubble map mobile layout CSS", () => {
     expectMinHeight(
       block,
       "body.view-bubbles .map-shell",
+      BUBBLE_MAP_MOBILE_MIN_HEIGHT.short
+    );
+    expectMinHeight(
+      block,
+      "body.view-circuit .map-shell",
       BUBBLE_MAP_MOBILE_MIN_HEIGHT.short
     );
   });
