@@ -74,9 +74,6 @@ export function BubblesView({ api, addAgentToken }: Props) {
           onWorkspaceLocalPath={api.setWorkspaceLocalPath}
           repoDisabled={api.running}
           onApplyStoryGoal={api.submitGoal}
-          workProgress={api.workProgress}
-          plannedTasks={api.plannedTasks}
-          running={api.running}
         />
         <div className="agent-chat-column">
           <AgentChat

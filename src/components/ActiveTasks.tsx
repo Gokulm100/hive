@@ -1,6 +1,5 @@
 import type { RunMode, WorkspacePayload } from "../api/client";
 import { CharAvatar } from "./CharAvatar";
-import { runOverallProgressPct } from "../lib/bubbleFill";
 import type { AgentDef, AgentRuntime, PlannedTask } from "../types";
 
 type Progress = { active: boolean; steps: number; label: string };
@@ -67,7 +66,14 @@ export function ActiveTasks({
     (p) => p.phase === "done" || p.phase === "skipped"
   ).length;
   const totalPlanned = plannedTasks.length;
-  const progressPct = runOverallProgressPct({ plannedTasks, running });
+  const progressPct =
+    totalPlanned > 0
+      ? Math.round(
+          ((doneCount + plannedActive.length * 0.45) / totalPlanned) * 100
+        )
+      : running
+        ? 8
+        : 0;
 
   const empty =
     !currentGoal && !activeCards.length && !upcoming.length && !successSummary;
