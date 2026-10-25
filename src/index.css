@@ -285,36 +285,6 @@
       color: var(--bg);
     }
 
-    .map-style-select {
-      display: inline-flex;
-      flex-direction: column;
-      gap: 4px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--ink-soft);
-    }
-    .map-style-select select {
-      border: 1px solid var(--stroke);
-      border-radius: 10px;
-      background: var(--surface);
-      color: var(--ink);
-      font-size: 0.85rem;
-      font-weight: 600;
-      padding: 8px 12px;
-      cursor: pointer;
-      min-width: 7.5rem;
-    }
-    .map-style-select--compact {
-      flex-direction: row;
-      align-items: center;
-      gap: 8px;
-    }
-    .map-style-select--compact select {
-      padding: 6px 10px;
-      font-size: 0.8rem;
-      min-width: 6.5rem;
-    }
-
     .legend {
       display: flex;
       flex-wrap: wrap;
@@ -340,23 +310,23 @@
       align-content: stretch;
     }
 
-    body.view-bubbles .active-tasks, body.view-circuit .active-tasks,
+    body.view-bubbles .active-tasks,
     body.view-reports .active-tasks {
       display: flex;
     }
 
-    body.view-bubbles .chat, body.view-circuit .chat,
-    body.view-bubbles .rail, body.view-circuit .rail{ display: none; }
+    body.view-bubbles .chat,
+    body.view-bubbles .rail { display: none; }
     body.view-reports .map-panel { display: none; }
 
-    body.view-bubbles, body.view-circuit,
+    body.view-bubbles,
     body.view-reports {
       height: auto;
       min-height: 100%;
       overflow-x: hidden;
       overflow-y: auto;
     }
-    body.view-bubbles .app, body.view-circuit .app,
+    body.view-bubbles .app,
     body.view-reports .app {
       max-width: none;
       height: auto;
@@ -366,12 +336,12 @@
       padding-right: max(16px, env(safe-area-inset-right));
       padding-bottom: max(40px, env(safe-area-inset-bottom));
     }
-    body.view-bubbles .layout, body.view-circuit .layout,
+    body.view-bubbles .layout,
     body.view-reports .layout {
       flex: 0 0 auto;
       min-height: 0;
     }
-    body.view-bubbles .map-panel, body.view-circuit .map-panel,
+    body.view-bubbles .map-panel,
     body.view-reports .reports-panel {
       display: flex;
       flex-direction: column;
@@ -381,7 +351,7 @@
       width: 100%;
       gap: 20px;
     }
-    body.view-bubbles .map-stack, body.view-circuit .map-stack{
+    body.view-bubbles .map-stack {
       display: flex;
       flex: 0 0 auto;
       height: calc(100dvh - 110px);
@@ -411,7 +381,7 @@
       min-width: 0;
       width: 100%;
     }
-    body.view-bubbles .map-shell, body.view-circuit .map-shell{
+    body.view-bubbles .map-shell {
       flex: 7 1 0;
       min-width: 0;
       min-height: 0;
@@ -586,7 +556,7 @@
     body.view-reports .chat-head-actions {
       margin-left: auto;
     }
-    body.view-bubbles .agent-chat-column, body.view-circuit .agent-chat-column{
+    body.view-bubbles .agent-chat-column {
       flex: 3 1 0;
       min-width: 260px;
       max-width: none;
@@ -598,10 +568,10 @@
       overflow: hidden;
       background: var(--surface);
     }
-    body.view-bubbles .agent-chat-column .repo-picker, body.view-circuit .agent-chat-column .repo-picker{
+    body.view-bubbles .agent-chat-column .repo-picker {
       border-bottom: 1px solid var(--stroke);
     }
-    body.view-bubbles .agent-chat-column .agent-chat, body.view-circuit .agent-chat-column .agent-chat{
+    body.view-bubbles .agent-chat-column .agent-chat {
       flex: 1 1 auto;
       min-width: 0;
       min-height: 0;
@@ -618,7 +588,7 @@
 
     @media (max-width: 860px) {
       .layout { grid-template-columns: 1fr; }
-      body.view-bubbles .map-stack, body.view-circuit .map-stack,
+      body.view-bubbles .map-stack,
       body.view-reports .reports-stack {
         flex-direction: column;
         height: auto;
@@ -631,28 +601,9 @@
         min-height: 300px;
         width: 100%;
       }
-      body.view-circuit .map-shell {
-        flex: 0 0 auto;
-        height: min(72dvh, 680px);
-        min-height: 440px;
-        width: 100%;
-      }
-      body.view-circuit .map-shell .map-canvas-wrap {
+      body.view-bubbles .map-shell .map-canvas-wrap {
         flex: 1 1 auto;
         min-height: 320px;
-      }
-      body.view-circuit .circuit-canvas-wrap {
-        overflow-x: auto;
-        overflow-y: hidden;
-        overscroll-behavior-x: contain;
-        -webkit-overflow-scrolling: touch;
-      }
-      body.view-circuit .circuit-canvas-wrap .circuit-canvas {
-        position: relative;
-        inset: auto;
-        width: auto;
-        height: 100%;
-        min-height: 100%;
       }
       body.view-reports .reports-stack {
         height: auto;
@@ -721,14 +672,14 @@
       body.view-reports .reports-stack .team-strip {
         width: 100%;
       }
-      body.view-bubbles .agent-chat-column, body.view-circuit .agent-chat-column{
+      body.view-bubbles .agent-chat-column {
         flex: 0 0 auto;
         min-width: 0;
         width: 100%;
         min-height: 280px;
       }
-      body.view-bubbles .agent-chat-column .agent-chat, body.view-circuit .agent-chat-column .agent-chat,
-      body.view-bubbles .agent-chat, body.view-circuit .agent-chat{
+      body.view-bubbles .agent-chat-column .agent-chat,
+      body.view-bubbles .agent-chat {
         flex: 1 1 auto;
         min-width: 0;
         min-height: 280px;
@@ -1233,131 +1184,6 @@
     }
     @keyframes dashFlow {
       to { stroke-dashoffset: -28; }
-    }
-
-    /* —— Neon circuit map —— */
-    .circuit-shell {
-      background:
-        radial-gradient(ellipse 90% 70% at 50% 50%, rgba(0, 255, 220, 0.08) 0%, transparent 55%),
-        radial-gradient(circle at 10% 20%, rgba(180, 80, 255, 0.12) 0%, transparent 45%),
-        linear-gradient(180deg, #0a0e18 0%, #060810 100%);
-      border-color: rgba(0, 255, 220, 0.22);
-    }
-    body.theme-light .circuit-shell {
-      background:
-        radial-gradient(ellipse 90% 70% at 50% 50%, rgba(0, 160, 140, 0.12) 0%, transparent 55%),
-        linear-gradient(180deg, #eef6ff 0%, #e2ecf8 100%);
-    }
-
-    .circuit-canvas .circuit-svg .circuit-trace {
-      fill: none;
-      stroke: rgba(0, 220, 255, 0.45);
-      stroke-width: 2.5;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-      opacity: 0.75;
-      transition: stroke 0.25s ease, opacity 0.25s ease;
-    }
-    .circuit-canvas .circuit-svg .circuit-trace.done {
-      stroke: rgba(80, 255, 180, 0.7);
-    }
-    .circuit-canvas .circuit-svg .circuit-trace.blocked {
-      stroke: rgba(255, 90, 120, 0.75);
-    }
-    .circuit-canvas .circuit-svg .circuit-trace.ephemeral:not(.active) {
-      stroke: rgba(200, 140, 255, 0.4);
-      stroke-dasharray: 4 6;
-    }
-    .circuit-canvas .circuit-svg .circuit-trace.active {
-      stroke: rgba(0, 255, 240, 1);
-      stroke-width: 3.2;
-      opacity: 1;
-      stroke-dasharray: 10 14;
-      animation: circuitPulse 0.65s linear infinite;
-    }
-    @keyframes circuitPulse {
-      to { stroke-dashoffset: -48; }
-    }
-
-    .circuit-node {
-      position: absolute;
-      transform: translate(-50%, -50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 4px;
-      padding: 0;
-      border: none;
-      background: transparent;
-      cursor: pointer;
-      z-index: 2;
-      min-width: 72px;
-    }
-    .circuit-node-glow {
-      position: absolute;
-      inset: -8px -12px;
-      border-radius: 12px;
-      background: radial-gradient(circle, rgba(0, 255, 220, 0.15) 0%, transparent 70%);
-      opacity: 0;
-      transition: opacity 0.2s ease;
-      pointer-events: none;
-    }
-    .circuit-node.glow .circuit-node-glow,
-    .circuit-node.selected .circuit-node-glow {
-      opacity: 1;
-    }
-    .circuit-node.working .circuit-node-glow {
-      opacity: 1;
-      animation: circuitNodePulse 1.2s ease-in-out infinite;
-    }
-    @keyframes circuitNodePulse {
-      0%, 100% { opacity: 0.55; }
-      50% { opacity: 1; }
-    }
-    .circuit-chip {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 56px;
-      height: 56px;
-      border-radius: 8px;
-      border: 2px solid rgba(0, 220, 255, 0.55);
-      background: linear-gradient(145deg, rgba(8, 20, 32, 0.95), rgba(4, 10, 18, 0.98));
-      box-shadow:
-        0 0 12px rgba(0, 255, 220, 0.25),
-        inset 0 0 8px rgba(0, 180, 200, 0.15);
-    }
-    .circuit-node.hub .circuit-chip {
-      width: 64px;
-      height: 64px;
-      border-color: rgba(255, 200, 80, 0.7);
-      box-shadow:
-        0 0 16px rgba(255, 180, 60, 0.35),
-        inset 0 0 10px rgba(255, 140, 40, 0.12);
-    }
-    .circuit-node.selected .circuit-chip {
-      border-color: rgba(255, 255, 255, 0.85);
-      box-shadow: 0 0 20px rgba(0, 255, 240, 0.55);
-    }
-    .circuit-char {
-      width: 36px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .circuit-char svg {
-      width: 100%;
-      height: 100%;
-    }
-    .circuit-node .label {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--text);
-      text-shadow: 0 0 8px rgba(0, 255, 220, 0.35);
-    }
-    .circuit-node.ephemeral {
-      transform: translate(-50%, -50%) scale(0.88);
     }
 
     .agent-bubble.ephemeral {
@@ -2372,7 +2198,7 @@
       box-sizing: border-box;
       min-width: 0;
     }
-    body.view-bubbles .add-agent-bar, body.view-circuit .add-agent-bar{ display: flex; }
+    body.view-bubbles .add-agent-bar { display: flex; }
     body.view-reports .add-agent-bar-reports { display: flex; }
 
     .add-agent-bar-reports {
@@ -3497,10 +3323,10 @@
       min-height: 0;
       flex: 3 1 0;
     }
-    body.view-bubbles .agent-chat-column, body.view-circuit .agent-chat-column{
+    body.view-bubbles .agent-chat-column {
       flex: 3 1 0;
     }
-    body.view-bubbles .agent-chat-column .agent-chat, body.view-circuit .agent-chat-column .agent-chat{
+    body.view-bubbles .agent-chat-column .agent-chat {
       flex: 1;
       min-height: 0;
     }
@@ -3660,7 +3486,7 @@
     }
 
     @media (max-width: 860px) {
-      body.view-bubbles .map-shell, body.view-circuit .map-shell{
+      body.view-bubbles .map-shell {
         max-height: none;
       }
     }
@@ -4067,7 +3893,7 @@
         justify-content: center;
       }
 
-      body.view-bubbles .app, body.view-circuit .app,
+      body.view-bubbles .app,
       body.view-reports .app,
       .app {
         padding: 12px 12px 28px;
@@ -4128,7 +3954,7 @@
         margin-left: auto;
         flex-shrink: 1;
       }
-      body.view-bubbles .agent-chat:has(.question-form), body.view-circuit .agent-chat:has(.question-form){
+      body.view-bubbles .agent-chat:has(.question-form) {
         min-height: min(60dvh, 520px);
       }
 
@@ -4166,10 +3992,6 @@
         height: min(52dvh, 440px);
         min-height: 260px;
       }
-      body.view-circuit .map-shell {
-        height: min(68dvh, 560px);
-        min-height: 380px;
-      }
       body.view-reports .reports-stack .reports-chat {
         height: min(52dvh, 420px);
         min-height: 300px;
@@ -4184,10 +4006,6 @@
       body.view-bubbles .map-shell {
         height: min(58dvh, 520px);
         min-height: 280px;
-      }
-      body.view-circuit .map-shell {
-        height: min(70dvh, 640px);
-        min-height: 420px;
       }
       .map-shell .agent-bubble {
         width: 68px;
