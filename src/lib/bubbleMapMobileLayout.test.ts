@@ -33,6 +33,11 @@ describe("bubble map mobile layout CSS", () => {
       "body.view-bubbles .map-shell",
       BUBBLE_MAP_MOBILE_MIN_HEIGHT.tablet
     );
+    expectMinHeight(
+      block,
+      "body.view-circuit .map-shell",
+      BUBBLE_MAP_MOBILE_MIN_HEIGHT.tablet
+    );
     assert.match(
       block,
       /body\.view-bubbles \.map-shell[\s\S]*?height:\s*min\(72dvh,\s*680px\)/,
@@ -61,6 +66,22 @@ describe("bubble map mobile layout CSS", () => {
       block,
       "body.view-bubbles .map-shell",
       BUBBLE_MAP_MOBILE_MIN_HEIGHT.short
+    );
+    expectMinHeight(
+      block,
+      "body.view-circuit .map-shell",
+      BUBBLE_MAP_MOBILE_MIN_HEIGHT.short
+    );
+  });
+
+  it("allows sideways scroll for circuit map on tablet-width viewports", () => {
+    const start = css.indexOf("@media (max-width: 860px)");
+    const end = css.indexOf("@media", start + 10);
+    const block = css.slice(start, end > start ? end : start + 4000);
+    assert.match(
+      block,
+      /body\.view-circuit \.circuit-canvas-wrap[\s\S]*?overflow-x:\s*auto/,
+      "circuit map horizontal scroll on narrow screens"
     );
   });
 

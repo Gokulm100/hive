@@ -53,6 +53,10 @@ import type {
 
 export type EngineMode = "live" | "demo";
 
+function isTeamMapView(v: ViewMode): boolean {
+  return v === "bubbles" || v === "circuit";
+}
+
 const DEMO_JOBS_KEY = "hive-demo-jobs";
 const MAX_JOBS = 3;
 
@@ -554,7 +558,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
                 },
               ],
             }));
-            if (viewRef.current === "bubbles") setSelected(step.id);
+            if (isTeamMapView(viewRef.current)) setSelected(step.id);
             bumpMap();
             play("add");
             return;
@@ -1035,7 +1039,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
           : `Joined the team as ${agent.role}.`
       );
       play("add");
-      if (viewRef.current === "bubbles") setSelected(agent.id);
+      if (isTeamMapView(viewRef.current)) setSelected(agent.id);
       bumpMap();
       return agent;
     },
@@ -1109,7 +1113,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
   const startReplay = useCallback(() => {
     if (runningRef.current) return;
     resetAll(false);
-    if (viewRef.current === "bubbles") setSelected("orchestrator");
+    if (isTeamMapView(viewRef.current)) setSelected("orchestrator");
     ensureChatSeed("orchestrator");
     pushAgentChat("orchestrator", "user", DEFAULT_GOAL);
     addMsg("user", DEFAULT_GOAL);
@@ -1261,6 +1265,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
   useLayoutEffect(() => {
     document.body.classList.toggle("view-reports", view === "reports");
     document.body.classList.toggle("view-bubbles", view === "bubbles");
+    document.body.classList.toggle("view-circuit", view === "circuit");
   }, [view]);
 
   useEffect(() => () => clearTimers(), [clearTimers]);
@@ -1542,7 +1547,7 @@ export function useOrchestration(options: OrchestrationOptions = {}) {
             ],
           }));
           play("add");
-          if (viewRef.current === "bubbles") setSelected(e.id);
+          if (isTeamMapView(viewRef.current)) setSelected(e.id);
           bumpMap();
           return;
         }
