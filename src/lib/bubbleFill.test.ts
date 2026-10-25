@@ -4,6 +4,7 @@ import {
   agentBubbleFillPct,
   bubbleFillPctForId,
   orchestratorBubbleFillPct,
+  runOverallProgressPct,
   stepsFillWithinBand,
 } from "./bubbleFill.js";
 
@@ -36,6 +37,27 @@ describe("bubble fill mapping", () => {
       0
     );
     assert.equal(
+      agentBubbleFillPct({
+        status: "working",
+        taskPhase: "upcoming",
+        progress: { active: true, steps: 5, label: "Early" },
+      }),
+      0
+    );
+    const workingActive = agentBubbleFillPct({
+      status: "working",
+      taskPhase: "active",
+      progress: { active: true, steps: 2, label: "Working…" },
+    });
+    assert.equal(
+      agentBubbleFillPct({
+        status: "blocked",
+        taskPhase: "active",
+        progress: { active: true, steps: 2, label: "Waiting on you" },
+      }),
+      workingActive
+    );
+    assert.equal(
       agentBubbleFillPct({ status: "done", taskPhase: "active" }),
       100
     );
@@ -54,6 +76,22 @@ describe("bubble fill mapping", () => {
         ephemeral: true,
       }),
       85
+    );
+  });
+
+  it("shares overall progress percent with the task board", () => {
+    const plannedTasks = [
+      { id: "a", task: "A", phase: "done" as const },
+      { id: "b", task: "B", phase: "active" as const },
+      { id: "c", task: "C", phase: "upcoming" as const },
+    ];
+    assert.equal(runOverallProgressPct({ plannedTasks, running: true }), 48);
+    assert.equal(
+      orchestratorBubbleFillPct({
+        plannedTasks,
+        running: true,
+      }),
+      runOverallProgressPct({ plannedTasks, running: true })
     );
   });
 

@@ -34,7 +34,7 @@ export function agentBubbleFillPct(input: {
   if (phase === "done" || phase === "skipped") return 100;
 
   if (phase === "upcoming") {
-    return status === "working" ? 6 : 0;
+    return 0;
   }
 
   if (phase === "active" || status === "working" || status === "blocked") {
@@ -46,6 +46,27 @@ export function agentBubbleFillPct(input: {
   return 0;
 }
 
+/** Overall run progress percent — shared with the task board goal bar. */
+export function runOverallProgressPct(input: {
+  plannedTasks: PlannedTask[];
+  running: boolean;
+}): number {
+  const { plannedTasks, running } = input;
+  const doneCount = plannedTasks.filter(
+    (p) => p.phase === "done" || p.phase === "skipped"
+  ).length;
+  const plannedActive = plannedTasks.filter((p) => p.phase === "active");
+  const totalPlanned = plannedTasks.length;
+
+  if (totalPlanned > 0) {
+    return Math.round(
+      ((doneCount + plannedActive.length * 0.45) / totalPlanned) * 100
+    );
+  }
+
+  return running ? 8 : 0;
+}
+
 /** Overall run progress for the Orchestrator hub bubble. */
 export function orchestratorBubbleFillPct(input: {
   plannedTasks: PlannedTask[];
@@ -53,22 +74,10 @@ export function orchestratorBubbleFillPct(input: {
   celebrate?: boolean;
 }): number {
   if (input.celebrate) return 100;
-
-  const { plannedTasks, running } = input;
-  const doneCount = plannedTasks.filter(
-    (p) => p.phase === "done" || p.phase === "skipped"
-  ).length;
-  const activeCount = plannedTasks.filter((p) => p.phase === "active").length;
-  const total = plannedTasks.length;
-
-  if (total > 0) {
-    return Math.min(
-      100,
-      Math.round(((doneCount + activeCount * 0.45) / total) * 100)
-    );
-  }
-
-  return running ? 8 : 0;
+  return runOverallProgressPct({
+    plannedTasks: input.plannedTasks,
+    running: input.running,
+  });
 }
 
 export function bubbleFillPctForId(
