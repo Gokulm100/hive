@@ -3,10 +3,7 @@ import type { ListedRepo } from "../api/client";
 import { charHtml } from "../data/chars";
 import { ORCHESTRATOR } from "../data/cast";
 import { polarToXY } from "../lib/utils";
-import { bubbleFillPctForId } from "../lib/bubbleFill";
-import type { AgentDef, AgentRuntime, PlannedTask } from "../types";
-
-type WorkProgress = { active: boolean; steps: number; label: string };
+import type { AgentDef, AgentRuntime } from "../types";
 import { AddAgentModal } from "./AddAgentModal";
 import { RepoPicker } from "./RepoPicker";
 import { StoryPicker } from "./StoryPicker";
@@ -46,9 +43,6 @@ type Props = {
   repoDisabled?: boolean;
   /** Fill / start a goal from a Jira story */
   onApplyStoryGoal?: (goal: string) => void;
-  workProgress?: Record<string, WorkProgress>;
-  plannedTasks?: PlannedTask[];
-  running?: boolean;
 };
 
 const STRESS_FX = `<span class="stress-fx" aria-hidden="true">
@@ -102,15 +96,6 @@ function bubbleClassNames(
     .trim();
 }
 
-function syncDropletFill(
-  droplet: HTMLElement | null,
-  pct: number
-) {
-  if (!droplet) return;
-  const clamped = Math.max(0, Math.min(100, pct));
-  droplet.style.setProperty("--fill-pct", `${clamped}%`);
-}
-
 function heatChipLabel(status: string, phase: HeatPhase, ephemeral: boolean) {
   if (ephemeral) return status === "done" ? "done" : "helper";
   if (phase === "fuming" && status === "working") return "fuming…";
@@ -143,9 +128,6 @@ export function BubbleMap({
   onWorkspaceLocalPath,
   repoDisabled,
   onApplyStoryGoal,
-  workProgress = {},
-  plannedTasks = [],
-  running = false,
 }: Props) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -160,9 +142,6 @@ export function BubbleMap({
   const workSinceRef = useRef(new Map<string, number>());
   const onSelectRef = useRef(onSelect);
   const onPersistRef = useRef(onPersistPos);
-  const workProgressRef = useRef(workProgress);
-  const plannedTasksRef = useRef(plannedTasks);
-  const runningRef = useRef(running);
 
   selectedRef.current = selected;
   agentStateRef.current = agentState;
@@ -171,9 +150,6 @@ export function BubbleMap({
   celebrateRef.current = celebrateOrch;
   onSelectRef.current = onSelect;
   onPersistRef.current = onPersistPos;
-  workProgressRef.current = workProgress;
-  plannedTasksRef.current = plannedTasks;
-  runningRef.current = running;
 
   const [addOpen, setAddOpen] = useState(false);
   const [, setHeatTick] = useState(0);
@@ -187,17 +163,6 @@ export function BubbleMap({
     return heatPhaseRef.current.get(id)?.phase ?? "none";
   }
 
-  function fillPctFor(id: string, ephemeral = false) {
-    return bubbleFillPctForId(id, {
-      agentState: agentStateRef.current,
-      plannedTasks: plannedTasksRef.current,
-      workProgress: workProgressRef.current,
-      running: runningRef.current,
-      celebrateOrch: celebrateRef.current,
-      ephemeral,
-    });
-  }
-
   function applyHeatClassesToDom() {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -209,13 +174,9 @@ export function BubbleMap({
       const status = agentStateRef.current[id]?.status || "idle";
       const ephemeral = !!teamRef.current.find((a) => a.id === id)?.ephemeral;
       const chip = node.querySelector(".mini-chip");
-        if (chip && id !== "orchestrator") {
+      if (chip && id !== "orchestrator") {
         chip.textContent = heatChipLabel(status, phase, ephemeral);
       }
-      syncDropletFill(
-        node.querySelector<HTMLElement>(".droplet"),
-        fillPctFor(id, ephemeral)
-      );
     });
   }
 
@@ -313,10 +274,6 @@ export function BubbleMap({
             );
           }
         }
-        syncDropletFill(
-          node.querySelector<HTMLElement>(".droplet"),
-          fillPctFor(id, ephemeral)
-        );
       });
     }
 
@@ -463,8 +420,6 @@ export function BubbleMap({
       const orchStatus =
         agentStateRef.current.orchestrator?.status || "idle";
 
-      const orchFill = fillPctFor("orchestrator");
-
       const hubHtml = `
         <button type="button" class="${bubbleClassNames("orchestrator", true, orchStatus, selectedRef.current, flashRef.current, heatPhaseOf("orchestrator"), celebrateRef.current)}"
           data-id="orchestrator"
@@ -474,8 +429,7 @@ export function BubbleMap({
           <span class="success-burst" aria-hidden="true">✓</span>
           ${SLEEP_FX}
           ${STRESS_FX}
-          <div class="droplet shape-hub" aria-hidden="true" style="--fill-pct:${orchFill}%">
-            <span class="droplet-fill" aria-hidden="true"></span>
+          <div class="droplet shape-hub" aria-hidden="true">
             ${charHtml(ORCHESTRATOR, "anim-spin")}
           </div>
           <span class="label">Orchestrator</span>
@@ -485,23 +439,19 @@ export function BubbleMap({
 
       const agentHtml = nodes
         .map(
-          (n) => {
-            const fill = fillPctFor(n.id, !!n.ephemeral);
-            return `
+          (n) => `
             <button type="button" class="${bubbleClassNames(n.id, false, n.status, selectedRef.current, flashRef.current, heatPhaseOf(n.id), false, !!n.ephemeral)}" data-id="${n.id}"
               style="left:${n.x}px;top:${n.y}px;--sleep-phase:${sleepPhaseSec(n.id)}s" aria-label="${n.name}, ${n.status}${n.ephemeral ? ", temporary helper" : ""}">
               <span class="rainbow-glow" aria-hidden="true"></span>
               ${SLEEP_FX}
               ${STRESS_FX}
-              <div class="droplet shape-${n.shape}" aria-hidden="true" style="--fill-pct:${fill}%">
-                <span class="droplet-fill" aria-hidden="true"></span>
+              <div class="droplet shape-${n.shape}" aria-hidden="true">
                 ${charHtml(n, n.anim)}
               </div>
               <span class="label">${n.name}</span>
               <span class="mini-chip">${heatChipLabel(n.status, heatPhaseOf(n.id), !!n.ephemeral)}</span>
             </button>
-          `;
-          }
+          `
         )
         .join("");
 
@@ -726,10 +676,6 @@ export function BubbleMap({
       if (line) {
         line.setAttribute("class", connectorClass(status, ephemeral));
       }
-      syncDropletFill(
-        node.querySelector<HTMLElement>(".droplet"),
-        fillPctFor(id, ephemeral)
-      );
     });
     // Keep line endpoints glued to bubble centers after spawn / state ticks
     const hubBtn = canvas.querySelector<HTMLElement>(
@@ -764,17 +710,7 @@ export function BubbleMap({
         line.setAttribute("y2", String(y2));
       });
     }
-  }, [
-    agentState,
-    selected,
-    flashIds,
-    mapTick,
-    celebrateOrch,
-    teamAgents,
-    workProgress,
-    plannedTasks,
-    running,
-  ]);
+  }, [agentState, selected, flashIds, mapTick, celebrateOrch, teamAgents]);
 
   return (
     <div className="map-shell" id="mapShell">
